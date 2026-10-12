@@ -262,3 +262,4 @@ export function AddCustomerModal({
     </Modal>
   );
 }
+

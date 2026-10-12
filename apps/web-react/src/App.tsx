@@ -8,6 +8,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { Dashboard } from "./views/Dashboard";
 import { Invoices } from "./views/Invoices";
 import { Customers } from "./views/Customers";
+import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import Login from "./views/auth/Login";
 import Signup from "./views/auth/Signup";
@@ -53,7 +54,7 @@ export function App() {
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="invoices" element={<Invoices />} />
                 <Route path="customers" element={<Customers />} />
-                <Route path="products-and-services/items" element={<Dashboard />} />
+                <Route path="products-and-services/items" element={<Items />} />
                 <Route path="estimates" element={<Invoices />} />
                 <Route path="sales/credit-notes" element={<Invoices />} />
                 <Route path="settings" element={<Settings />} />

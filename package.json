@@ -1,0 +1,16 @@
+{
+  "name": "accountiva-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "dev:mobile": "pnpm --filter mobile start",
+    "dev:web": "pnpm --filter web dev"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@12.11.2"
+}

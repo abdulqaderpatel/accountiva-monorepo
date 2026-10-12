@@ -1,0 +1,5 @@
+Bill Number,Vendor Name,Vendor Email,Bill Date,Due Date,Item Name,Quantity,Rate,Item Description,Order Number,Tax %,Notes
+BILL-2026-001,Cloud Hosting Providers,billing@cloudprovider.com,2026-09-01,2026-09-15,Cloud Infrastructure Setup,1,12000,AWS Production dedicated server instances,PO-8812,18,Monthly cloud hosting bill
+BILL-2026-002,Office Supplies Direct,sales@officesupplies.in,2026-09-03,2026-09-18,Office Stationery & Paper,5,650,A4 copier paper reams and printer ink,PO-8819,18,Due on receipt
+BILL-2026-003,Vertex Hardware Solutions,accounts@vertexhw.com,2026-09-08,2026-10-08,Ergonomic Mesh Office Chair,2,5200,Development team seating upgrade,PO-8825,18,Batch purchase discount applied
+

@@ -1,0 +1,5 @@
+Vendor Name,Vendor Code,Email,Phone,Company Name,Address,GST Number,GST Treatment,Payment Terms,Bank Name,Bank Account Number,Bank IFSC,Opening Balance,Notes
+Cloud Hosting Providers,VEND-0001,billing@cloudprovider.com,+91 9988776655,Cloud Solutions India Ltd,"Level 4, IT Park, Whitefield, Bengaluru, KA 560066",29AABCC4321K1ZW,Registered Business - Regular,Net 15,HDFC Bank,50200012345678,HDFC0001234,0,Primary cloud infrastructure provider
+Office Supplies Direct,VEND-0002,sales@officesupplies.in,+91 9811223344,Office Mart Retailers,"Shop 12, Market Complex, Pune, MH 411001",,Unregistered Business,Due on Receipt,State Bank of India,30214569874,SBIN0004562,1200,Stationery and office pantry supply
+Vertex Hardware Solutions,VEND-0003,accounts@vertexhw.com,+91 9822334455,Vertex Technologies,"15 Electronic City Phase 1, Bengaluru, KA 560100",29AABCV5544R1Z1,Registered Business - Regular,Net 30,ICICI Bank,001105009988,ICIC0000011,0,IT hardware and laptop vendor
+

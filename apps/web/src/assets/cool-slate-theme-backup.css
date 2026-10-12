@@ -1,0 +1,47 @@
+/* Cool Slate Theme Backup Configuration */
+
+.slate-light {
+  --radius: 0.625rem;
+  --background: oklch(0.985 0.003 215);
+  --foreground: oklch(0.24 0.015 215);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.015 215);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.015 215);
+  --primary: oklch(0.53 0.14 215);
+  --primary-foreground: oklch(0.99 0.005 215);
+  --secondary: oklch(0.95 0.005 215);
+  --secondary-foreground: oklch(0.24 0.015 215);
+  --muted: oklch(0.95 0.005 215);
+  --muted-foreground: oklch(0.55 0.01 215);
+  --accent: oklch(0.92 0.012 215);
+  --accent-foreground: oklch(0.53 0.14 215);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.90 0.008 215);
+  --input: oklch(0.90 0.008 215);
+  --ring: oklch(0.53 0.14 215);
+  --chart-1: oklch(0.53 0.14 215);
+  --chart-2: oklch(0.60 0.16 145);
+  --chart-3: oklch(0.80 0.15 85);
+  --chart-4: oklch(0.58 0.22 25);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.95 0.005 215);
+  --sidebar-foreground: oklch(0.24 0.015 215);
+  --sidebar-primary: oklch(0.53 0.14 215);
+  --sidebar-primary-foreground: oklch(0.99 0.005 215);
+  --sidebar-accent: oklch(0.92 0.012 215);
+  --sidebar-accent-foreground: oklch(0.53 0.14 215);
+  --sidebar-border: oklch(0.90 0.008 215);
+  --sidebar-ring: oklch(0.53 0.14 215);
+  --success: oklch(0.60 0.16 145);
+  --success-foreground: oklch(0.99 0.005 145);
+  --warning: oklch(0.80 0.15 85);
+  --warning-foreground: oklch(0.24 0.015 85);
+  --info: oklch(0.53 0.14 215);
+  --info-foreground: oklch(0.99 0.005 215);
+  --surface-subtle: oklch(0.972 0.004 220);
+  --surface-muted: oklch(0.95 0.006 220);
+  --surface-raised: oklch(1 0 0);
+  --surface-interactive: oklch(0.93 0.01 218);
+  --field: oklch(0.995 0.002 220);
+}

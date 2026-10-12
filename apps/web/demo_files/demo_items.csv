@@ -1,0 +1,7 @@
+Item Name,SKU,Type,Category,Unit of Measurement,Selling Price,Cost Price,Sales Tax Rate,Purchase Tax Rate,HSN or SAC Code,Tax Preference,Description
+Web Application Development (Hour),SRV-WEB-01,Service,Professional Services,Hours,2500,1200,18,18,998314,Taxable,Custom web design and full-stack development service
+Cloud Infrastructure Setup,SRV-CLD-02,Service,Cloud Services,Unit,15000,8000,18,18,998315,Taxable,AWS VPC and staging cluster deployment
+Ergonomic Mesh Office Chair,PRD-CHR-01,Product,Office Furniture,Pcs,8500,5200,18,18,940130,Taxable,High-back ergonomic mesh chair with adjustable lumbar support
+Wireless Noise-Canceling Headset,PRD-AUD-02,Product,Electronics,Pcs,4500,2800,18,18,851830,Taxable,Bluetooth stereo headset with dual microphone
+SEO Optimization & Strategy,SRV-MKT-03,Service,Marketing,Month,18000,9000,18,18,998311,Taxable,Monthly organic search engine optimization and audit
+

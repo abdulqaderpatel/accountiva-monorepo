@@ -1,0 +1,15 @@
+# Accountiva Frontend Guidelines
+
+## UI Consistency & Design System
+We follow the **shadcn** design system across Accountiva.
+- **New UI**: When adding new UI components or screens, strictly adhere to the shadcn design system and component patterns.
+- **Existing UI**: When working with existing UI, look for opportunities to refine and improve it to align with shadcn styling and patterns.
+
+## Feature Flags & Staged Modules (Invoice-Only MVP Release)
+- **Centralized Flags**: All module visibility is governed by `src/config/features.ts`.
+- **Current Launch Scope**: Accountiva is launching strictly as an **Invoice-Only platform**.
+  - **Active Modules**: `dashboard`, `items`, `customers`, `estimates`, `invoices`, `creditNotes`.
+  - **Staged / Inactive Modules**: `vendors`, `bills`, `expenses`, `banking`, `transactions`, `journals`, `reports`.
+- **Safe Usage**: Always check `isFeatureEnabled(featureName)` before rendering navigation links, defining routes, pre-fetching stores in `authStore`, adding search targets, or configuring custom fields/permissions.
+- **Backend API Gating**: The backend blocks staged module APIs (`/api/bills`, `/api/expenses`, `/api/vendors`, `/api/banking`, `/api/journals`, `/api/transactions`) with `403 Forbidden`. Never call these endpoints while their feature flag is false.
+- **No Deletions**: Do not delete existing components or stores for inactive features; they will be brought back incrementally in future phases.

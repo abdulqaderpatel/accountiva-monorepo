@@ -1,0 +1,31 @@
+# Node & dependencies
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Builds
+dist/
+build/
+.output/
+.turbo/
+
+# Expo / React Native
+.expo/
+android/
+ios/
+*.orig.*
+
+# Environment
+.env
+.env*.local
+
+# System
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,0 +1,34 @@
+/* Dim Theme Backup Configuration */
+
+.dim {
+  color-scheme: dark;
+  --background: oklch(0.22 0.02 245);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.26 0.02 245);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.26 0.02 245);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.65 0.18 250);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.32 0.02 245);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.32 0.02 245);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.32 0.02 245);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.38 0.02 245);
+  --input: oklch(0.38 0.02 245);
+  --ring: oklch(0.65 0.18 250);
+  --success: oklch(0.627 0.265 162.48);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.828 0.189 84.429);
+  --warning-foreground: oklch(0.985 0 0);
+  --info: oklch(0.488 0.243 264.376);
+  --info-foreground: oklch(0.205 0 0);
+}
+
+/* Date input logic for dim theme */
+.dim input[type="date"] {
+  color-scheme: dark;
+}

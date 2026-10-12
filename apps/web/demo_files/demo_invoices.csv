@@ -1,0 +1,6 @@
+Invoice Number,Customer Name,Customer Email,Invoice Date,Due Date,Item Name,Quantity,Rate,Item Description,Reference Number,Discount %,Tax %,Notes
+INV-2026-001,Acme Corporation,billing@acme.corp,2026-09-01,2026-10-01,Web Application Development (Hour),40,2500,Sprint 1 development deliverables,PO-9842,5,18,Thank you for your business!
+INV-2026-001,Acme Corporation,billing@acme.corp,2026-09-01,2026-10-01,Cloud Infrastructure Setup,1,15000,AWS VPC and staging cluster deployment,PO-9842,5,18,Thank you for your business!
+INV-2026-002,Global Tech Solutions,accounts@globaltech.io,2026-09-05,2026-09-20,Ergonomic Mesh Office Chair,4,8500,Office seating batch 2,REF-4421,0,18,Delivered with warranty card
+INV-2026-003,Starlight Digital Media,contact@starlightmedia.com,2026-09-10,2026-09-25,SEO Optimization & Strategy,1,18000,Comprehensive monthly SEO package,ORD-108,10,18,Net 15 payment terms
+

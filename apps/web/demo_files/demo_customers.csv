@@ -1,0 +1,6 @@
+Customer Name,Customer Code,Email,Phone,Company Name,Billing Address,Shipping Address,GST Number,GST Treatment,Payment Terms,Opening Balance,Notes
+Acme Corporation,CUST-0001,billing@acme.corp,+91 9876543210,Acme Corp Pvt Ltd,"101 Business Hub, MG Road, Bengaluru, KA 560001","Warehouse 4, Peenya Industrial Area, Bengaluru, KA 560058",29AABCU9603R1ZM,Registered Business - Regular,Net 30,0,Preferred Enterprise client
+Global Tech Solutions,CUST-0002,accounts@globaltech.io,+91 9123456780,Global Tech Solutions LLP,"Tower B, Cyber City, Gurugram, HR 122002","Tower B, Cyber City, Gurugram, HR 122002",06AABCG1234F1ZX,Registered Business - Regular,Due on Receipt,5000,Quarterly software maintenance
+Starlight Digital Media,CUST-0003,contact@starlightmedia.com,+91 9833445566,Starlight Media Group,"Plot 45, Sector 5, Salt Lake, Kolkata, WB 700091","Plot 45, Sector 5, Salt Lake, Kolkata, WB 700091",19AABCS8899K1Z0,Registered Business - Regular,Net 15,0,Digital marketing retainers
+Nexus Retail Ventures,CUST-0004,sales@nexusretail.in,+91 9766554433,Nexus Retail PVT,"Shop 8, Bandra West, Mumbai, MH 400050","Shop 8, Bandra West, Mumbai, MH 400050",27AABCN7766D1ZQ,Registered Business - Regular,Net 30,12500,Retail franchise client
+

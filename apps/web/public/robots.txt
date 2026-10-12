@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /signup
+
+# Sitemap location
+Sitemap: https://accountiva.ai/sitemap.xml

@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { Search, Plus, Mail, Phone } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
+import { useCustomers } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -11,39 +21,75 @@ interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
 }
 
+interface CustomerRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  outstanding: number;
+  variant: 'default' | 'warning' | 'destructive' | 'outline' | 'success';
+}
+
+const FALLBACK_CUSTOMERS: CustomerRecord[] = [
+  {
+    id: '1',
+    name: 'Delta Retail Corp',
+    email: 'delta@retailcorp.in',
+    phone: '+91 98201 23456',
+    status: 'Regular',
+    outstanding: 0,
+    variant: 'default',
+  },
+  {
+    id: '2',
+    name: 'Zephyr Logistics Pvt Ltd',
+    email: 'billing@zephyr.co',
+    phone: '+91 99123 45678',
+    status: 'GST Registered',
+    outstanding: 78250,
+    variant: 'warning',
+  },
+  {
+    id: '3',
+    name: 'Horizon Software Systems',
+    email: 'accounts@horizonsoft.com',
+    phone: '+91 98450 11223',
+    status: 'Overdue',
+    outstanding: 42800,
+    variant: 'destructive',
+  },
+];
+
 export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
 
-  const customers = [
-    {
-      id: '1',
-      name: 'Delta Retail Corp',
-      email: 'delta@retailcorp.in',
-      phone: '+91 98201 23456',
-      status: 'Regular',
-      outstanding: 0,
-      variant: 'default' as const,
-    },
-    {
-      id: '2',
-      name: 'Zephyr Logistics Pvt Ltd',
-      email: 'billing@zephyr.co',
-      phone: '+91 99123 45678',
-      status: 'GST Registered',
-      outstanding: 78250,
-      variant: 'warning' as const,
-    },
-    {
-      id: '3',
-      name: 'Horizon Software Systems',
-      email: 'accounts@horizonsoft.com',
-      phone: '+91 98450 11223',
-      status: 'Overdue',
-      outstanding: 42800,
-      variant: 'destructive' as const,
-    },
-  ];
+  const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
+    search: search || undefined,
+  });
+
+  const rawList = Array.isArray(apiCustomers) && apiCustomers.length > 0
+    ? apiCustomers
+    : (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0
+        ? apiCustomers.data
+        : FALLBACK_CUSTOMERS);
+
+  const customers: CustomerRecord[] = rawList.map((c: any) => ({
+    id: c.id,
+    name: c.name || 'Unnamed Customer',
+    email: c.email || '',
+    phone: c.phone || '',
+    status: c.gstTreatment === 'Registered' ? 'GST Registered' : (c.gstTreatment || 'Regular'),
+    outstanding: Number(c.outstanding) || Number(c.opening_balance) || 0,
+    variant: c.gstTreatment === 'Registered' ? 'warning' : 'default',
+  }));
+
+  const filteredCustomers = customers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.email.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -60,11 +106,11 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
       </View>
 
       {/* Search Input */}
-      <View style={[styles.searchSection, { backgroundColor: colors.surfaceSubtle, borderBottomColor: colors.border }]}>
+      <View style={styles.searchWrapper}>
         <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Search size={16} color={colors.mutedForeground} />
+          <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
           <TextInput
-            placeholder="Search customer name, email..."
+            placeholder="Search clients, email..."
             placeholderTextColor={colors.mutedForeground}
             value={search}
             onChangeText={setSearch}
@@ -73,52 +119,70 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         </View>
       </View>
 
-      {/* Customer List Feed */}
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {customers.map((c) => (
-          <View
-            key={c.id}
-            style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={[styles.customerName, { color: colors.foreground }]}>{c.name}</Text>
-                <View style={styles.contactRow}>
-                  <Mail size={12} color={colors.mutedForeground} />
-                  <Text style={[styles.contactText, { color: colors.mutedForeground }]}>{c.email}</Text>
-                </View>
-                <View style={styles.contactRow}>
-                  <Phone size={12} color={colors.mutedForeground} />
-                  <Text style={[styles.contactText, { color: colors.mutedForeground }]}>{c.phone}</Text>
-                </View>
-              </View>
-              <Badge variant={c.variant}>{c.status}</Badge>
-            </View>
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-            <View style={styles.cardFooter}>
-              <Text style={[styles.outstandingLabel, { color: colors.mutedForeground }]}>
-                Outstanding Receivable
-              </Text>
-              <Text
-                style={[
-                  styles.outstandingValue,
-                  {
-                    color:
-                      c.outstanding === 0
-                        ? colors.success
-                        : c.variant === 'destructive'
-                        ? colors.destructive
-                        : colors.warning,
-                  },
-                ]}
-              >
-                {c.outstanding === 0 ? '₹0.00 (All Paid)' : formatCurrency(c.outstanding, 'INR')}
-              </Text>
-            </View>
+      {/* Customer List */}
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {isLoading && !isRefetching ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading customers...</Text>
           </View>
-        ))}
+        ) : filteredCustomers.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No customers found.</Text>
+          </View>
+        ) : (
+          filteredCustomers.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              activeOpacity={0.7}
+            >
+              <View style={styles.topRow}>
+                <View>
+                  <Text style={[styles.clientName, { color: colors.foreground }]}>{c.name}</Text>
+                  {c.email ? (
+                    <View style={styles.infoRow}>
+                      <Mail size={12} color={colors.mutedForeground} />
+                      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.email}</Text>
+                    </View>
+                  ) : null}
+                  {c.phone ? (
+                    <View style={styles.infoRow}>
+                      <Phone size={12} color={colors.mutedForeground} />
+                      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.phone}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Badge variant={c.variant}>{c.status}</Badge>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+              <View style={styles.bottomRow}>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Outstanding Balance</Text>
+                <Text
+                  style={[
+                    styles.balance,
+                    { color: c.outstanding > 0 ? colors.foreground : colors.mutedForeground },
+                  ]}
+                >
+                  {formatCurrency(c.outstanding, 'INR')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -139,7 +203,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    fontFamily: fonts.bold,
+    fontFamily: fonts.display,
   },
   newBtn: {
     flexDirection: 'row',
@@ -152,75 +216,83 @@ const styles = StyleSheet.create({
   newBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    fontFamily: fonts.bold,
   },
-  searchSection: {
+  searchWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
+    paddingVertical: 12,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     height: 38,
   },
   searchInput: {
     flex: 1,
-    fontSize: 12,
-    fontFamily: fonts.regular,
+    fontSize: 13,
   },
   listContent: {
-    padding: 16,
-    gap: 10,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+  },
+  emptyContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
   },
   card: {
-    padding: 14,
-    borderRadius: 12,
     borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
   },
-  cardHeader: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  customerName: {
-    fontSize: 13,
+  clientName: {
+    fontSize: 14,
     fontWeight: '700',
-    fontFamily: fonts.bold,
     marginBottom: 4,
+    fontFamily: fonts.display,
   },
-  contactRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginTop: 2,
   },
-  contactText: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
+  infoText: {
+    fontSize: 12,
   },
   divider: {
     height: 1,
-    marginVertical: 10,
+    marginVertical: 12,
   },
-  cardFooter: {
+  bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  outstandingLabel: {
-    fontSize: 11,
-    fontFamily: fonts.regular,
-  },
-  outstandingValue: {
+  label: {
     fontSize: 12,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
+    fontWeight: '500',
+  },
+  balance: {
+    fontSize: 15,
+    fontWeight: '800',
   },
 });
-

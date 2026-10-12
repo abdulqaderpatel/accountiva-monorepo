@@ -32,6 +32,9 @@ importers:
       '@expo/metro-runtime':
         specifier: ^57.0.16
         version: 57.0.16(@expo/log-box@57.0.4)(expo@57.0.27)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      '@react-native-async-storage/async-storage':
+        specifier: ^3.1.1
+        version: 3.1.1(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
       '@tanstack/react-query':
         specifier: ^5.67.2
         version: 5.104.1(react@19.2.3)
@@ -1174,6 +1177,12 @@ packages:
 
   '@oxc-project/types@0.153.0':
     resolution: {integrity: sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw==}
+
+  '@react-native-async-storage/async-storage@3.1.1':
+    resolution: {integrity: sha512-z+PnLz1n6ECKhgoHZHkfc+dijXZEyZnNFSajbtE0NEbsJhmX8x9GlOeiMQIKX2E4DUqPSgfIh4FYBv1M49KgPQ==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   '@react-native/assets-registry@0.86.3':
     resolution: {integrity: sha512-TDhgCZA4wjJg84d5A9swiOQYPIWSKEEVdg9IwMFZDupQzW/F3QoLUrfAJOcalgqTDA9/buTB8awhE3Whwg6u9Q==}
@@ -2562,6 +2571,9 @@ packages:
 
   hyphenate-style-name@1.1.0:
     resolution: {integrity: sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==}
+
+  idb@8.0.3:
+    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -4969,6 +4981,12 @@ snapshots:
 
   '@oxc-project/types@0.153.0': {}
 
+  '@react-native-async-storage/async-storage@3.1.1(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)':
+    dependencies:
+      idb: 8.0.3
+      react: 19.2.3
+      react-native: 0.86.3(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3)
+
   '@react-native/assets-registry@0.86.3': {}
 
   '@react-native/babel-plugin-codegen@0.86.3(@babel/core@7.29.7)':
@@ -6326,6 +6344,8 @@ snapshots:
       - supports-color
 
   hyphenate-style-name@1.1.0: {}
+
+  idb@8.0.3: {}
 
   ignore@5.3.2: {}
 

@@ -20,6 +20,10 @@ import { InvoicesScreen } from './src/screens/InvoicesScreen';
 import { CreateInvoiceScreen } from './src/screens/CreateInvoiceScreen';
 import { CustomersScreen } from './src/screens/CustomersScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { setupMobileApi } from './src/config/api';
+
+// Initialize shared api client
+setupMobileApi();
 
 const queryClient = new QueryClient({
   defaultOptions: {

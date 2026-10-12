@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { formatCurrency } from '@accountiva/shared';
+import { useCreateInvoice } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -21,9 +22,12 @@ interface CreateInvoiceScreenProps {
 
 export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
   const { colors } = useTheme();
+  const createInvoiceMutation = useCreateInvoice();
 
   const [customer, setCustomer] = useState('Delta Retail Corp');
-  const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-043');
+  const [invoiceNumber, setInvoiceNumber] = useState(
+    `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+  );
   const [dueDate, setDueDate] = useState('26 Oct 2026');
   const [items, setItems] = useState<LineItem[]>([
     { id: '1', name: 'Cloud Hosting Support', quantity: 1, rate: 25000 },
@@ -57,10 +61,30 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
     );
   };
 
-  const handleSave = () => {
-    Alert.alert('Success', `Invoice ${invoiceNumber} created for ${customer}!`, [
-      { text: 'OK', onPress: () => onNavigate('invoices') },
-    ]);
+  const handleSave = async () => {
+    try {
+      await createInvoiceMutation.mutateAsync({
+        invoiceNumber,
+        customerName: customer,
+        dueDate,
+        amount: grandTotal,
+        subtotal,
+        taxAmount: tax,
+        status: 'Draft',
+        items: items.map((i) => ({
+          itemName: i.name,
+          quantity: i.quantity,
+          rate: i.rate,
+          amount: i.quantity * i.rate,
+        })),
+      });
+
+      Alert.alert('Success', `Invoice ${invoiceNumber} created for ${customer}!`, [
+        { text: 'OK', onPress: () => onNavigate('invoices') },
+      ]);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to save invoice');
+    }
   };
 
   return (

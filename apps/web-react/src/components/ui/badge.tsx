@@ -56,3 +56,4 @@ export function Badge({ className, variant, size, shape, ...props }: BadgeProps)
     />
   );
 }
+

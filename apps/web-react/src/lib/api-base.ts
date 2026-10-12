@@ -13,3 +13,4 @@ export const authBaseURL = apiBaseURL.startsWith("http")
   : typeof window !== "undefined"
     ? window.location.origin
     : "http://localhost:5000";
+

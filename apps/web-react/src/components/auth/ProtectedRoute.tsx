@@ -1,0 +1,26 @@
+import React from "react";
+import { Navigate, useLocation, Outlet } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+
+export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <span className="text-xs text-muted-foreground font-medium">Loading session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    const redirectUrl = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
+  }
+
+  return children ? <>{children}</> : <Outlet />;
+}

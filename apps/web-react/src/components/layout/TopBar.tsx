@@ -83,3 +83,4 @@ export function TopBar({ organizationName = "Acme Technologies" }: TopBarProps) 
     </header>
   );
 }
+

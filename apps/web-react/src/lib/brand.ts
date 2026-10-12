@@ -9,3 +9,4 @@ export function useAccountivaLogo() {
     accountivaLogoSrc: isDark ? accountivaDarkLogoUrl : accountivaLogoUrl,
   };
 }
+

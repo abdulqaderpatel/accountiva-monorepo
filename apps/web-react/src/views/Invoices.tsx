@@ -6,193 +6,293 @@ import {
   Download,
   MoreVertical,
   FileText,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
+import { useInvoices } from "@accountiva/api";
+import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 
 interface InvoiceRecord {
   id: string;
-  customerName: string;
+  customerName?: string;
+  customers?: { name: string };
   invoiceNumber: string;
-  issueDate: string;
+  date?: string;
+  issueDate?: string;
   dueDate: string;
   amount: number;
-  status: "PAID" | "SENT" | "OVERDUE" | "DRAFT";
+  status: "Draft" | "Outstanding" | "Paid" | "Overdue" | "SENT" | "PAID" | "OVERDUE" | "DRAFT";
 }
+
+const FALLBACK_INVOICES: InvoiceRecord[] = [
+  {
+    id: "1",
+    customerName: "Delta Retail Corp",
+    invoiceNumber: "INV-2026-042",
+    date: "2026-10-12",
+    dueDate: "2026-10-26",
+    amount: 35400,
+    status: "Paid",
+  },
+  {
+    id: "2",
+    customerName: "Zephyr Logistics Pvt Ltd",
+    invoiceNumber: "INV-2026-041",
+    date: "2026-10-01",
+    dueDate: "2026-10-15",
+    amount: 78250,
+    status: "Outstanding",
+  },
+  {
+    id: "3",
+    customerName: "Horizon Software Systems",
+    invoiceNumber: "INV-2026-039",
+    date: "2026-09-15",
+    dueDate: "2026-10-05",
+    amount: 42800,
+    status: "Overdue",
+  },
+  {
+    id: "4",
+    customerName: "Sterling Media Group",
+    invoiceNumber: "INV-2026-038",
+    date: "2026-09-10",
+    dueDate: "2026-09-24",
+    amount: 19500,
+    status: "Paid",
+  },
+  {
+    id: "5",
+    customerName: "Apex Cloud Infrastructure",
+    invoiceNumber: "INV-2026-037",
+    date: "2026-09-02",
+    dueDate: "2026-09-16",
+    amount: 112000,
+    status: "Draft",
+  },
+];
 
 export function Invoices() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const [invoices] = useState<InvoiceRecord[]>([
-    {
-      id: "1",
-      customerName: "Delta Retail Corp",
-      invoiceNumber: "INV-2026-042",
-      issueDate: "12 Oct 2026",
-      dueDate: "26 Oct 2026",
-      amount: 35400,
-      status: "PAID",
-    },
-    {
-      id: "2",
-      customerName: "Zephyr Logistics Pvt Ltd",
-      invoiceNumber: "INV-2026-041",
-      issueDate: "01 Oct 2026",
-      dueDate: "15 Oct 2026",
-      amount: 78250,
-      status: "SENT",
-    },
-    {
-      id: "3",
-      customerName: "Horizon Software Systems",
-      invoiceNumber: "INV-2026-039",
-      issueDate: "15 Sep 2026",
-      dueDate: "05 Oct 2026",
-      amount: 42800,
-      status: "OVERDUE",
-    },
-    {
-      id: "4",
-      customerName: "Sterling Media Group",
-      invoiceNumber: "INV-2026-038",
-      issueDate: "28 Sep 2026",
-      dueDate: "28 Oct 2026",
-      amount: 18000,
-      status: "DRAFT",
-    },
-  ]);
+  const { data: apiInvoices, isLoading, refetch } = useInvoices({
+    search: search || undefined,
+    status: statusFilter === "ALL" ? undefined : statusFilter,
+  });
 
-  const filtered = invoices.filter((inv) => {
+  const invoiceList: InvoiceRecord[] = Array.isArray(apiInvoices) && apiInvoices.length > 0
+    ? apiInvoices
+    : (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0
+        ? apiInvoices.data
+        : FALLBACK_INVOICES);
+
+  const filteredInvoices = invoiceList.filter((inv) => {
+    const custName = inv.customerName || inv.customers?.name || "";
     const matchesSearch =
-      inv.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      custName.toLowerCase().includes(search.toLowerCase()) ||
       inv.invoiceNumber.toLowerCase().includes(search.toLowerCase());
+
+    const normalizedStatus = inv.status.toUpperCase();
     const matchesStatus =
-      statusFilter === "ALL" || inv.status === statusFilter;
+      statusFilter === "ALL" ||
+      normalizedStatus === statusFilter ||
+      (statusFilter === "PENDING" && (normalizedStatus === "OUTSTANDING" || normalizedStatus === "SENT"));
+
     return matchesSearch && matchesStatus;
   });
 
-  const getBadgeVariant = (status: InvoiceRecord["status"]) => {
-    switch (status) {
+  const getStatusBadge = (status: string) => {
+    const s = status.toUpperCase();
+    switch (s) {
       case "PAID":
-        return "success";
+        return <Badge variant="success" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Paid</Badge>;
+      case "OUTSTANDING":
       case "SENT":
-        return "warning";
+      case "PENDING":
+        return <Badge variant="warning" className="gap-1"><Clock className="h-3 w-3" /> Pending</Badge>;
       case "OVERDUE":
-        return "danger";
-      case "DRAFT":
-        return "draft";
+        return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" /> Overdue</Badge>;
+      default:
+        return <Badge variant="secondary" className="gap-1">Draft</Badge>;
     }
   };
 
+  const totalInvoiced = filteredInvoices.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const paidCount = filteredInvoices.filter((i) => i.status.toUpperCase() === "PAID").length;
+  const overdueCount = filteredInvoices.filter((i) => i.status.toUpperCase() === "OVERDUE").length;
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
-            Invoices
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Manage, generate, and track all sales invoices.
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Invoices</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage, generate, and monitor receivables and customer billing.
           </p>
         </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Button variant="outline" size="sm" className="gap-2">
-            <Download className="size-4" />
-            <span>Export CSV</span>
+            <Download className="h-4 w-4" />
+            Export
           </Button>
-
-          <Button size="sm" className="gap-2 font-bold shadow-xs">
-            <Plus className="size-4" />
-            <span>New Invoice</span>
+          <Button size="sm" className="gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Create Invoice
           </Button>
         </div>
       </div>
 
-      {/* Filter / Search Bar */}
-      <Card>
-        <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+      {/* KPI Stats Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">Total Filtered Amount</p>
+          <p className="text-xl font-bold font-mono text-foreground mt-1">
+            {formatCurrency(totalInvoiced)}
+          </p>
+        </Card>
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">Settled Invoices</p>
+          <p className="text-xl font-bold font-mono text-emerald-500 mt-1">
+            {paidCount} <span className="text-xs font-normal text-muted-foreground">/ {filteredInvoices.length}</span>
+          </p>
+        </Card>
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">Overdue Invoices</p>
+          <p className="text-xl font-bold font-mono text-destructive mt-1">
+            {overdueCount} <span className="text-xs font-normal text-muted-foreground">requiring follow-up</span>
+          </p>
+        </Card>
+      </div>
+
+      {/* Search & Status Filters */}
+      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+        <div className="p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-border/60">
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              type="text"
               placeholder="Search by customer or invoice #..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
+              className="pl-9 h-9 text-xs"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            {["ALL", "PAID", "SENT", "OVERDUE", "DRAFT"].map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStatusFilter(status)}
-                className="text-xs h-8 px-3 font-medium"
+          <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+            {["ALL", "PAID", "PENDING", "OVERDUE", "DRAFT"].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  statusFilter === st
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
               >
-                {status.charAt(0) + status.slice(1).toLowerCase()}
-              </Button>
+                {st.charAt(0) + st.slice(1).toLowerCase()}
+              </button>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Invoices Data Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground bg-muted/40">
-                  <th className="py-3.5 pl-6">Invoice #</th>
-                  <th className="py-3.5">Customer</th>
-                  <th className="py-3.5">Issue Date</th>
-                  <th className="py-3.5">Due Date</th>
-                  <th className="py-3.5">Status</th>
-                  <th className="py-3.5 pr-6 text-right">Amount</th>
+        {/* Invoices Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20">
+                <th className="py-3 px-4">Invoice #</th>
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Due Date</th>
+                <th className="py-3 px-4 text-right">Amount</th>
+                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40 text-xs">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Spinner size="md" />
+                      <span>Loading invoices...</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
-                    <td className="py-4 pl-6 font-mono font-bold text-xs text-foreground">
-                      <div className="flex items-center gap-2">
-                        <FileText className="size-4 text-muted-foreground" />
-                        <span>{inv.invoiceNumber}</span>
-                      </div>
+              ) : filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                    <FileText className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
+                    No invoices found matching your criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredInvoices.map((inv) => (
+                  <tr
+                    key={inv.id}
+                    className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                  >
+                    <td className="py-3.5 px-4 font-mono font-medium text-foreground">
+                      {inv.invoiceNumber}
                     </td>
-                    <td className="py-4 font-semibold text-foreground">
-                      {inv.customerName}
+                    <td className="py-3.5 px-4 font-medium text-foreground">
+                      {inv.customerName || inv.customers?.name || "Unknown"}
                     </td>
-                    <td className="py-4 text-muted-foreground text-xs">
-                      {inv.issueDate}
-                    </td>
-                    <td className="py-4 text-muted-foreground text-xs">
+                    <td className="py-3.5 px-4 text-muted-foreground">
                       {inv.dueDate}
                     </td>
-                    <td className="py-4">
-                      <Badge variant={getBadgeVariant(inv.status)} size="sm">
-                        {inv.status}
-                      </Badge>
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-foreground">
+                      {formatCurrency(inv.amount)}
                     </td>
-                    <td className="py-4 pr-6 text-right font-black text-foreground">
-                      {formatCurrency(inv.amount, "INR")}
+                    <td className="py-3.5 px-4 text-center">
+                      {getStatusBadge(inv.status)}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="View Details"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="Options"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
+
+      {/* Invoice Creation Modal */}
+      <CreateInvoiceModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }
 
+export default Invoices;

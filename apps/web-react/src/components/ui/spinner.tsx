@@ -31,3 +31,4 @@ export function Spinner({ size = "md", className, ...props }: SpinnerProps) {
     </svg>
   );
 }
+

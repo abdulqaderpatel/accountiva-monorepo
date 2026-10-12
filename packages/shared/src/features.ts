@@ -30,7 +30,8 @@ export interface FeatureFlags {
 
 const envBool = (key: string, defaultValue: boolean): boolean => {
   const metaEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
-  const procEnv = typeof process !== 'undefined' ? (process as any).env : undefined;
+  const proc = typeof globalThis !== 'undefined' ? (globalThis as any).process : undefined;
+  const procEnv = proc?.env;
   const val = metaEnv?.[key] ?? metaEnv?.[`EXPO_PUBLIC_${key}`] ?? procEnv?.[key] ?? procEnv?.[`EXPO_PUBLIC_${key}`];
   if (val === undefined || val === '') return defaultValue;
   return val === 'true' || val === '1';

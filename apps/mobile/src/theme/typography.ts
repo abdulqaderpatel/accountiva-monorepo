@@ -26,3 +26,4 @@ export const fonts = {
     default: 'Outfit_700Bold',
   }),
 };
+

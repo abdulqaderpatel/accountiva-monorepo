@@ -7,11 +7,13 @@
     "lint": "turbo run lint",
     "dev:mobile": "pnpm --filter mobile start",
     "dev:mobile:web": "pnpm --filter mobile start --web",
-    "dev:web": "pnpm --filter web dev"
+    "dev:web": "pnpm --filter web dev",
+    "dev:react": "pnpm --filter web-react dev"
   },
   "devDependencies": {
     "turbo": "^2.4.4",
     "typescript": "^5.9.3"
-  }
+  },
+  "packageManager": "pnpm@10.5.2"
 }
 

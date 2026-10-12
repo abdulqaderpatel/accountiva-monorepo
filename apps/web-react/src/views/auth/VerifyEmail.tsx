@@ -9,12 +9,12 @@ import { useAccountivaLogo } from "@/lib/brand";
 import { toast } from "sonner";
 
 export default function VerifyEmail() {
-  const searchParams = new URLSearchParams(window.location.search);
   const { accountivaLogoSrc } = useAccountivaLogo();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
     const token = searchParams.get("token");
 
     if (!token) {
@@ -50,7 +50,7 @@ export default function VerifyEmail() {
     }
 
     verify();
-  }, [searchParams]);
+  }, []);
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden bg-background px-4 py-8">

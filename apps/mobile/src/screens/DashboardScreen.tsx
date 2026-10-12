@@ -110,12 +110,13 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
 
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => onNavigate('items')}
             activeOpacity={0.7}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-              <Share2 size={18} color={colors.foreground} />
+              <FileText size={18} color={colors.foreground} />
             </View>
-            <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Pay Link</Text>
+            <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Catalog</Text>
           </TouchableOpacity>
         </View>
 

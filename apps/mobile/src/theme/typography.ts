@@ -25,5 +25,9 @@ export const fonts = {
     web: "'Outfit', 'Plus Jakarta Sans', sans-serif",
     default: 'Outfit_700Bold',
   }),
+  mono: Platform.select({
+    web: "monospace, Courier",
+    default: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  }),
 };
 

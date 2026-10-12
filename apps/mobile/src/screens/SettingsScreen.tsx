@@ -1,14 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
-import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { isFeatureEnabled } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 
 export function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
+  const { user, currentOrg, logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -17,6 +31,32 @@ export function SettingsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* User Account Section */}
+        {user ? (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Account</Text>
+            <Card style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                    <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>
+                      {user.name ? user.name[0]?.toUpperCase() : 'U'}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                      {user.name || 'User'}
+                    </Text>
+                    <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                      {user.email}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </Card>
+          </>
+        ) : null}
+
         {/* Appearance Section */}
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Appearance</Text>
         <Card style={styles.card}>
@@ -50,8 +90,12 @@ export function SettingsScreen() {
             <View style={styles.rowLeft}>
               <Building2 size={18} color={colors.foreground} />
               <View>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>Acme Technologies</Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Owner • GST Registered</Text>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  {currentOrg?.name || 'Acme Technologies'}
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  ID: {currentOrg?.id || 'org-active'} • GST Registered
+                </Text>
               </View>
             </View>
             <Badge variant="outline">Default</Badge>
@@ -64,7 +108,9 @@ export function SettingsScreen() {
               <Globe size={18} color={colors.foreground} />
               <View>
                 <Text style={[styles.rowLabel, { color: colors.foreground }]}>Base Currency</Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>Indian Rupee (INR - ₹)</Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  {currentOrg?.currency ? `${currentOrg.currency} (₹)` : 'Indian Rupee (INR - ₹)'}
+                </Text>
               </View>
             </View>
           </View>
@@ -94,6 +140,7 @@ export function SettingsScreen() {
         {/* Logout */}
         <TouchableOpacity
           style={[styles.logoutBtn, { borderColor: colors.destructive }]}
+          onPress={handleLogout}
           activeOpacity={0.7}
         >
           <LogOut size={16} color={colors.destructive} />
@@ -169,6 +216,13 @@ const styles = StyleSheet.create({
   featureSub: {
     fontSize: 12,
     fontFamily: fonts.regular,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutBtn: {
     flexDirection: 'row',

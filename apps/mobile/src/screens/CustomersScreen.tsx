@@ -17,6 +17,8 @@ import { useCustomers } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
+import { AddCustomerModal } from '../components/AddCustomerModal';
+
 interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
 }
@@ -64,6 +66,7 @@ const FALLBACK_CUSTOMERS: CustomerRecord[] = [
 export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
     search: search || undefined,
@@ -97,6 +100,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Customers</Text>
         <TouchableOpacity
+          onPress={() => setIsAddModalOpen(true)}
           style={[styles.newBtn, { backgroundColor: colors.primary }]}
           activeOpacity={0.8}
         >
@@ -184,6 +188,13 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
           ))
         )}
       </ScrollView>
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal
+        visible={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </View>
   );
 }

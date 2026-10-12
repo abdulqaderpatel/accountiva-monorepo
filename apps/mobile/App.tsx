@@ -14,12 +14,16 @@ import {
 import { Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BottomNav, ScreenType } from './src/components/BottomNav';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { InvoicesScreen } from './src/screens/InvoicesScreen';
 import { CreateInvoiceScreen } from './src/screens/CreateInvoiceScreen';
 import { CustomersScreen } from './src/screens/CustomersScreen';
+import { ItemsScreen } from './src/screens/ItemsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { LoginScreen } from './src/screens/LoginScreen';
+import { SignupScreen } from './src/screens/SignupScreen';
 import { setupMobileApi } from './src/config/api';
 
 // Initialize shared api client
@@ -36,7 +40,9 @@ const queryClient = new QueryClient({
 
 function AppShell() {
   const { colors, isDark } = useTheme();
+  const { isAuthenticated, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('dashboard');
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -65,6 +71,34 @@ function AppShell() {
     }
   }, []);
 
+  if (loading) {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  // Authentication Gate
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        {authView === 'login' ? (
+          <LoginScreen
+            onNavigateToSignup={() => setAuthView('signup')}
+            onSuccess={() => {}}
+          />
+        ) : (
+          <SignupScreen
+            onNavigateToLogin={() => setAuthView('login')}
+            onSuccess={() => setAuthView('login')}
+          />
+        )}
+      </SafeAreaView>
+    );
+  }
+
   const renderScreen = () => {
     switch (currentScreen) {
       case 'dashboard':
@@ -75,6 +109,8 @@ function AppShell() {
         return <CreateInvoiceScreen onNavigate={setCurrentScreen} />;
       case 'customers':
         return <CustomersScreen onNavigate={setCurrentScreen} />;
+      case 'items':
+        return <ItemsScreen onNavigate={setCurrentScreen} />;
       case 'settings':
         return <SettingsScreen />;
       default:
@@ -114,7 +150,9 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AppShell />
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
@@ -127,5 +165,10 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

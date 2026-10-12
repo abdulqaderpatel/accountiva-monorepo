@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
 import { ScreenType } from '../components/BottomNav';
+import { fonts } from '../theme/typography';
 
 interface DashboardScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -242,13 +243,16 @@ const styles = StyleSheet.create({
   orgAvatarText: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   orgSubtitle: {
     fontSize: 11,
+    fontFamily: fonts.regular,
   },
   orgTitle: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   iconButton: {
     width: 36,
@@ -273,12 +277,14 @@ const styles = StyleSheet.create({
   kpiLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   kpiValue: {
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: fonts.extraBold,
     marginTop: 4,
   },
   cardDivider: {
@@ -291,10 +297,12 @@ const styles = StyleSheet.create({
   },
   subKpiLabel: {
     fontSize: 11,
+    fontFamily: fonts.regular,
   },
   subKpiValue: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     marginTop: 2,
   },
   sectionHeader: {
@@ -310,12 +318,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   viewAllText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   quickActionsGrid: {
     flexDirection: 'row',
@@ -340,6 +350,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   invoicesList: {
     gap: 8,
@@ -368,9 +379,11 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   invoiceMeta: {
     fontSize: 11,
+    fontFamily: fonts.regular,
     marginTop: 2,
   },
   invoiceRight: {
@@ -380,5 +393,7 @@ const styles = StyleSheet.create({
   invoiceAmount: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
+

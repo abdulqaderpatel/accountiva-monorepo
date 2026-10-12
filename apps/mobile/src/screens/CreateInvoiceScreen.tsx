@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { formatCurrency } from '@accountiva/shared';
 import { ScreenType } from '../components/BottomNav';
+import { fonts } from '../theme/typography';
 
 interface LineItem {
   id: string;
@@ -243,6 +244,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -258,6 +260,7 @@ const styles = StyleSheet.create({
   customerSelectText: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   rowFields: {
     flexDirection: 'row',
@@ -274,6 +277,7 @@ const styles = StyleSheet.create({
   addItemText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   itemsList: {
     gap: 10,
@@ -289,9 +293,11 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   itemSub: {
     fontSize: 10,
+    fontFamily: fonts.regular,
     marginTop: 2,
   },
   itemDivider: {
@@ -308,6 +314,7 @@ const styles = StyleSheet.create({
   },
   mathLabel: {
     fontSize: 10,
+    fontFamily: fonts.regular,
   },
   qtyControl: {
     flexDirection: 'row',
@@ -322,18 +329,22 @@ const styles = StyleSheet.create({
   qtyBtnText: {
     fontSize: 14,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   qtyNumber: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     paddingHorizontal: 4,
   },
   mathValue: {
     fontSize: 12,
+    fontFamily: fonts.medium,
   },
   mathValueBold: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   summaryCard: {
     padding: 14,
@@ -347,10 +358,12 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
+    fontFamily: fonts.regular,
   },
   summaryValue: {
     fontSize: 12,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   summaryDivider: {
     height: 1,
@@ -359,9 +372,12 @@ const styles = StyleSheet.create({
   grandTotalLabel: {
     fontSize: 13,
     fontWeight: '800',
+    fontFamily: fonts.bold,
   },
   grandTotalValue: {
     fontSize: 15,
     fontWeight: '800',
+    fontFamily: fonts.extraBold,
   },
 });
+

@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
 import { ScreenType } from '../components/BottomNav';
+import { fonts } from '../theme/typography';
 
 interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -138,6 +139,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   newBtn: {
     flexDirection: 'row',
@@ -150,6 +152,7 @@ const styles = StyleSheet.create({
   newBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   searchSection: {
     paddingHorizontal: 16,
@@ -168,6 +171,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
+    fontFamily: fonts.regular,
   },
   listContent: {
     padding: 16,
@@ -187,6 +191,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     marginBottom: 4,
   },
   contactRow: {
@@ -197,6 +202,7 @@ const styles = StyleSheet.create({
   },
   contactText: {
     fontSize: 11,
+    fontFamily: fonts.regular,
   },
   divider: {
     height: 1,
@@ -209,9 +215,12 @@ const styles = StyleSheet.create({
   },
   outstandingLabel: {
     fontSize: 11,
+    fontFamily: fonts.regular,
   },
   outstandingValue: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
+

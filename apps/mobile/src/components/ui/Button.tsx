@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
+import { fonts } from '../../theme/typography';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 
@@ -83,5 +84,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
 });
+

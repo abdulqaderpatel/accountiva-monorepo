@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { isFeatureEnabled } from '@accountiva/shared';
+import { fonts } from '../theme/typography';
 
 export function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -115,6 +116,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   content: {
     padding: 16,
@@ -124,6 +126,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
+    fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 10,
@@ -146,9 +149,11 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 13,
     fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   rowSub: {
     fontSize: 11,
+    fontFamily: fonts.regular,
     marginTop: 2,
   },
   divider: {
@@ -163,6 +168,7 @@ const styles = StyleSheet.create({
   },
   featureSub: {
     fontSize: 12,
+    fontFamily: fonts.regular,
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -177,5 +183,7 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
+

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
+import { fonts } from '../../theme/typography';
 
 export type BadgeVariant = 'success' | 'warning' | 'destructive' | 'default' | 'outline';
 
@@ -57,6 +58,8 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: fonts.bold,
     letterSpacing: 0.3,
   },
 });
+

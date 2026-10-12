@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
 import { ScreenType } from '../components/BottomNav';
+import { fonts } from '../theme/typography';
 
 interface InvoicesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -163,6 +164,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   newBtn: {
     flexDirection: 'row',
@@ -175,6 +177,7 @@ const styles = StyleSheet.create({
   newBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   filterSection: {
     paddingHorizontal: 16,
@@ -194,6 +197,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
+    fontFamily: fonts.regular,
   },
   filterChips: {
     gap: 6,
@@ -206,6 +210,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 12,
+    fontFamily: fonts.medium,
   },
   listContent: {
     padding: 16,
@@ -225,9 +230,11 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   invoiceMeta: {
     fontSize: 11,
+    fontFamily: fonts.regular,
     marginTop: 2,
   },
   divider: {
@@ -241,9 +248,12 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 11,
+    fontFamily: fonts.regular,
   },
   totalAmount: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
+

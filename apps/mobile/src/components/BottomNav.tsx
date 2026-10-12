@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { LayoutDashboard, FileText, Plus, Users, Settings } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { fonts } from '../theme/typography';
 
 export type ScreenType = 'dashboard' | 'invoices' | 'create_invoice' | 'customers' | 'settings';
 
@@ -151,6 +152,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 10,
     marginTop: 4,
+    fontFamily: fonts.semiBold,
   },
   centerButton: {
     width: 46,
@@ -167,3 +169,4 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 });
+

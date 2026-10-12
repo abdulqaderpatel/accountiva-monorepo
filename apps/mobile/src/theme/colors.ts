@@ -69,3 +69,4 @@ export const darkColors: ThemeColors = {
   destructiveBg: 'rgba(248, 113, 113, 0.15)',
   input: 'rgba(255, 255, 255, 0.15)',
 };
+

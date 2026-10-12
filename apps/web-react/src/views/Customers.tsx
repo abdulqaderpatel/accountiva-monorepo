@@ -1,148 +1,264 @@
 import React, { useState } from "react";
-import { Plus, Search, Mail, Phone, Building2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, Building2, Eye, MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
+import { useCustomers, useDeleteCustomer } from "@accountiva/api";
+import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
+import { toast } from "sonner";
 
 interface CustomerRecord {
   id: string;
   name: string;
-  email: string;
-  phone: string;
-  company: string;
-  gstTreatment: string;
-  outstanding: number;
+  email?: string;
+  phone?: string;
+  company?: string;
+  gstTreatment?: string;
+  outstanding?: number;
+  opening_balance?: number;
 }
+
+const FALLBACK_CUSTOMERS: CustomerRecord[] = [
+  {
+    id: "1",
+    name: "Delta Retail Corp",
+    email: "delta@retailcorp.in",
+    phone: "+91 98201 23456",
+    company: "Delta Retail Corporation",
+    gstTreatment: "Registered",
+    outstanding: 0,
+  },
+  {
+    id: "2",
+    name: "Zephyr Logistics Pvt Ltd",
+    email: "billing@zephyr.co",
+    phone: "+91 99123 45678",
+    company: "Zephyr Logistics Private Limited",
+    gstTreatment: "Registered",
+    outstanding: 78250,
+  },
+  {
+    id: "3",
+    name: "Horizon Software Systems",
+    email: "accounts@horizonsoft.com",
+    phone: "+91 98450 11223",
+    company: "Horizon Software Systems LLC",
+    gstTreatment: "Consumer",
+    outstanding: 42800,
+  },
+];
 
 export function Customers() {
   const [search, setSearch] = useState("");
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  const customers: CustomerRecord[] = [
-    {
-      id: "1",
-      name: "Delta Retail Corp",
-      email: "delta@retailcorp.in",
-      phone: "+91 98201 23456",
-      company: "Delta Retail Corporation",
-      gstTreatment: "Regular",
-      outstanding: 0,
-    },
-    {
-      id: "2",
-      name: "Zephyr Logistics Pvt Ltd",
-      email: "billing@zephyr.co",
-      phone: "+91 99123 45678",
-      company: "Zephyr Logistics Private Limited",
-      gstTreatment: "GST Registered",
-      outstanding: 78250,
-    },
-    {
-      id: "3",
-      name: "Horizon Software Systems",
-      email: "accounts@horizonsoft.com",
-      phone: "+91 98450 11223",
-      company: "Horizon Software Systems LLC",
-      gstTreatment: "Overdue",
-      outstanding: 42800,
-    },
-  ];
+  const { data: apiCustomers, isLoading, refetch } = useCustomers({
+    search: search || undefined,
+  });
 
-  const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase())
+  const deleteCustomerMutation = useDeleteCustomer();
+
+  const customerList: CustomerRecord[] = Array.isArray(apiCustomers) && apiCustomers.length > 0
+    ? apiCustomers
+    : (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0
+        ? apiCustomers.data
+        : FALLBACK_CUSTOMERS);
+
+  const filtered = customerList.filter((c) => {
+    const q = search.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.email && c.email.toLowerCase().includes(q)) ||
+      (c.company && c.company.toLowerCase().includes(q))
+    );
+  });
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
+
+    try {
+      await deleteCustomerMutation.mutateAsync(id);
+      toast.success("Customer deleted", {
+        description: `${name} has been removed.`,
+      });
+      refetch();
+    } catch (err: any) {
+      toast.error("Failed to delete customer", {
+        description: err.response?.data?.message || err.message,
+      });
+    }
+  };
+
+  const totalOutstanding = filtered.reduce(
+    (acc, c) => acc + (Number(c.outstanding) || Number(c.opening_balance) || 0),
+    0
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Customers
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Manage your clients, contact info, and outstanding balances.
+            Manage your clients, tax identification, contact info, and outstanding receivables.
           </p>
         </div>
 
-        <Button size="sm" className="gap-2 font-bold shadow-xs">
-          <Plus className="size-4" />
-          <span>Add Customer</span>
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Customer
+          </Button>
+        </div>
       </div>
 
-      {/* Search Input */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">Total Customers</p>
+          <p className="text-xl font-bold font-mono text-foreground mt-1">
+            {filtered.length}
+          </p>
+        </Card>
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">GST Registered</p>
+          <p className="text-xl font-bold font-mono text-emerald-500 mt-1">
+            {filtered.filter((c) => c.gstTreatment === "Registered").length}
+          </p>
+        </Card>
+        <Card className="p-4 bg-card/60 backdrop-blur-sm border-border/60">
+          <p className="text-xs font-medium text-muted-foreground">Total Receivables</p>
+          <p className="text-xl font-bold font-mono text-primary mt-1">
+            {formatCurrency(totalOutstanding)}
+          </p>
+        </Card>
+      </div>
+
+      {/* Search Bar */}
+      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+        <div className="p-4 flex items-center justify-between gap-4 border-b border-border/60">
+          <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              type="text"
-              placeholder="Search by customer name, email..."
+              placeholder="Search by customer name, company, or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9"
+              className="pl-9 h-9 text-xs"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Customers Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground bg-muted/40">
-                  <th className="py-3.5 pl-6">Customer</th>
-                  <th className="py-3.5">Contact</th>
-                  <th className="py-3.5">Company</th>
-                  <th className="py-3.5">GST Status</th>
-                  <th className="py-3.5 pr-6 text-right">Outstanding</th>
+        {/* Customer Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20">
+                <th className="py-3 px-4">Customer</th>
+                <th className="py-3 px-4">Contact Info</th>
+                <th className="py-3 px-4">GST Treatment</th>
+                <th className="py-3 px-4 text-right">Outstanding</th>
+                <th className="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40 text-xs">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Spinner size="md" />
+                      <span>Loading customers...</span>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
-                    <td className="py-4 pl-6 font-semibold text-foreground">
-                      {c.name}
-                    </td>
-                    <td className="py-4 text-xs text-muted-foreground space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <Mail className="size-3" />
-                        <span>{c.email}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="size-3" />
-                        <span>{c.phone}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-muted-foreground text-xs">
-                      {c.company}
-                    </td>
-                    <td className="py-4">
-                      <Badge variant="outline" size="sm">
-                        {c.gstTreatment}
-                      </Badge>
-                    </td>
-                    <td className="py-4 pr-6 text-right font-black text-foreground">
-                      {c.outstanding === 0 ? (
-                        <span className="text-emerald-500 font-bold">₹0.00 (Paid)</span>
-                      ) : (
-                        formatCurrency(c.outstanding, "INR")
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                    <Building2 className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
+                    No customers found matching your search.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="hover:bg-muted/30 transition-colors group cursor-pointer"
+                  >
+                    <td className="py-3.5 px-4">
+                      <div className="font-medium text-foreground">{c.name}</div>
+                      {c.company && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {c.company}
+                        </div>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 space-y-0.5">
+                      {c.email && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span>{c.email}</span>
+                        </div>
+                      )}
+                      {c.phone && (
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span>{c.phone}</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <Badge
+                        variant={c.gstTreatment === "Registered" ? "default" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {c.gstTreatment || "Consumer"}
+                      </Badge>
+                    </td>
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-foreground">
+                      {formatCurrency(Number(c.outstanding) || Number(c.opening_balance) || 0)}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="View Details"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(c.id, c.name)}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete Customer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }
 
+export default Customers;

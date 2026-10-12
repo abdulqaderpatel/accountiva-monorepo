@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { useAccountivaLogo } from "@/lib/brand";
 import { toast } from "sonner";
 
 export default function VerifyEmail() {
-  const [searchParams] = useSearchParams();
+  const searchParams = new URLSearchParams(window.location.search);
   const { accountivaLogoSrc } = useAccountivaLogo();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -107,12 +107,7 @@ export default function VerifyEmail() {
         <CardFooter>
           {status !== "loading" && (
             <Button asChild className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <Link
-                to={{
-                  pathname: "/login",
-                  search: searchParams.toString(),
-                }}
-              >
+              <Link to="/login">
                 Continue to Login
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

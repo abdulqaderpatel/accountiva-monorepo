@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,8 +19,8 @@ import { useAuth } from "@/context/AuthContext";
 import { authClient } from "@/lib/auth-client";
 
 export default function Login() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(window.location.search);
   const { login, socialLogin } = useAuth();
   const { accountivaLogoSrc } = useAccountivaLogo();
 
@@ -80,7 +80,7 @@ export default function Login() {
         toast.info("Verification required", {
           description: "A new verification link has been sent to your email.",
         });
-        navigate(`/verify-email?email=${encodeURIComponent(email)}&sent=true`);
+        navigate({ to: "/verify-email", search: { email, sent: "true" } } as any);
         return;
       }
 
@@ -89,7 +89,7 @@ export default function Login() {
       });
 
       const redirectPath = searchParams.get("redirect") || "/";
-      navigate(redirectPath);
+      navigate({ to: redirectPath } as any);
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || "Failed to sign in";
 
@@ -97,7 +97,7 @@ export default function Login() {
         toast.info("Verification required", {
           description: "Please verify your email to continue.",
         });
-        navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+        navigate({ to: "/verify-email", search: { email } } as any);
         return;
       }
 
@@ -282,10 +282,7 @@ export default function Login() {
           <div className="text-sm text-muted-foreground text-center">
             Don't have an account?{" "}
             <Link
-              to={{
-                pathname: "/signup",
-                search: searchParams.toString(),
-              }}
+              to="/signup"
               className="text-primary hover:text-primary/80 font-medium ml-1"
             >
               Sign up

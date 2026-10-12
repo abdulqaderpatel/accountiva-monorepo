@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import {
   Bell,
   Search,
@@ -23,7 +23,7 @@ export function TopBar({ organizationName = "Acme Technologies" }: TopBarProps) 
       {/* Left: Org Selector Indicator */}
       <div className="flex items-center gap-3">
         <Link
-          to="/organization-settings"
+          to="/settings"
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent/50 text-foreground transition-colors text-sm font-semibold shadow-2xs"
         >
           <Building2 className="size-4 text-muted-foreground" />

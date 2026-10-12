@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,8 @@ import { useAccountivaLogo } from "@/lib/brand";
 import { useAuth } from "@/context/AuthContext";
 
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(window.location.search);
   const { resetPassword } = useAuth();
   const { accountivaLogoSrc } = useAccountivaLogo();
 
@@ -44,9 +44,9 @@ export default function ResetPassword() {
       toast.error("Invalid link", {
         description: "This password reset link is invalid or has expired.",
       });
-      navigate("/login");
+      navigate({ to: "/login" } as any);
     }
-  }, [searchParams, navigate]);
+  }, [navigate]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +70,7 @@ export default function ResetPassword() {
         description: "Your password has been successfully reset.",
       });
       setTimeout(() => {
-        navigate("/login");
+        navigate({ to: "/login" } as any);
       }, 3000);
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || "Failed to reset password";

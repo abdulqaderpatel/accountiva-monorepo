@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, useLocation, Outlet } from "react-router-dom";
+import { Navigate, useLocation, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 
 export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
@@ -18,8 +18,8 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    const redirectUrl = `${location.pathname}${location.search}`;
-    return <Navigate to={`/login?redirect=${encodeURIComponent(redirectUrl)}`} replace />;
+    const redirectUrl = `${location.pathname}${location.searchStr || ""}`;
+    return <Navigate to="/login" search={{ redirect: redirectUrl }} replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

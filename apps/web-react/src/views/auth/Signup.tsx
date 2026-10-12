@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +18,8 @@ import { useAccountivaLogo } from "@/lib/brand";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Signup() {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(window.location.search);
   const { signup, socialLogin } = useAuth();
   const { accountivaLogoSrc } = useAccountivaLogo();
 
@@ -64,11 +64,13 @@ export default function Signup() {
         description: "Please check your email to verify your account.",
       });
 
-      navigate(
-        `/check-email?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(
-          searchParams.get("redirect") || ""
-        )}`
-      );
+      navigate({
+        to: "/check-email",
+        search: {
+          email,
+          redirect: searchParams.get("redirect") || "",
+        },
+      } as any);
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || "Failed to sign up";
       setErrorMessage(message);
@@ -278,10 +280,7 @@ export default function Signup() {
           <div className="text-sm text-muted-foreground text-center">
             Already have an account?{" "}
             <Link
-              to={{
-                pathname: "/login",
-                search: searchParams.toString(),
-              }}
+              to="/login"
               className="text-primary hover:text-primary/80 font-medium ml-1"
             >
               Log in

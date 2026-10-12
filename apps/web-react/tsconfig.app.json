@@ -11,6 +11,7 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "jsx": "react-jsx",
+    "strictNullChecks": true,
 
     /* Paths */
     "baseUrl": ".",

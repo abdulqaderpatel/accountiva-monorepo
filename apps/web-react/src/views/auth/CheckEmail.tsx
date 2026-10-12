@@ -1,11 +1,10 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowLeft } from "lucide-react";
 import { useAccountivaLogo } from "@/lib/brand";
 
 export default function CheckEmail() {
-  const [searchParams] = useSearchParams();
   const { accountivaLogoSrc } = useAccountivaLogo();
 
   return (
@@ -41,12 +40,7 @@ export default function CheckEmail() {
 
         <CardFooter>
           <Button asChild variant="ghost" className="w-full text-muted-foreground hover:text-foreground">
-            <Link
-              to={{
-                pathname: "/login",
-                search: searchParams.toString(),
-              }}
-            >
+            <Link to="/login">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to login
             </Link>

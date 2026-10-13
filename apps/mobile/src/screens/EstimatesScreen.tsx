@@ -198,11 +198,16 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
-                <View>
-                  <Text style={[styles.customerName, { color: colors.foreground }]}>{est.customer}</Text>
-                  <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-                    {est.number} • {est.date}
-                  </Text>
+                <View style={styles.estAvatarRow}>
+                  <View style={[styles.estAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Calculator size={16} color={colors.foreground} />
+                  </View>
+                  <View>
+                    <Text style={[styles.customerName, { color: colors.foreground }]}>{est.customer}</Text>
+                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                      {est.number} • {est.date}
+                    </Text>
+                  </View>
                 </View>
                 <Badge variant={est.variant}>{est.status}</Badge>
               </View>
@@ -313,6 +318,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  estAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  estAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   customerName: {
     fontSize: 14,

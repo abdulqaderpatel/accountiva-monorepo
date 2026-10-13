@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Modal, ActivityIndicator } from 'react-native';
-import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User, ChevronRight, Check, RefreshCw } from 'lucide-react-native';
+import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User, ChevronRight, Check, X, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
@@ -193,7 +193,7 @@ export function SettingsScreen() {
                 onPress={() => setIsOrgModalOpen(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={{ color: colors.mutedForeground, fontSize: 16 }}>✕</Text>
+                <X size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 

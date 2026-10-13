@@ -106,8 +106,8 @@ export function ForgotPasswordScreen({ onNavigateToLogin, onNavigateToReset }: F
             </>
           ) : (
             <View style={styles.successContainer}>
-              <View style={[styles.successIconCircle, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
-                <CheckCircle2 size={36} color="#10b981" />
+              <View style={[styles.successIconCircle, { backgroundColor: colors.successBg }]}>
+                <CheckCircle2 size={36} color={colors.success} />
               </View>
               <Text style={[styles.successTitle, { color: colors.foreground }]}>Reset Link Sent</Text>
               <Text style={[styles.successBody, { color: colors.mutedForeground }]}>

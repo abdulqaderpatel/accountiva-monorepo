@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Search, Plus } from 'lucide-react-native';
+import { Search, Plus, FileText } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
@@ -219,6 +219,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
           </View>
         ) : filteredInvoices.length === 0 ? (
           <View style={styles.emptyContainer}>
+            <FileText size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No invoices found.</Text>
           </View>
         ) : (
@@ -230,11 +231,16 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
-                <View>
-                  <Text style={[styles.customerName, { color: colors.foreground }]}>{inv.customer}</Text>
-                  <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
-                    {inv.number} • {inv.date}
-                  </Text>
+                <View style={styles.invoiceAvatarRow}>
+                  <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <FileText size={16} color={colors.foreground} />
+                  </View>
+                  <View>
+                    <Text style={[styles.customerName, { color: colors.foreground }]}>{inv.customer}</Text>
+                    <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
+                      {inv.number} • {inv.date}
+                    </Text>
+                  </View>
                 </View>
                 <Badge variant={inv.variant}>{inv.status}</Badge>
               </View>
@@ -358,6 +364,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  invoiceAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  invoiceAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   customerName: {
     fontSize: 14,

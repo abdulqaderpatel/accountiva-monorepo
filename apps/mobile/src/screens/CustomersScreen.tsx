@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Search, Plus, Mail, Phone } from 'lucide-react-native';
+import { Search, Plus, Mail, Phone, Users, Building2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
@@ -143,6 +143,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
           </View>
         ) : filteredCustomers.length === 0 ? (
           <View style={styles.emptyContainer}>
+            <Users size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No customers found.</Text>
           </View>
         ) : (
@@ -153,20 +154,25 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
               activeOpacity={0.7}
             >
               <View style={styles.topRow}>
-                <View>
-                  <Text style={[styles.clientName, { color: colors.foreground }]}>{c.name}</Text>
-                  {c.email ? (
-                    <View style={styles.infoRow}>
-                      <Mail size={12} color={colors.mutedForeground} />
-                      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.email}</Text>
-                    </View>
-                  ) : null}
-                  {c.phone ? (
-                    <View style={styles.infoRow}>
-                      <Phone size={12} color={colors.mutedForeground} />
-                      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.phone}</Text>
-                    </View>
-                  ) : null}
+                <View style={styles.clientAvatarRow}>
+                  <View style={[styles.clientAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Users size={16} color={colors.foreground} />
+                  </View>
+                  <View>
+                    <Text style={[styles.clientName, { color: colors.foreground }]}>{c.name}</Text>
+                    {c.email ? (
+                      <View style={styles.infoRow}>
+                        <Mail size={12} color={colors.mutedForeground} />
+                        <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.email}</Text>
+                      </View>
+                    ) : null}
+                    {c.phone ? (
+                      <View style={styles.infoRow}>
+                        <Phone size={12} color={colors.mutedForeground} />
+                        <Text style={[styles.infoText, { color: colors.mutedForeground }]}>{c.phone}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
                 <Badge variant={c.variant}>{c.status}</Badge>
               </View>
@@ -274,10 +280,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
+  clientAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  clientAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   clientName: {
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
     fontFamily: fonts.display,
   },
   infoRow: {

@@ -1,6 +1,19 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { Bell, ArrowUpRight, Plus, FileText, UserPlus, Share2, Calculator, CreditCard } from 'lucide-react-native';
+import {
+  Bell,
+  ArrowUpRight,
+  Plus,
+  FileText,
+  Users,
+  Package,
+  Calculator,
+  FileMinus,
+  TrendingUp,
+  Receipt,
+  Clock,
+  Sparkles,
+} from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
@@ -121,7 +134,9 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                 {formatCurrency(totalReceivables, currency)}
               </Text>
             </View>
-            <Badge variant="success">Active</Badge>
+            <View style={[styles.trendIconContainer, { backgroundColor: colors.successBg }]}>
+              <TrendingUp size={16} color={colors.success} />
+            </View>
           </View>
 
           <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
@@ -188,7 +203,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
               activeOpacity={0.7}
             >
               <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-                <CreditCard size={18} color={colors.foreground} />
+                <FileMinus size={18} color={colors.foreground} />
               </View>
               <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Credit Notes</Text>
             </TouchableOpacity>
@@ -200,7 +215,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             activeOpacity={0.7}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-              <UserPlus size={18} color={colors.foreground} />
+              <Users size={18} color={colors.foreground} />
             </View>
             <Text style={[styles.actionBtnText, { color: colors.foreground }]}>+ Customer</Text>
           </TouchableOpacity>
@@ -211,7 +226,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             activeOpacity={0.7}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
-              <FileText size={18} color={colors.foreground} />
+              <Package size={18} color={colors.foreground} />
             </View>
             <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Catalog</Text>
           </TouchableOpacity>
@@ -339,6 +354,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  trendIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   kpiLabel: {
     fontSize: 11,

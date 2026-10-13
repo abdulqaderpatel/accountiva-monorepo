@@ -192,16 +192,25 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
               activeOpacity={0.7}
             >
               <View style={styles.topRow}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
-                  {item.sku ? (
-                    <Text style={[styles.skuText, { color: colors.mutedForeground }]}>SKU: {item.sku}</Text>
-                  ) : null}
-                  {item.description ? (
-                    <Text style={[styles.descText, { color: colors.mutedForeground }]} numberOfLines={1}>
-                      {item.description}
-                    </Text>
-                  ) : null}
+                <View style={styles.itemAvatarRow}>
+                  <View style={[styles.itemAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    {item.type === 'Product' ? (
+                      <Package size={16} color={colors.foreground} />
+                    ) : (
+                      <Wrench size={16} color={colors.foreground} />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
+                    {item.sku ? (
+                      <Text style={[styles.skuText, { color: colors.mutedForeground }]}>SKU: {item.sku}</Text>
+                    ) : null}
+                    {item.description ? (
+                      <Text style={[styles.descText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
 
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -329,6 +338,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  itemAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  itemAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   itemName: {
     fontSize: 14,

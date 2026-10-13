@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Search, Plus, CreditCard, ArrowRight, CheckCircle2 } from 'lucide-react-native';
+import { Search, Plus, FileMinus, ArrowRight, CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
@@ -184,7 +184,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
           </View>
         ) : filteredNotes.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <CreditCard size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+            <FileMinus size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No credit notes found.</Text>
           </View>
         ) : (
@@ -195,11 +195,16 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
-                <View>
-                  <Text style={[styles.customerName, { color: colors.foreground }]}>{cn.customer}</Text>
-                  <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
-                    {cn.number} • {cn.date}
-                  </Text>
+                <View style={styles.noteAvatarRow}>
+                  <View style={[styles.noteAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <FileMinus size={16} color={colors.foreground} />
+                  </View>
+                  <View>
+                    <Text style={[styles.customerName, { color: colors.foreground }]}>{cn.customer}</Text>
+                    <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+                      {cn.number} • {cn.date}
+                    </Text>
+                  </View>
                 </View>
                 <Badge variant={cn.variant}>{cn.status}</Badge>
               </View>
@@ -310,6 +315,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  noteAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  noteAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   customerName: {
     fontSize: 14,

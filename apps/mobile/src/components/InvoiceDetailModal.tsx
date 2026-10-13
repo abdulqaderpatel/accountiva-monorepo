@@ -9,7 +9,7 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { X, Share2, CheckCircle2, Clock, Building2, User, FileText, Send } from 'lucide-react-native';
+import { X, Share2, CheckCircle2, Users, FileText, Send } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -133,10 +133,8 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Billed To</Text>
             <Card style={styles.clientCard}>
               <View style={styles.clientRow}>
-                <View style={[styles.clientAvatar, { backgroundColor: colors.primary }]}>
-                  <Text style={{ color: colors.primaryForeground, fontWeight: '700' }}>
-                    {(invoice.customer || invoice.customerName || 'C')[0]?.toUpperCase()}
-                  </Text>
+                <View style={[styles.clientAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                  <Users size={16} color={colors.foreground} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.clientName, { color: colors.foreground }]}>
@@ -203,11 +201,11 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
                 <TouchableOpacity
                   onPress={() => handleStatusChange('Paid')}
                   disabled={updateInvoiceMutation.isPending}
-                  style={[styles.primaryActionBtn, { backgroundColor: '#10b981' }]}
+                  style={[styles.primaryActionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
-                  <CheckCircle2 size={16} color="#ffffff" style={{ marginRight: 6 }} />
-                  <Text style={styles.actionBtnText}>Mark as Paid</Text>
+                  <CheckCircle2 size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>Mark as Paid</Text>
                 </TouchableOpacity>
               ) : null}
 
@@ -329,9 +327,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   clientAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

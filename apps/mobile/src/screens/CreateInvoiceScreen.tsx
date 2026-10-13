@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, FlatList } from 'react-native';
-import { X, Trash2, Plus, Check, Search, User, Package } from 'lucide-react-native';
+import { X, Trash2, Plus, Check, Search, Users, Package, Wrench, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
@@ -139,8 +139,13 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
             style={[styles.customerSelectBox, { backgroundColor: colors.card, borderColor: colors.border }]}
             activeOpacity={0.7}
           >
-            <Text style={[styles.customerSelectText, { color: colors.foreground }]}>{customer}</Text>
-            <Text style={{ color: colors.mutedForeground }}>▾</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
+                <Users size={16} color={colors.foreground} />
+              </View>
+              <Text style={[styles.customerSelectText, { color: colors.foreground }]}>{customer}</Text>
+            </View>
+            <ChevronDown size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>
 
@@ -289,7 +294,7 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
                   style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
                 >
                   <View style={styles.modalItemLeft}>
-                    <User size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                    <Users size={16} color={colors.foreground} style={{ marginRight: 10 }} />
                     <View>
                       <Text style={[styles.modalItemText, { color: colors.foreground }]}>
                         {item.name}
@@ -357,7 +362,11 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
                     style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
                   >
                     <View style={styles.modalItemLeft}>
-                      <Package size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                      {item.type === 'Service' ? (
+                        <Wrench size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                      ) : (
+                        <Package size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                      )}
                       <View>
                         <Text style={[styles.modalItemText, { color: colors.foreground }]}>
                           {item.name}
@@ -435,6 +444,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     fontFamily: fonts.medium,
+  },
+  selectIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowFields: {
     flexDirection: 'row',

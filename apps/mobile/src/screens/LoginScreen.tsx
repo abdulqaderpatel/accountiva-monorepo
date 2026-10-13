@@ -18,10 +18,17 @@ import { fonts } from '../theme/typography';
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
+  onNavigateToForgotPassword: () => void;
+  onNavigateToVerifyEmail: (email?: string) => void;
   onSuccess: () => void;
 }
 
-export function LoginScreen({ onNavigateToSignup, onSuccess }: LoginScreenProps) {
+export function LoginScreen({
+  onNavigateToSignup,
+  onNavigateToForgotPassword,
+  onNavigateToVerifyEmail,
+  onSuccess,
+}: LoginScreenProps) {
   const { colors } = useTheme();
   const { login } = useAuth();
 
@@ -41,7 +48,25 @@ export function LoginScreen({ onNavigateToSignup, onSuccess }: LoginScreenProps)
       await login(email.trim(), password);
       onSuccess();
     } catch (err: any) {
-      Alert.alert('Sign In Failed', err.message || 'Please check your credentials.');
+      const message = err.response?.data?.message || err.message || '';
+      const code = err.response?.data?.code || err.code || '';
+
+      if (code === 'EMAIL_NOT_VERIFIED' || message.includes('EMAIL_NOT_VERIFIED') || message.toLowerCase().includes('verify')) {
+        Alert.alert(
+          'Verification Required',
+          'Please verify your email address to continue.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Verify Email',
+              onPress: () => onNavigateToVerifyEmail(email.trim()),
+            },
+          ]
+        );
+        return;
+      }
+
+      Alert.alert('Sign In Failed', message || 'Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -80,9 +105,14 @@ export function LoginScreen({ onNavigateToSignup, onSuccess }: LoginScreenProps)
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginTop: 14 }]}>
-            Password
-          </Text>
+          <View style={styles.passwordLabelRow}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+              Password
+            </Text>
+            <TouchableOpacity onPress={onNavigateToForgotPassword} activeOpacity={0.7}>
+              <Text style={[styles.forgotText, { color: colors.primary }]}>Forgot password?</Text>
+            </TouchableOpacity>
+          </View>
           <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <Lock size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
             <TextInput
@@ -181,6 +211,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 6,
+  },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  forgotText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   inputBox: {
     flexDirection: 'row',

@@ -22,6 +22,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   signup: (name: string, email: string, password: string) => Promise<any>;
+  forgotPassword: (email: string) => Promise<any>;
+  resetPassword: (password: string, token: string) => Promise<any>;
+  resendVerification: (email: string) => Promise<any>;
+  verifyEmail: (token: string) => Promise<any>;
   logout: () => Promise<void>;
   setCurrentOrg: (org: MobileOrganization | null) => Promise<void>;
 }
@@ -113,6 +117,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data;
   };
 
+  const forgotPassword = async (email: string) => {
+    const { data } = await api.post('/auth/request-password-reset', {
+      email,
+    });
+    return data;
+  };
+
+  const resetPassword = async (password: string, token: string) => {
+    const { data } = await api.post('/auth/reset-password', {
+      newPassword: password,
+      token,
+    });
+    return data;
+  };
+
+  const resendVerification = async (email: string) => {
+    const { data } = await api.post('/auth/send-verification-email', {
+      email,
+    });
+    return data;
+  };
+
+  const verifyEmail = async (token: string) => {
+    const { data } = await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+    return data;
+  };
+
   const logout = async () => {
     setUser(null);
     setToken(null);
@@ -133,6 +164,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: Boolean(user || token),
         login,
         signup,
+        forgotPassword,
+        resetPassword,
+        resendVerification,
+        verifyEmail,
         logout,
         setCurrentOrg,
       }}

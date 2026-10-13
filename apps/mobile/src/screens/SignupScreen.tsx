@@ -18,10 +18,11 @@ import { fonts } from '../theme/typography';
 
 interface SignupScreenProps {
   onNavigateToLogin: () => void;
+  onNavigateToVerifyEmail?: (email: string) => void;
   onSuccess: () => void;
 }
 
-export function SignupScreen({ onNavigateToLogin, onSuccess }: SignupScreenProps) {
+export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuccess }: SignupScreenProps) {
   const { colors } = useTheme();
   const { signup } = useAuth();
 
@@ -53,11 +54,23 @@ export function SignupScreen({ onNavigateToLogin, onSuccess }: SignupScreenProps
       await signup(fullName.trim(), email.trim(), password);
       Alert.alert(
         'Account Created',
-        'Your account has been registered! Please sign in with your credentials.',
-        [{ text: 'Sign In', onPress: onNavigateToLogin }]
+        'Your account has been registered! Please check your email to verify your account.',
+        [
+          {
+            text: 'Verify Email',
+            onPress: () => {
+              if (onNavigateToVerifyEmail) {
+                onNavigateToVerifyEmail(email.trim());
+              } else {
+                onNavigateToLogin();
+              }
+            },
+          },
+          { text: 'Sign In', onPress: onNavigateToLogin },
+        ]
       );
     } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.message || 'Could not register account.');
+      Alert.alert('Sign Up Failed', err.response?.data?.message || err.message || 'Could not register account.');
     } finally {
       setLoading(false);
     }

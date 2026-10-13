@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { X, Trash2, Plus, Check } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, FlatList } from 'react-native';
+import { X, Trash2, Plus, Check, Search, User, Package } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
-import { useCreateInvoice } from '@accountiva/api';
+import { useCreateInvoice, useCustomers, useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -24,7 +25,28 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
   const { colors } = useTheme();
   const createInvoiceMutation = useCreateInvoice();
 
+  const { data: apiCustomers } = useCustomers();
+  const { data: apiItems } = useItems();
+
+  const rawCustomers: any[] = Array.isArray(apiCustomers)
+    ? apiCustomers
+    : Array.isArray(apiCustomers?.data)
+    ? apiCustomers.data
+    : [];
+
+  const rawItems: any[] = Array.isArray(apiItems)
+    ? apiItems
+    : Array.isArray(apiItems?.data)
+    ? apiItems.data
+    : [];
+
   const [customer, setCustomer] = useState('Delta Retail Corp');
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
+
   const [invoiceNumber, setInvoiceNumber] = useState(
     `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
   );
@@ -112,10 +134,14 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
         {/* Customer Select Field */}
         <View style={styles.fieldGroup}>
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Customer *</Text>
-          <View style={[styles.customerSelectBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={() => setCustomerModalOpen(true)}
+            style={[styles.customerSelectBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+            activeOpacity={0.7}
+          >
             <Text style={[styles.customerSelectText, { color: colors.foreground }]}>{customer}</Text>
             <Text style={{ color: colors.mutedForeground }}>▾</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Invoice Number & Due Date Row */}
@@ -141,7 +167,7 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
             Line Items ({items.length})
           </Text>
-          <TouchableOpacity onPress={addItem} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => setItemModalOpen(true)} activeOpacity={0.7}>
             <Text style={[styles.addItemText, { color: colors.primary }]}>+ Add Item</Text>
           </TouchableOpacity>
         </View>
@@ -225,6 +251,130 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
           </View>
         </Card>
       </ScrollView>
+
+      {/* Customer Selection Modal */}
+      <Modal visible={customerModalOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
+              <TouchableOpacity onPress={() => setCustomerModalOpen(false)}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Search customers..."
+                placeholderTextColor={colors.mutedForeground}
+                value={customerSearch}
+                onChangeText={setCustomerSearch}
+                style={[styles.modalSearchInput, { color: colors.foreground }]}
+              />
+            </View>
+
+            <FlatList
+              data={rawCustomers.filter((c: any) =>
+                (c.name || '').toLowerCase().includes(customerSearch.toLowerCase())
+              )}
+              keyExtractor={(item) => item.id || item.name}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => {
+                    setCustomer(item.name);
+                    setCustomerModalOpen(false);
+                  }}
+                  style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
+                >
+                  <View style={styles.modalItemLeft}>
+                    <User size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                    <View>
+                      <Text style={[styles.modalItemText, { color: colors.foreground }]}>
+                        {item.name}
+                      </Text>
+                      {item.email ? (
+                        <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
+                          {item.email}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  {customer === item.name ? <Check size={18} color={colors.primary} /> : null}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Line Item Catalog Modal */}
+      <Modal visible={itemModalOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
+              <TouchableOpacity onPress={() => setItemModalOpen(false)}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+              <TextInput
+                placeholder="Search products & services..."
+                placeholderTextColor={colors.mutedForeground}
+                value={itemSearch}
+                onChangeText={setItemSearch}
+                style={[styles.modalSearchInput, { color: colors.foreground }]}
+              />
+            </View>
+
+            <FlatList
+              data={rawItems.filter((i: any) =>
+                (i.name || '').toLowerCase().includes(itemSearch.toLowerCase()) ||
+                (i.sku || '').toLowerCase().includes(itemSearch.toLowerCase())
+              )}
+              keyExtractor={(item) => item.id || item.name}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              renderItem={({ item }) => {
+                const itemRate = Number(item.sellingPrice) || Number(item.unitPrice) || 0;
+                return (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setItems([
+                        ...items,
+                        {
+                          id: Date.now().toString(),
+                          name: item.name || 'Catalog Item',
+                          quantity: 1,
+                          rate: itemRate,
+                        },
+                      ]);
+                      setItemModalOpen(false);
+                    }}
+                    style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
+                  >
+                    <View style={styles.modalItemLeft}>
+                      <Package size={16} color={colors.primary} style={{ marginRight: 10 }} />
+                      <View>
+                        <Text style={[styles.modalItemText, { color: colors.foreground }]}>
+                          {item.name}
+                        </Text>
+                        <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
+                          {item.type || 'Product'} • {formatCurrency(itemRate, 'INR')}
+                        </Text>
+                      </View>
+                    </View>
+                    <Plus size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -402,6 +552,67 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontFamily: fonts.extraBold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    maxHeight: '75%',
+    paddingTop: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: fonts.display,
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingHorizontal: 12,
+    height: 38,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 13,
+  },
+  modalItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  modalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  modalItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: fonts.semiBold,
+  },
+  modalItemSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    marginTop: 2,
   },
 });
 

@@ -17,6 +17,7 @@ import { formatCurrency } from '@accountiva/shared';
 import { useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
+import { AddItemModal } from '../components/AddItemModal';
 
 interface ItemsScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -63,6 +64,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'Product' | 'Service'>('ALL');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const { data: apiItems, isLoading, refetch, isRefetching } = useItems({
     search: search || undefined,
@@ -100,6 +102,14 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Products & Services</Text>
+        <TouchableOpacity
+          onPress={() => setIsAddModalOpen(true)}
+          style={[styles.newBtn, { backgroundColor: colors.primary }]}
+          activeOpacity={0.8}
+        >
+          <Plus size={16} color={colors.primaryForeground} strokeWidth={2.5} />
+          <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>Add</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Input */}
@@ -218,6 +228,13 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
           ))
         )}
       </ScrollView>
+
+      {/* Add Item Modal */}
+      <AddItemModal
+        visible={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </View>
   );
 }
@@ -227,14 +244,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   title: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fonts.display,
+  },
+  newBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  newBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   searchWrapper: {
     paddingHorizontal: 16,

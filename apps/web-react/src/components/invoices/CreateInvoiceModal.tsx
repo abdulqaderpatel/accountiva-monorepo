@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@accountiva/shared";
-import { useCreateInvoice } from "@accountiva/api";
+import { useCreateInvoice, useCustomers, useItems } from "@accountiva/api";
 import { toast } from "sonner";
 
 interface LineItem {
@@ -30,6 +30,20 @@ export function CreateInvoiceModal({
   onSuccess,
 }: CreateInvoiceModalProps) {
   const createInvoiceMutation = useCreateInvoice();
+  const { data: apiCustomers } = useCustomers();
+  const { data: apiItems } = useItems();
+
+  const customerList: any[] = React.useMemo(() => {
+    if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
+    if (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0) return apiCustomers.data;
+    return [];
+  }, [apiCustomers]);
+
+  const catalogItems: any[] = React.useMemo(() => {
+    if (Array.isArray(apiItems) && apiItems.length > 0) return apiItems;
+    if (Array.isArray(apiItems?.data) && apiItems.data.length > 0) return apiItems.data;
+    return [];
+  }, [apiItems]);
 
   const [customerName, setCustomerName] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
@@ -75,6 +89,19 @@ export function CreateInvoiceModal({
     setItems(
       items.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
+  };
+
+  const handleSelectItemFromCatalog = (id: string, selectedCatalogName: string) => {
+    const found = catalogItems.find((i) => i.name === selectedCatalogName);
+    if (found) {
+      updateItem(id, {
+        name: found.name,
+        description: found.description || "",
+        rate: Number(found.sellingPrice) || Number(found.unitPrice) || 0,
+      });
+    } else {
+      updateItem(id, { name: selectedCatalogName });
+    }
   };
 
   const subtotal = items.reduce(
@@ -149,13 +176,21 @@ export function CreateInvoiceModal({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="customerName">Customer *</Label>
-            <Input
-              id="customerName"
-              placeholder="e.g. Acme Corp or John Doe"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              required
-            />
+            <div className="relative">
+              <Input
+                id="customerName"
+                list="customers-datalist"
+                placeholder="Select or type customer name..."
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                required
+              />
+              <datalist id="customers-datalist">
+                {customerList.map((c) => (
+                  <option key={c.id} value={c.name} />
+                ))}
+              </datalist>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -169,7 +204,7 @@ export function CreateInvoiceModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="invoiceDate">Invoice Date *</Label>
+            <Label htmlFor="invoiceDate">Invoice Date</Label>
             <Input
               id="invoiceDate"
               type="date"
@@ -180,7 +215,7 @@ export function CreateInvoiceModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date *</Label>
+            <Label htmlFor="dueDate">Due Date</Label>
             <Input
               id="dueDate"
               type="date"
@@ -191,7 +226,7 @@ export function CreateInvoiceModal({
           </div>
         </div>
 
-        {/* Line Items Section */}
+        {/* Items Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold tracking-tight text-foreground">
@@ -209,6 +244,12 @@ export function CreateInvoiceModal({
             </Button>
           </div>
 
+          <datalist id="catalog-items-datalist">
+            {catalogItems.map((item) => (
+              <option key={item.id} value={item.name} />
+            ))}
+          </datalist>
+
           <div className="space-y-2.5">
             {items.map((item, index) => (
               <div
@@ -217,9 +258,10 @@ export function CreateInvoiceModal({
               >
                 <div className="col-span-12 sm:col-span-5 space-y-1">
                   <Input
-                    placeholder="Item / Service Name"
+                    list="catalog-items-datalist"
+                    placeholder="Search catalog or type item..."
                     value={item.name}
-                    onChange={(e) => updateItem(item.id, { name: e.target.value })}
+                    onChange={(e) => handleSelectItemFromCatalog(item.id, e.target.value)}
                     required
                     className="h-9 text-xs"
                   />
@@ -250,86 +292,88 @@ export function CreateInvoiceModal({
                     type="number"
                     min="0"
                     step="0.01"
-                    placeholder="Rate"
+                    placeholder="Rate (₹)"
                     value={item.rate || ""}
                     onChange={(e) =>
-                      updateItem(item.id, { rate: Math.max(0, Number(e.target.value)) })
+                      updateItem(item.id, { rate: Number(e.target.value) || 0 })
                     }
                     className="h-9 text-xs"
                     required
                   />
                 </div>
 
-                <div className="col-span-3 sm:col-span-2 text-right font-medium text-xs font-mono">
-                  {formatCurrency((Number(item.quantity) || 0) * (Number(item.rate) || 0))}
+                <div className="col-span-3 sm:col-span-2 text-right">
+                  <span className="text-xs font-mono font-semibold text-foreground">
+                    {formatCurrency((Number(item.quantity) || 0) * (Number(item.rate) || 0))}
+                  </span>
                 </div>
 
                 <div className="col-span-1 text-right">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
                     onClick={() => removeItem(item.id)}
-                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    title="Remove item"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Totals & Notes Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 border-t border-border/60">
-          <div className="space-y-2">
-            <Label htmlFor="notes">Customer Notes & Payment Instructions</Label>
-            <Textarea
-              id="notes"
-              placeholder="e.g. Thanks for your business. Please pay via UPI or Bank Transfer."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="resize-none h-24"
-            />
-          </div>
-
-          <div className="space-y-3 bg-muted/20 p-4 rounded-xl border border-border/60">
-            <div className="flex justify-between text-xs text-muted-foreground">
+        {/* Financial Breakdown Summary */}
+        <div className="flex justify-end pt-2 border-t border-border/60">
+          <div className="w-full sm:w-72 space-y-2 text-xs">
+            <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span className="font-mono font-medium text-foreground">
-                {formatCurrency(subtotal)}
-              </span>
+              <span className="font-mono text-foreground font-semibold">{formatCurrency(subtotal)}</span>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">GST Tax Rate</span>
               <div className="flex items-center gap-1.5">
-                <span>Tax Rate</span>
-                <select
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
                   value={taxRate}
-                  onChange={(e) => setTaxRate(Number(e.target.value))}
-                  className="rounded border border-border bg-background px-1.5 py-0.5 text-xs text-foreground focus:outline-none"
-                >
-                  <option value={0}>0% (Tax Exempt)</option>
-                  <option value={5}>5% GST</option>
-                  <option value={12}>12% GST</option>
-                  <option value={18}>18% GST (Standard)</option>
-                  <option value={28}>28% GST</option>
-                </select>
+                  onChange={(e) => setTaxRate(Number(e.target.value) || 0)}
+                  className="w-16 h-7 text-xs text-right font-mono"
+                />
+                <span className="text-muted-foreground">%</span>
               </div>
-              <span className="font-mono font-medium text-foreground">
-                {formatCurrency(taxAmount)}
-              </span>
             </div>
 
-            <div className="border-t border-border/60 pt-2 flex justify-between text-sm font-semibold text-foreground">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Tax Amount</span>
+              <span className="font-mono text-foreground font-semibold">{formatCurrency(taxAmount)}</span>
+            </div>
+
+            <div className="flex justify-between pt-2 border-t border-border/60 text-sm font-bold text-foreground">
               <span>Total Amount</span>
-              <span className="font-mono text-primary text-base">
-                {formatCurrency(grandTotal)}
-              </span>
+              <span className="font-mono text-primary font-black">{formatCurrency(grandTotal)}</span>
             </div>
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
+        {/* Notes */}
+        <div className="space-y-2">
+          <Label htmlFor="notes">Terms & Notes</Label>
+          <Textarea
+            id="notes"
+            placeholder="Payment instructions, bank transfer details, or thank you note..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+          />
+        </div>
+
+        {/* Footer CTAs */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/60">
           <Button
             type="button"
             variant="outline"
@@ -341,15 +385,12 @@ export function CreateInvoiceModal({
           <Button
             type="submit"
             disabled={createInvoiceMutation.isPending}
-            className="gap-2"
+            className="font-bold shadow-xs min-w-28"
           >
             {createInvoiceMutation.isPending ? (
-              <>
-                <Spinner size="sm" />
-                Saving...
-              </>
+              <Spinner size="sm" />
             ) : (
-              "Save Invoice"
+              "Save & Issue"
             )}
           </Button>
         </div>
@@ -357,4 +398,3 @@ export function CreateInvoiceModal({
     </Modal>
   );
 }
-

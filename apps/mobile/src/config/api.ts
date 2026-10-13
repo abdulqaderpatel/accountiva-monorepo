@@ -5,14 +5,26 @@ import { configureApi } from '@accountiva/api';
 // For physical devices or Android emulator:
 // Android Emulator uses 10.0.2.2 to access host machine localhost.
 // Web / iOS Simulator uses localhost.
-const getDevApiBaseUrl = () => {
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:5000/api';
+// Detect API base URL:
+// 1. If EXPO_PUBLIC_API_URL is provided in environment / .env, use it.
+// 2. In __DEV__, use 10.0.2.2 for Android emulator or localhost for iOS/web.
+// 3. In production, fallback to the hosted API URL.
+const getApiBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
   }
-  return 'http://localhost:5000/api';
+
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:5000/api';
+    }
+    return 'http://localhost:5000/api';
+  }
+
+  return 'https://accountiva-api.netlify.app/api';
 };
 
-export const API_BASE_URL = getDevApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 export async function setupMobileApi() {
   configureApi({

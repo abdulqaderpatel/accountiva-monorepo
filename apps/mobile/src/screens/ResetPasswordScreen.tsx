@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Lock, Eye, EyeOff, KeyRound, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -22,7 +23,7 @@ interface ResetPasswordScreenProps {
 }
 
 export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: ResetPasswordScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { resetPassword } = useAuth();
 
   const [token, setToken] = useState(initialToken);
@@ -81,14 +82,20 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Branding header */}
         <View style={styles.brandingHeader}>
-          <View style={[styles.logoIcon, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.logoText, { color: colors.primaryForeground }]}>A</Text>
-          </View>
-          <Text style={[styles.brandTitle, { color: colors.foreground }]}>Reset Password</Text>
+          <Image
+            source={
+              isDark
+                ? require('../../assets/accountiva_dark_logo.png')
+                : require('../../assets/accountiva_logo.png')
+            }
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={[styles.brandTitle, { color: colors.foreground }]}>Accountiva™</Text>
           <Text style={[styles.brandSubtitle, { color: colors.mutedForeground }]}>
             {success
               ? 'Password successfully updated'
-              : 'Enter the reset token received in your email and choose a new password'}
+              : 'Enter your reset token and choose a new password'}
           </Text>
         </View>
 
@@ -225,18 +232,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: fonts.display,
+  logoImage: {
+    width: 52,
+    height: 52,
+    marginBottom: 10,
   },
   brandTitle: {
     fontSize: 22,

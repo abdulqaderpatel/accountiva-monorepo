@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -23,7 +24,7 @@ interface SignupScreenProps {
 }
 
 export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuccess }: SignupScreenProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { signup } = useAuth();
 
   const [fullName, setFullName] = useState('');
@@ -84,10 +85,16 @@ export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuc
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Branding header */}
         <View style={styles.brandingHeader}>
-          <View style={[styles.logoIcon, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.logoText, { color: colors.primaryForeground }]}>A</Text>
-          </View>
-          <Text style={[styles.brandTitle, { color: colors.foreground }]}>Create Account</Text>
+          <Image
+            source={
+              isDark
+                ? require('../../assets/accountiva_dark_logo.png')
+                : require('../../assets/accountiva_logo.png')
+            }
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <Text style={[styles.brandTitle, { color: colors.foreground }]}>Accountiva™</Text>
           <Text style={[styles.brandSubtitle, { color: colors.mutedForeground }]}>
             Join Accountiva to start managing your invoicing
           </Text>
@@ -202,18 +209,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontFamily: fonts.display,
+  logoImage: {
+    width: 52,
+    height: 52,
+    marginBottom: 10,
   },
   brandTitle: {
     fontSize: 22,

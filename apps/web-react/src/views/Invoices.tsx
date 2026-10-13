@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
 import { useInvoices } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
+import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 
 interface InvoiceRecord {
   id: string;
@@ -85,6 +86,7 @@ export function Invoices() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
 
   const { data: apiInvoices, isLoading, refetch } = useInvoices({
     search: search || undefined,
@@ -240,6 +242,7 @@ export function Invoices() {
                 filteredInvoices.map((inv) => (
                   <tr
                     key={inv.id}
+                    onClick={() => setSelectedInvoice(inv)}
                     className="hover:bg-muted/30 transition-colors group cursor-pointer"
                   >
                     <td className="py-3.5 px-4 font-mono font-medium text-foreground">
@@ -264,6 +267,10 @@ export function Invoices() {
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           title="View Details"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedInvoice(inv);
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
@@ -272,6 +279,7 @@ export function Invoices() {
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           title="Options"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <MoreVertical className="h-3.5 w-3.5" />
                         </Button>
@@ -289,6 +297,14 @@ export function Invoices() {
       <CreateInvoiceModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Invoice Detail Modal */}
+      <InvoiceDetailModal
+        isOpen={Boolean(selectedInvoice)}
+        invoice={selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
         onSuccess={() => refetch()}
       />
     </div>

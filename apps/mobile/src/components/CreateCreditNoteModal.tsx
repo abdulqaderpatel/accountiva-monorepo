@@ -367,3 +367,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
   },
 });
+

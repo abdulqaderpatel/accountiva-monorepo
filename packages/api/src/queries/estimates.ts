@@ -55,3 +55,16 @@ export function useUpdateEstimate() {
     },
   });
 }
+
+export function useDeleteEstimate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/estimates/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['estimates'] });
+    },
+  });
+}

@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { Bell, ArrowUpRight, Plus, FileText, UserPlus, Share2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { formatCurrency } from '@accountiva/shared';
+import { formatCurrency, isFeatureEnabled } from '@accountiva/shared';
+import { useInvoices } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -14,6 +16,61 @@ interface DashboardScreenProps {
 
 export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+
+  const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices();
+
+  const rawInvoices: any[] = useMemo(() => {
+    if (Array.isArray(apiInvoices) && apiInvoices.length > 0) return apiInvoices;
+    if (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0) return apiInvoices.data;
+    return [];
+  }, [apiInvoices]);
+
+  // Compute live KPIs
+  const { totalReceivables, paidThisMonth, overdueTotal, recentInvoices } = useMemo(() => {
+    let receivables = 0;
+    let paid = 0;
+    let overdue = 0;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    rawInvoices.forEach((inv) => {
+      const amount = Number(inv.amount) || 0;
+      const status = (inv.status || 'Draft').toUpperCase();
+
+      if (status === 'PAID') {
+        const invDate = new Date(inv.date || inv.issueDate || inv.createdAt);
+        if (invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear) {
+          paid += amount;
+        }
+      } else if (status === 'OVERDUE') {
+        overdue += amount;
+        receivables += amount;
+      } else if (status !== 'DRAFT') {
+        receivables += amount;
+      }
+    });
+
+    const recent = rawInvoices.slice(0, 5).map((inv) => ({
+      id: inv.id,
+      customer: inv.customer || inv.customerName || inv.customers?.name || 'Customer',
+      number: inv.number || inv.invoiceNumber || 'INV-000',
+      date: inv.date || inv.dueDate || 'Recent',
+      amount: Number(inv.amount) || 0,
+      status: (inv.status || 'Draft').toUpperCase(),
+    }));
+
+    return {
+      totalReceivables: receivables,
+      paidThisMonth: paid,
+      overdueTotal: overdue,
+      recentInvoices: recent,
+    };
+  }, [rawInvoices]);
+
+  const currency = currentOrg?.currency || 'INR';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -21,11 +78,13 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
       <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
         <View style={styles.orgHeader}>
           <View style={[styles.orgAvatar, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.orgAvatarText, { color: colors.primaryForeground }]}>A</Text>
+            <Text style={[styles.orgAvatarText, { color: colors.primaryForeground }]}>
+              {currentOrg?.name ? currentOrg.name[0]?.toUpperCase() : 'A'}
+            </Text>
           </View>
           <View>
             <Text style={[styles.orgSubtitle, { color: colors.mutedForeground }]}>
-              Acme Technologies
+              {currentOrg?.name || 'Primary Workspace'}
             </Text>
             <Text style={[styles.orgTitle, { color: colors.foreground }]}>Dashboard ▾</Text>
           </View>
@@ -42,6 +101,14 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
       >
         {/* Total Receivables Hero Card */}
         <Card style={styles.heroCard}>
@@ -51,10 +118,10 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                 Total Receivables
               </Text>
               <Text style={[styles.kpiValue, { color: colors.foreground }]}>
-                {formatCurrency(482500, 'INR')}
+                {formatCurrency(totalReceivables, currency)}
               </Text>
             </View>
-            <Badge variant="success">+14.2% mo</Badge>
+            <Badge variant="success">Active</Badge>
           </View>
 
           <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
@@ -65,7 +132,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                 Paid This Month
               </Text>
               <Text style={[styles.subKpiValue, { color: colors.foreground }]}>
-                {formatCurrency(195000, 'INR')}
+                {formatCurrency(paidThisMonth, currency)}
               </Text>
             </View>
             <View>
@@ -73,7 +140,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                 Overdue
               </Text>
               <Text style={[styles.subKpiValue, { color: colors.destructive }]}>
-                {formatCurrency(42800, 'INR')}
+                {formatCurrency(overdueTotal, currency)}
               </Text>
             </View>
           </View>
@@ -131,86 +198,54 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         </View>
 
         <View style={styles.invoicesList}>
-          {/* Item 1 */}
-          <TouchableOpacity
-            style={[styles.invoiceItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => onNavigate('invoices')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.invoiceLeft}>
-              <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
-                <FileText size={16} color={colors.foreground} />
-              </View>
-              <View>
-                <Text style={[styles.customerName, { color: colors.foreground }]}>
-                  Delta Retail Corp
-                </Text>
-                <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
-                  INV-2026-042 • Today
-                </Text>
-              </View>
-            </View>
-            <View style={styles.invoiceRight}>
-              <Text style={[styles.invoiceAmount, { color: colors.foreground }]}>
-                {formatCurrency(35400, 'INR')}
+          {recentInvoices.length === 0 ? (
+            <View style={styles.emptyRecent}>
+              <FileText size={24} color={colors.mutedForeground} style={{ marginBottom: 6 }} />
+              <Text style={[styles.emptyRecentText, { color: colors.mutedForeground }]}>
+                No recent invoices found. Tap "+ Invoice" to create one.
               </Text>
-              <Badge variant="success">PAID</Badge>
             </View>
-          </TouchableOpacity>
+          ) : (
+            recentInvoices.map((inv) => {
+              const isPaid = inv.status === 'PAID';
+              const isOverdue = inv.status === 'OVERDUE';
+              const variant = isPaid ? 'success' : isOverdue ? 'destructive' : 'warning';
 
-          {/* Item 2 */}
-          <TouchableOpacity
-            style={[styles.invoiceItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => onNavigate('invoices')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.invoiceLeft}>
-              <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
-                <FileText size={16} color={colors.foreground} />
-              </View>
-              <View>
-                <Text style={[styles.customerName, { color: colors.foreground }]}>
-                  Zephyr Logistics
-                </Text>
-                <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
-                  INV-2026-041 • Due in 3d
-                </Text>
-              </View>
-            </View>
-            <View style={styles.invoiceRight}>
-              <Text style={[styles.invoiceAmount, { color: colors.foreground }]}>
-                {formatCurrency(78250, 'INR')}
-              </Text>
-              <Badge variant="warning">SENT</Badge>
-            </View>
-          </TouchableOpacity>
-
-          {/* Item 3 */}
-          <TouchableOpacity
-            style={[styles.invoiceItem, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => onNavigate('invoices')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.invoiceLeft}>
-              <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
-                <FileText size={16} color={colors.foreground} />
-              </View>
-              <View>
-                <Text style={[styles.customerName, { color: colors.foreground }]}>
-                  Horizon Software
-                </Text>
-                <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
-                  INV-2026-039 • Overdue 5d
-                </Text>
-              </View>
-            </View>
-            <View style={styles.invoiceRight}>
-              <Text style={[styles.invoiceAmount, { color: colors.destructive }]}>
-                {formatCurrency(42800, 'INR')}
-              </Text>
-              <Badge variant="destructive">OVERDUE</Badge>
-            </View>
-          </TouchableOpacity>
+              return (
+                <TouchableOpacity
+                  key={inv.id}
+                  style={[styles.invoiceItem, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => onNavigate('invoices')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.invoiceLeft}>
+                    <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                      <FileText size={16} color={colors.foreground} />
+                    </View>
+                    <View>
+                      <Text style={[styles.customerName, { color: colors.foreground }]}>
+                        {inv.customer}
+                      </Text>
+                      <Text style={[styles.invoiceMeta, { color: colors.mutedForeground }]}>
+                        {inv.number} • {inv.date}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.invoiceRight}>
+                    <Text
+                      style={[
+                        styles.invoiceAmount,
+                        { color: isOverdue ? colors.destructive : colors.foreground },
+                      ]}
+                    >
+                      {formatCurrency(inv.amount, currency)}
+                    </Text>
+                    <Badge variant={variant}>{inv.status}</Badge>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </View>
@@ -395,6 +430,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     fontFamily: fonts.bold,
+  },
+  emptyRecent: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+  },
+  emptyRecentText: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

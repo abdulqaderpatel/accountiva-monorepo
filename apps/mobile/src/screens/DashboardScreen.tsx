@@ -18,8 +18,9 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency, isFeatureEnabled } from '@accountiva/shared';
-import { useInvoices } from '@accountiva/api';
+import { useInvoices, useEstimates } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -32,12 +33,30 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const { currentOrg } = useAuth();
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices();
+  const { data: apiEstimates } = useEstimates();
 
   const rawInvoices: any[] = useMemo(() => {
     if (Array.isArray(apiInvoices) && apiInvoices.length > 0) return apiInvoices;
     if (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0) return apiInvoices.data;
     return [];
   }, [apiInvoices]);
+
+  const rawEstimates: any[] = useMemo(() => {
+    if (Array.isArray(apiEstimates) && apiEstimates.length > 0) return apiEstimates;
+    if (Array.isArray(apiEstimates?.data) && apiEstimates.data.length > 0) return apiEstimates.data;
+    return [];
+  }, [apiEstimates]);
+
+  const { sentEstimatesCount, acceptedEstimatesCount } = useMemo(() => {
+    let sent = 0;
+    let accepted = 0;
+    rawEstimates.forEach((e) => {
+      const st = (e.status || '').toLowerCase();
+      if (st === 'sent') sent++;
+      if (st === 'accepted') accepted++;
+    });
+    return { sentEstimatesCount: sent, acceptedEstimatesCount: accepted };
+  }, [rawEstimates]);
 
   // Compute live KPIs
   const { totalReceivables, paidThisMonth, overdueTotal, recentInvoices } = useMemo(() => {
@@ -232,6 +251,28 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
           </TouchableOpacity>
         </ScrollView>
 
+        {/* Sales Pipeline */}
+        {isFeatureEnabled('estimates') && (
+          <Card style={styles.pipelineCard}>
+            <View style={styles.pipelineHeader}>
+              <Text style={[styles.pipelineTitle, { color: colors.foreground }]}>Sales Pipeline</Text>
+              <TouchableOpacity onPress={() => onNavigate('estimates')} activeOpacity={0.7}>
+                <Text style={[styles.viewAllText, { color: colors.primary }]}>Quotes →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.pipelineGrid}>
+              <View style={[styles.pipelineBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                <Text style={[styles.pipelineLabel, { color: colors.mutedForeground }]}>Sent Quotes</Text>
+                <Text style={[styles.pipelineValue, { color: colors.foreground }]}>{sentEstimatesCount}</Text>
+              </View>
+              <View style={[styles.pipelineBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                <Text style={[styles.pipelineLabel, { color: colors.mutedForeground }]}>Accepted Quotes</Text>
+                <Text style={[styles.pipelineValue, { color: colors.success }]}>{acceptedEstimatesCount}</Text>
+              </View>
+            </View>
+          </Card>
+        )}
+
         {/* Recent Invoices */}
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
@@ -244,12 +285,19 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
 
         <View style={styles.invoicesList}>
           {recentInvoices.length === 0 ? (
-            <View style={styles.emptyRecent}>
-              <FileText size={24} color={colors.mutedForeground} style={{ marginBottom: 6 }} />
-              <Text style={[styles.emptyRecentText, { color: colors.mutedForeground }]}>
-                No recent invoices found. Tap "+ Invoice" to create one.
-              </Text>
-            </View>
+            <Card style={styles.emptyRecentCard}>
+              <EmptyState
+                icon={FileText}
+                title="No recent activity"
+                description="Invoices, quotes, and client payments will appear here once created."
+                actionLabel="Create Invoice"
+                actionIcon={Plus}
+                onAction={() => onNavigate('create_invoice')}
+                secondaryActionLabel="Add Customer"
+                onSecondaryAction={() => onNavigate('customers')}
+                style={{ paddingVertical: 24 }}
+              />
+            </Card>
           ) : (
             recentInvoices.map((inv) => {
               const isPaid = inv.status === 'PAID';
@@ -483,15 +531,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.bold,
   },
-  emptyRecent: {
-    alignItems: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 16,
+  emptyRecentCard: {
+    padding: 0,
+    overflow: 'hidden',
   },
-  emptyRecentText: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
+  pipelineCard: {
+    padding: 16,
+    marginBottom: 20,
+  },
+  pipelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  pipelineTitle: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+  },
+  pipelineGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  pipelineBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  pipelineLabel: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    marginBottom: 4,
+  },
+  pipelineValue: {
+    fontSize: 18,
+    fontFamily: fonts.bold,
   },
 });
 

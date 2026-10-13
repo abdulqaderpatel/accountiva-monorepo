@@ -13,6 +13,7 @@ import {
 import { Search, Plus, Package, Wrench, Boxes } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency } from '@accountiva/shared';
 import { useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -34,33 +35,6 @@ interface ItemRecord {
   description?: string;
 }
 
-const FALLBACK_ITEMS: ItemRecord[] = [
-  {
-    id: '1',
-    name: 'Cloud Hosting Support',
-    type: 'Service',
-    sku: 'SRV-CLOUD-01',
-    sellingPrice: 25000,
-    description: '24/7 Enterprise SLA infrastructure support.',
-  },
-  {
-    id: '2',
-    name: 'Standard Ergonomic Chair',
-    type: 'Product',
-    sku: 'PRD-CHR-01',
-    sellingPrice: 14500,
-    stockOnHand: 42,
-  },
-  {
-    id: '3',
-    name: 'Mechanical Keyboard Pro',
-    type: 'Product',
-    sku: 'PRD-KBD-09',
-    sellingPrice: 6200,
-    stockOnHand: 18,
-  },
-];
-
 export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
@@ -73,11 +47,11 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
     type: filterType === 'ALL' ? undefined : filterType,
   });
 
-  const rawList = Array.isArray(apiItems) && apiItems.length > 0
+  const rawList: any[] = Array.isArray(apiItems)
     ? apiItems
-    : (Array.isArray(apiItems?.data) && apiItems.data.length > 0
-        ? apiItems.data
-        : FALLBACK_ITEMS);
+    : Array.isArray(apiItems?.data)
+    ? apiItems.data
+    : [];
 
   const items: ItemRecord[] = rawList.map((i: any) => ({
     id: i.id,
@@ -182,10 +156,25 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading catalog...</Text>
           </View>
         ) : filteredItems.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Boxes size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No items found in catalog.</Text>
-          </View>
+          <EmptyState
+            icon={Package}
+            title={search || filterType !== 'ALL' ? 'No items found' : 'No items in catalog'}
+            description={
+              search || filterType !== 'ALL'
+                ? 'Try adjusting your filters or search keywords.'
+                : 'Add products and services to your catalog to easily add line items to your invoices.'
+            }
+            actionLabel={search || filterType !== 'ALL' ? 'Reset filters' : 'Add Item'}
+            actionIcon={search || filterType !== 'ALL' ? undefined : Plus}
+            onAction={() => {
+              if (search || filterType !== 'ALL') {
+                setSearch('');
+                setFilterType('ALL');
+              } else {
+                setIsAddModalOpen(true);
+              }
+            }}
+          />
         ) : (
           filteredItems.map((item) => (
             <TouchableOpacity

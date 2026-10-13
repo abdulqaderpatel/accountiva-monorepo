@@ -320,6 +320,17 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
                       {customer === item.name ? <Check size={18} color={colors.primary} /> : null}
                     </TouchableOpacity>
                   )}
+                  ListEmptyComponent={() => (
+                    <View style={{ paddingVertical: 36, alignItems: 'center' }}>
+                      <Users size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+                      <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
+                        {customerSearch ? 'No matching customers found' : 'No customers found'}
+                      </Text>
+                      <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.mutedForeground, marginTop: 4, textAlign: 'center' }}>
+                        {customerSearch ? 'Try a different search keyword' : 'Add clients from the Customers tab to select here'}
+                      </Text>
+                    </View>
+                  )}
                 />
               </View>
             </View>
@@ -390,6 +401,17 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
                       </TouchableOpacity>
                     );
                   }}
+                  ListEmptyComponent={() => (
+                    <View style={{ paddingVertical: 36, alignItems: 'center' }}>
+                      <Package size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+                      <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
+                        {itemSearch ? 'No matching items found' : 'Catalog is empty'}
+                      </Text>
+                      <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.mutedForeground, marginTop: 4, textAlign: 'center' }}>
+                        {itemSearch ? 'Try a different search keyword' : 'Add products & services in Catalog to select here'}
+                      </Text>
+                    </View>
+                  )}
                 />
               </View>
             </View>

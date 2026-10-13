@@ -13,6 +13,7 @@ import {
 import { Search, Plus, Calculator, ArrowRight, CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency } from '@accountiva/shared';
 import { useEstimates } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -36,27 +37,6 @@ interface EstimateRecord {
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
   items?: any[];
 }
-
-const FALLBACK_ESTIMATES: EstimateRecord[] = [
-  {
-    id: '1',
-    customer: 'Delta Retail Corp',
-    number: 'EST-2026-012',
-    date: '10 Oct 2026',
-    amount: 45000,
-    status: 'Sent',
-    variant: 'warning',
-  },
-  {
-    id: '2',
-    customer: 'Zephyr Logistics Pvt Ltd',
-    number: 'EST-2026-011',
-    date: '02 Oct 2026',
-    amount: 112000,
-    status: 'Accepted',
-    variant: 'success',
-  },
-];
 
 export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
   const { colors } = useTheme();
@@ -86,11 +66,11 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     }
   };
 
-  const rawList = Array.isArray(apiEstimates) && apiEstimates.length > 0
+  const rawList: any[] = Array.isArray(apiEstimates)
     ? apiEstimates
-    : Array.isArray(apiEstimates?.data) && apiEstimates.data.length > 0
+    : Array.isArray(apiEstimates?.data)
     ? apiEstimates.data
-    : FALLBACK_ESTIMATES;
+    : [];
 
   const estimates: EstimateRecord[] = rawList.map((item: any) => ({
     id: item.id,
@@ -196,10 +176,25 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading estimates...</Text>
           </View>
         ) : filteredEstimates.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Calculator size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No estimates found.</Text>
-          </View>
+          <EmptyState
+            icon={Calculator}
+            title={search || filter !== 'all' ? 'No estimates found' : 'No estimates yet'}
+            description={
+              search || filter !== 'all'
+                ? 'Try adjusting your search query or status filter.'
+                : 'Send a professional quote to a customer to win their business.'
+            }
+            actionLabel={search || filter !== 'all' ? 'Reset filters' : 'Create Estimate'}
+            actionIcon={search || filter !== 'all' ? undefined : Plus}
+            onAction={() => {
+              if (search || filter !== 'all') {
+                setSearch('');
+                setFilter('all');
+              } else {
+                setIsCreateModalOpen(true);
+              }
+            }}
+          />
         ) : (
           filteredEstimates.map((est) => (
             <TouchableOpacity

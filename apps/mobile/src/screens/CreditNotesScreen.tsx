@@ -13,6 +13,7 @@ import {
 import { Search, Plus, FileMinus, ArrowRight, CheckCircle2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency } from '@accountiva/shared';
 import { useCreditNotes } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -34,27 +35,6 @@ interface CreditNoteRecord {
   status: string;
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
 }
-
-const FALLBACK_CREDIT_NOTES: CreditNoteRecord[] = [
-  {
-    id: '1',
-    customer: 'Delta Retail Corp',
-    number: 'CN-2026-004',
-    date: '08 Oct 2026',
-    amount: 5400,
-    status: 'Open',
-    variant: 'warning',
-  },
-  {
-    id: '2',
-    customer: 'Zephyr Logistics Pvt Ltd',
-    number: 'CN-2026-003',
-    date: '25 Sep 2026',
-    amount: 12000,
-    status: 'Closed',
-    variant: 'success',
-  },
-];
 
 export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
   const { colors } = useTheme();
@@ -81,11 +61,11 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
     }
   };
 
-  const rawList = Array.isArray(apiNotes) && apiNotes.length > 0
+  const rawList: any[] = Array.isArray(apiNotes)
     ? apiNotes
-    : Array.isArray(apiNotes?.data) && apiNotes.data.length > 0
+    : Array.isArray(apiNotes?.data)
     ? apiNotes.data
-    : FALLBACK_CREDIT_NOTES;
+    : [];
 
   const notes: CreditNoteRecord[] = rawList.map((item: any) => ({
     id: item.id,
@@ -189,10 +169,25 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading credit notes...</Text>
           </View>
         ) : filteredNotes.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <FileMinus size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No credit notes found.</Text>
-          </View>
+          <EmptyState
+            icon={FileMinus}
+            title={search || filter !== 'all' ? 'No credit notes found' : 'No credit notes yet'}
+            description={
+              search || filter !== 'all'
+                ? 'Try adjusting your search query or status filter.'
+                : 'Issue customer credit notes to adjust invoice balances or record sales returns.'
+            }
+            actionLabel={search || filter !== 'all' ? 'Reset filters' : 'Create Credit Note'}
+            actionIcon={search || filter !== 'all' ? undefined : Plus}
+            onAction={() => {
+              if (search || filter !== 'all') {
+                setSearch('');
+                setFilter('all');
+              } else {
+                setIsCreateModalOpen(true);
+              }
+            }}
+          />
         ) : (
           filteredNotes.map((cn) => (
             <TouchableOpacity

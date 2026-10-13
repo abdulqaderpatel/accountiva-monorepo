@@ -12,6 +12,7 @@ import {
 import { Search, Plus, FileText } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency } from '@accountiva/shared';
 import { useInvoices } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -35,45 +36,6 @@ interface InvoiceRecord {
   subtotal?: number;
   taxAmount?: number;
 }
-
-const FALLBACK_INVOICES: InvoiceRecord[] = [
-  {
-    id: '1',
-    customer: 'Delta Retail Corp',
-    number: 'INV-2026-042',
-    date: '12 Oct 2026',
-    amount: 35400,
-    status: 'PAID',
-    variant: 'success',
-  },
-  {
-    id: '2',
-    customer: 'Zephyr Logistics Pvt Ltd',
-    number: 'INV-2026-041',
-    date: 'Due 15 Oct 2026',
-    amount: 78250,
-    status: 'SENT',
-    variant: 'warning',
-  },
-  {
-    id: '3',
-    customer: 'Horizon Software Systems',
-    number: 'INV-2026-039',
-    date: 'Overdue 5d',
-    amount: 42800,
-    status: 'OVERDUE',
-    variant: 'destructive',
-  },
-  {
-    id: '4',
-    customer: 'Sterling Media Group',
-    number: 'INV-2026-038',
-    date: '28 Sep 2026',
-    amount: 18000,
-    status: 'DRAFT',
-    variant: 'outline',
-  },
-];
 
 export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
   const { colors } = useTheme();
@@ -101,11 +63,11 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     }
   };
 
-  const rawList = Array.isArray(apiInvoices) && apiInvoices.length > 0
+  const rawList: any[] = Array.isArray(apiInvoices)
     ? apiInvoices
-    : (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0
-        ? apiInvoices.data
-        : FALLBACK_INVOICES);
+    : Array.isArray(apiInvoices?.data)
+    ? apiInvoices.data
+    : [];
 
   const invoices: InvoiceRecord[] = rawList.map((item: any) => ({
     id: item.id,
@@ -218,10 +180,25 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading invoices...</Text>
           </View>
         ) : filteredInvoices.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <FileText size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No invoices found.</Text>
-          </View>
+          <EmptyState
+            icon={FileText}
+            title={search || filter !== 'all' ? 'No invoices found' : 'No invoices yet'}
+            description={
+              search || filter !== 'all'
+                ? 'Try adjusting your search query or status filter to find what you need.'
+                : 'Get started by creating your first invoice for a customer.'
+            }
+            actionLabel={search || filter !== 'all' ? 'Reset filters' : 'Create Invoice'}
+            actionIcon={search || filter !== 'all' ? undefined : Plus}
+            onAction={() => {
+              if (search || filter !== 'all') {
+                setSearch('');
+                setFilter('all');
+              } else {
+                onNavigate('create_invoice');
+              }
+            }}
+          />
         ) : (
           filteredInvoices.map((inv) => (
             <TouchableOpacity

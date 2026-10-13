@@ -12,6 +12,7 @@ import {
 import { Search, Plus, Mail, Phone, Users, Building2 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency } from '@accountiva/shared';
 import { useCustomers } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -38,36 +39,6 @@ interface CustomerRecord {
   variant: 'default' | 'warning' | 'destructive' | 'outline' | 'success';
 }
 
-const FALLBACK_CUSTOMERS: CustomerRecord[] = [
-  {
-    id: '1',
-    name: 'Delta Retail Corp',
-    email: 'delta@retailcorp.in',
-    phone: '+91 98201 23456',
-    status: 'Regular',
-    outstanding: 0,
-    variant: 'default',
-  },
-  {
-    id: '2',
-    name: 'Zephyr Logistics Pvt Ltd',
-    email: 'billing@zephyr.co',
-    phone: '+91 99123 45678',
-    status: 'GST Registered',
-    outstanding: 78250,
-    variant: 'warning',
-  },
-  {
-    id: '3',
-    name: 'Horizon Software Systems',
-    email: 'accounts@horizonsoft.com',
-    phone: '+91 98450 11223',
-    status: 'Overdue',
-    outstanding: 42800,
-    variant: 'destructive',
-  },
-];
-
 export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
@@ -78,11 +49,11 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     search: search || undefined,
   });
 
-  const rawList = Array.isArray(apiCustomers) && apiCustomers.length > 0
+  const rawList: any[] = Array.isArray(apiCustomers)
     ? apiCustomers
-    : (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0
-        ? apiCustomers.data
-        : FALLBACK_CUSTOMERS);
+    : Array.isArray(apiCustomers?.data)
+    ? apiCustomers.data
+    : [];
 
   const customers: CustomerRecord[] = rawList.map((c: any) => ({
     id: c.id,
@@ -152,10 +123,24 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
             <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading customers...</Text>
           </View>
         ) : filteredCustomers.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Users size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No customers found.</Text>
-          </View>
+          <EmptyState
+            icon={Users}
+            title={search ? 'No clients found' : 'No customers yet'}
+            description={
+              search
+                ? 'No customer matches your search query. Try a different name, phone, or email.'
+                : 'Add your first customer to your client list to start issuing invoices and estimates.'
+            }
+            actionLabel={search ? 'Clear search' : 'Add Customer'}
+            actionIcon={search ? undefined : Plus}
+            onAction={() => {
+              if (search) {
+                setSearch('');
+              } else {
+                setIsAddModalOpen(true);
+              }
+            }}
+          />
         ) : (
           filteredCustomers.map((c) => (
             <TouchableOpacity

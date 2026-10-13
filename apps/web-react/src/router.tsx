@@ -9,6 +9,8 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Dashboard } from "./views/Dashboard";
 import { Invoices } from "./views/Invoices";
+import { Estimates } from "./views/Estimates";
+import { CreditNotes } from "./views/CreditNotes";
 import { Customers } from "./views/Customers";
 import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
@@ -110,13 +112,13 @@ const itemsRoute = createRoute({
 const estimatesRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/estimates",
-  component: Invoices,
+  component: Estimates,
 });
 
 const creditNotesRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/sales/credit-notes",
-  component: Invoices,
+  component: CreditNotes,
 });
 
 const settingsRoute = createRoute({

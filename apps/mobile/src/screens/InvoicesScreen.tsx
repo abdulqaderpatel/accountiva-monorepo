@@ -16,6 +16,7 @@ import { formatCurrency } from '@accountiva/shared';
 import { useInvoices } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
+import { InvoiceDetailModal } from '../components/InvoiceDetailModal';
 
 interface InvoicesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -26,9 +27,13 @@ interface InvoiceRecord {
   customer: string;
   number: string;
   date: string;
+  dueDate?: string;
   amount: number;
   status: string;
   variant: 'success' | 'warning' | 'destructive' | 'outline' | 'default';
+  items?: any[];
+  subtotal?: number;
+  taxAmount?: number;
 }
 
 const FALLBACK_INVOICES: InvoiceRecord[] = [
@@ -74,6 +79,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
   const { colors } = useTheme();
   const [filter, setFilter] = useState<'all' | 'unpaid' | 'paid' | 'overdue'>('all');
   const [search, setSearch] = useState('');
+  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices({
     search: search || undefined,
@@ -106,9 +112,13 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     customer: item.customer || item.customerName || item.customers?.name || 'Customer',
     number: item.number || item.invoiceNumber || 'INV-000',
     date: item.date || item.dueDate || 'Recent',
+    dueDate: item.dueDate || item.date || 'Upon Receipt',
     amount: Number(item.amount) || 0,
+    subtotal: Number(item.subtotal) || 0,
+    taxAmount: Number(item.taxAmount) || Number(item.tax_amount) || 0,
     status: (item.status || 'Draft').toUpperCase(),
     variant: getStatusVariant(item.status || 'Draft'),
+    items: item.items || [],
   }));
 
   const filteredInvoices = invoices.filter((inv) => {
@@ -216,6 +226,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
             <TouchableOpacity
               key={inv.id}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedInvoice(inv)}
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
@@ -245,6 +256,14 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
           ))
         )}
       </ScrollView>
+
+      {/* Invoice Detail / Preview Bottom Sheet */}
+      <InvoiceDetailModal
+        visible={Boolean(selectedInvoice)}
+        invoice={selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
+        onRefresh={() => refetch()}
+      />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { Bell, ArrowUpRight, Plus, FileText, UserPlus, Share2 } from 'lucide-react-native';
+import { Bell, ArrowUpRight, Plus, FileText, UserPlus, Share2, Calculator, CreditCard } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
@@ -152,7 +152,11 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             Quick Actions
           </Text>
         </View>
-        <View style={styles.quickActionsGrid}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickActionsScroll}
+        >
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => onNavigate('create_invoice')}
@@ -163,6 +167,32 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             </View>
             <Text style={[styles.actionBtnText, { color: colors.foreground }]}>+ Invoice</Text>
           </TouchableOpacity>
+
+          {isFeatureEnabled('estimates') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('estimates')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <Calculator size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Quotes</Text>
+            </TouchableOpacity>
+          )}
+
+          {isFeatureEnabled('creditNotes') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('credit_notes')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <CreditCard size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Credit Notes</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -185,7 +215,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             </View>
             <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Catalog</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Recent Invoices */}
         <View style={styles.sectionHeaderRow}>
@@ -363,12 +393,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: fonts.semiBold,
   },
-  quickActionsGrid: {
-    flexDirection: 'row',
+  quickActionsScroll: {
+    paddingRight: 16,
     gap: 10,
   },
   actionBtn: {
-    flex: 1,
+    width: 90,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 12,

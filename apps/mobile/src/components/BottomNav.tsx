@@ -4,7 +4,15 @@ import { LayoutDashboard, FileText, Plus, Users, Settings } from 'lucide-react-n
 import { useTheme } from '../theme/ThemeContext';
 import { fonts } from '../theme/typography';
 
-export type ScreenType = 'dashboard' | 'items' | 'invoices' | 'create_invoice' | 'customers' | 'settings';
+export type ScreenType =
+  | 'dashboard'
+  | 'items'
+  | 'invoices'
+  | 'create_invoice'
+  | 'customers'
+  | 'estimates'
+  | 'credit_notes'
+  | 'settings';
 
 interface BottomNavProps {
   currentScreen: ScreenType;

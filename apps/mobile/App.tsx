@@ -27,6 +27,8 @@ import { SignupScreen } from './src/screens/SignupScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
+import { EstimatesScreen } from './src/screens/EstimatesScreen';
+import { CreditNotesScreen } from './src/screens/CreditNotesScreen';
 import { setupMobileApi } from './src/config/api';
 
 // Initialize shared api client
@@ -177,6 +179,10 @@ function AppShell() {
         return <CustomersScreen onNavigate={setCurrentScreen} />;
       case 'items':
         return <ItemsScreen onNavigate={setCurrentScreen} />;
+      case 'estimates':
+        return <EstimatesScreen onNavigate={setCurrentScreen} />;
+      case 'credit_notes':
+        return <CreditNotesScreen onNavigate={setCurrentScreen} />;
       case 'settings':
         return <SettingsScreen />;
       default:

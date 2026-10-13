@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X, Check } from 'lucide-react-native';
+import { X, Check, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { useCreateCustomer } from '@accountiva/api';
+import api, { useCreateCustomer } from '@accountiva/api';
 import { customerSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 
@@ -35,12 +35,46 @@ export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerMod
   const [pan, setPan] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [fetchingGst, setFetchingGst] = useState(false);
 
   const handleGstChange = (val: string) => {
     const uppercase = val.toUpperCase().trim();
     setGstNumber(uppercase);
     if (uppercase.length >= 12 && !pan) {
       setPan(uppercase.substring(2, 12));
+    }
+  };
+
+  const handleFetchGstin = async () => {
+    const cleanGst = gstNumber.trim().toUpperCase();
+    if (cleanGst.length !== 15) {
+      Alert.alert('Invalid GSTIN', 'Please enter a full 15-character GSTIN number first.');
+      return;
+    }
+
+    setFetchingGst(true);
+    try {
+      const res = await api.get(`/customers/gstin/${cleanGst}`);
+      const data = res.data;
+      if (data) {
+        if (data.company) setCompany(data.company);
+        if (data.name && !name) setName(data.name);
+        else if (data.company && !name) setName(data.company);
+        if (data.pan) setPan(data.pan);
+        if (data.address) {
+          const fullAddr = [data.address, data.city, data.state, data.pincode].filter(Boolean).join(', ');
+          setBillingAddress(fullAddr || data.address);
+        }
+        setGstTreatment('Registered Business - Regular');
+        Alert.alert('GST Details Fetched', `Auto-filled details for ${data.company || data.name || cleanGst}`);
+      }
+    } catch (err: any) {
+      Alert.alert(
+        'GST Lookup Notice',
+        err.response?.data?.error || err.message || 'Could not fetch GSTIN details. Please enter manually.'
+      );
+    } finally {
+      setFetchingGst(false);
     }
   };
 
@@ -156,15 +190,57 @@ export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerMod
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>GST & Tax Details</Text>
 
           <Text style={[styles.label, { color: colors.mutedForeground }]}>GSTIN (15 Digits)</Text>
-          <TextInput
-            placeholder="22AAAAA0000A1Z5"
-            placeholderTextColor={colors.mutedForeground}
-            value={gstNumber}
-            onChangeText={handleGstChange}
-            autoCapitalize="characters"
-            maxLength={15}
-            style={[styles.input, { borderColor: errors.gstNumber ? colors.destructive : colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
+          <View style={styles.gstinRow}>
+            <TextInput
+              placeholder="22AAAAA0000A1Z5"
+              placeholderTextColor={colors.mutedForeground}
+              value={gstNumber}
+              onChangeText={handleGstChange}
+              autoCapitalize="characters"
+              maxLength={15}
+              style={[
+                styles.gstinInput,
+                {
+                  borderColor: errors.gstNumber ? colors.destructive : colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                },
+              ]}
+            />
+            <TouchableOpacity
+              onPress={handleFetchGstin}
+              disabled={fetchingGst || gstNumber.length < 15}
+              style={[
+                styles.fetchGstBtn,
+                {
+                  backgroundColor: gstNumber.length === 15 ? colors.primary : colors.surfaceSubtle,
+                  borderColor: colors.border,
+                },
+              ]}
+              activeOpacity={0.8}
+            >
+              {fetchingGst ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <>
+                  <Sparkles
+                    size={14}
+                    color={gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.fetchGstBtnText,
+                      {
+                        color: gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    Auto-fill
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
           {errors.gstNumber && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.gstNumber}</Text>}
 
           <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>PAN (10 Digits)</Text>
@@ -265,5 +341,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 12,
     fontFamily: fonts.display,
+  },
+  gstinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  gstinInput: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+  },
+  fetchGstBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  fetchGstBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: fonts.semiBold,
   },
 });

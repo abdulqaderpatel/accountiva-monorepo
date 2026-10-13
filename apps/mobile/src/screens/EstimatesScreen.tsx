@@ -17,6 +17,8 @@ import { formatCurrency } from '@accountiva/shared';
 import { useEstimates } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
+import { EstimateDetailModal } from '../components/EstimateDetailModal';
+import { CreateEstimateModal } from '../components/CreateEstimateModal';
 
 interface EstimatesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -28,8 +30,11 @@ interface EstimateRecord {
   number: string;
   date: string;
   amount: number;
+  subtotal?: number;
+  taxAmount?: number;
   status: string;
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
+  items?: any[];
 }
 
 const FALLBACK_ESTIMATES: EstimateRecord[] = [
@@ -57,6 +62,8 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted'>('all');
+  const [selectedEstimate, setSelectedEstimate] = useState<EstimateRecord | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: apiEstimates, isLoading, refetch, isRefetching } = useEstimates({
     search: search || undefined,
@@ -91,8 +98,11 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     number: item.estimateNumber || item.number || 'EST-000',
     date: item.date || item.estimateDate || 'Recent',
     amount: Number(item.amount) || 0,
+    subtotal: Number(item.subtotal) || (Number(item.amount) || 0) * 0.847,
+    taxAmount: Number(item.taxAmount) || (Number(item.amount) || 0) * 0.153,
     status: item.status || 'Draft',
     variant: getStatusVariant(item.status || 'Draft'),
+    items: item.items || [],
   }));
 
   const filteredEstimates = estimates.filter((est) => {
@@ -109,7 +119,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Estimates & Quotes</Text>
         <TouchableOpacity
-          onPress={() => Alert.alert('New Quote', 'Estimate creation is active in this workspace.')}
+          onPress={() => setIsCreateModalOpen(true)}
           style={[styles.newBtn, { backgroundColor: colors.primary }]}
           activeOpacity={0.8}
         >
@@ -195,6 +205,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
             <TouchableOpacity
               key={est.id}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedEstimate(est)}
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
@@ -224,6 +235,22 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
           ))
         )}
       </ScrollView>
+
+      {/* Estimate Detail Modal */}
+      <EstimateDetailModal
+        visible={Boolean(selectedEstimate)}
+        estimate={selectedEstimate}
+        onClose={() => setSelectedEstimate(null)}
+        onRefresh={() => refetch()}
+        onConvertToInvoice={() => onNavigate('invoices')}
+      />
+
+      {/* Create Estimate Modal */}
+      <CreateEstimateModal
+        visible={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </View>
   );
 }

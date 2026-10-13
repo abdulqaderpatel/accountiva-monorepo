@@ -18,6 +18,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
 import { AddCustomerModal } from '../components/AddCustomerModal';
+import { CustomerDetailModal } from '../components/CustomerDetailModal';
 
 interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -26,8 +27,12 @@ interface CustomersScreenProps {
 interface CustomerRecord {
   id: string;
   name: string;
+  company?: string;
   email: string;
   phone: string;
+  gstNumber?: string;
+  pan?: string;
+  billingAddress?: string;
   status: string;
   outstanding: number;
   variant: 'default' | 'warning' | 'destructive' | 'outline' | 'success';
@@ -67,6 +72,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
 
   const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
     search: search || undefined,
@@ -81,8 +87,12 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const customers: CustomerRecord[] = rawList.map((c: any) => ({
     id: c.id,
     name: c.name || 'Unnamed Customer',
+    company: c.company || '',
     email: c.email || '',
     phone: c.phone || '',
+    gstNumber: c.gstNumber || c.gstin || '',
+    pan: c.pan || '',
+    billingAddress: c.billingAddress || c.address || '',
     status: c.gstTreatment === 'Registered' ? 'GST Registered' : (c.gstTreatment || 'Regular'),
     outstanding: Number(c.outstanding) || Number(c.opening_balance) || 0,
     variant: c.gstTreatment === 'Registered' ? 'warning' : 'default',
@@ -151,6 +161,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
             <TouchableOpacity
               key={c.id}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedCustomer(c)}
               activeOpacity={0.7}
             >
               <View style={styles.topRow}>
@@ -200,6 +211,14 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         visible={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => refetch()}
+      />
+
+      {/* Customer Detail Modal */}
+      <CustomerDetailModal
+        visible={Boolean(selectedCustomer)}
+        customer={selectedCustomer}
+        onClose={() => setSelectedCustomer(null)}
+        onCreateInvoice={() => onNavigate('create_invoice')}
       />
     </View>
   );

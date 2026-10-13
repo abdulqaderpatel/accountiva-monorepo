@@ -18,6 +18,7 @@ import { useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { AddItemModal } from '../components/AddItemModal';
+import { ItemDetailModal } from '../components/ItemDetailModal';
 
 interface ItemsScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -65,6 +66,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'Product' | 'Service'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ItemRecord | null>(null);
 
   const { data: apiItems, isLoading, refetch, isRefetching } = useItems({
     search: search || undefined,
@@ -189,6 +191,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
             <TouchableOpacity
               key={item.id}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedItem(item)}
               activeOpacity={0.7}
             >
               <View style={styles.topRow}>
@@ -243,6 +246,13 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
         visible={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSuccess={() => refetch()}
+      />
+
+      {/* Item Detail Modal */}
+      <ItemDetailModal
+        visible={Boolean(selectedItem)}
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
       />
     </View>
   );

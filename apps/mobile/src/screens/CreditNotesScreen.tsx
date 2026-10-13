@@ -17,6 +17,8 @@ import { formatCurrency } from '@accountiva/shared';
 import { useCreditNotes } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
+import { CreditNoteDetailModal } from '../components/CreditNoteDetailModal';
+import { CreateCreditNoteModal } from '../components/CreateCreditNoteModal';
 
 interface CreditNotesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -28,6 +30,7 @@ interface CreditNoteRecord {
   number: string;
   date: string;
   amount: number;
+  reason?: string;
   status: string;
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
 }
@@ -57,6 +60,8 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all');
+  const [selectedNote, setSelectedNote] = useState<CreditNoteRecord | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: apiNotes, isLoading, refetch, isRefetching } = useCreditNotes({
     search: search || undefined,
@@ -88,6 +93,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
     number: item.creditNoteNumber || item.number || 'CN-000',
     date: item.date || item.createdAt || 'Recent',
     amount: Number(item.amount) || 0,
+    reason: item.reason || 'Goods returned / pricing adjustment',
     status: item.status || 'Open',
     variant: getStatusVariant(item.status || 'Open'),
   }));
@@ -106,7 +112,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Credit Notes</Text>
         <TouchableOpacity
-          onPress={() => Alert.alert('New Credit Note', 'Credit note creation is active in this workspace.')}
+          onPress={() => setIsCreateModalOpen(true)}
           style={[styles.newBtn, { backgroundColor: colors.primary }]}
           activeOpacity={0.8}
         >
@@ -192,6 +198,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
             <TouchableOpacity
               key={cn.id}
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => setSelectedNote(cn)}
               activeOpacity={0.7}
             >
               <View style={styles.cardTopRow}>
@@ -221,6 +228,20 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
           ))
         )}
       </ScrollView>
+
+      {/* Credit Note Detail Modal */}
+      <CreditNoteDetailModal
+        visible={Boolean(selectedNote)}
+        creditNote={selectedNote}
+        onClose={() => setSelectedNote(null)}
+      />
+
+      {/* Create Credit Note Modal */}
+      <CreateCreditNoteModal
+        visible={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </View>
   );
 }

@@ -1,15 +1,33 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Modal, ActivityIndicator } from 'react-native';
+import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User, ChevronRight, Check, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { fonts } from '../theme/typography';
 
 export function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { user, currentOrg, logout } = useAuth();
+  const { user, currentOrg, organizations, setCurrentOrg, refreshOrganizations, logout } = useAuth();
+  const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    refreshOrganizations();
+  }, [refreshOrganizations]);
+
+  const handleSelectOrg = async (org: MobileOrganization) => {
+    try {
+      setSwitching(true);
+      await setCurrentOrg(org);
+      setIsOrgModalOpen(false);
+    } catch {
+      Alert.alert('Error', 'Failed to switch organization');
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -86,20 +104,27 @@ export function SettingsScreen() {
         {/* Organization Section */}
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Active Organization</Text>
         <Card style={styles.card}>
-          <View style={styles.row}>
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => setIsOrgModalOpen(true)}
+            activeOpacity={0.7}
+          >
             <View style={styles.rowLeft}>
               <Building2 size={18} color={colors.foreground} />
               <View>
                 <Text style={[styles.rowLabel, { color: colors.foreground }]}>
-                  {currentOrg?.name || 'Acme Technologies'}
+                  {currentOrg?.name || 'Primary Organization'}
                 </Text>
                 <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
-                  ID: {currentOrg?.id || 'org-active'} • GST Registered
+                  ID: {currentOrg?.id || 'org-active'} • Tap to switch
                 </Text>
               </View>
             </View>
-            <Badge variant="outline">Default</Badge>
-          </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Badge variant="outline">Switch</Badge>
+              <ChevronRight size={16} color={colors.mutedForeground} />
+            </View>
+          </TouchableOpacity>
 
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
@@ -147,6 +172,94 @@ export function SettingsScreen() {
           <Text style={[styles.logoutText, { color: colors.destructive }]}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Organization Switcher Modal */}
+      <Modal
+        visible={isOrgModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsOrgModalOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Switch Organization</Text>
+                <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
+                  Select workspace to load data and invoices
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsOrgModalOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontSize: 16 }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.orgList}>
+              {organizations.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>
+                    No other organizations available
+                  </Text>
+                </View>
+              ) : (
+                organizations.map((org) => {
+                  const isSelected = currentOrg?.id === org.id;
+                  return (
+                    <TouchableOpacity
+                      key={org.id}
+                      style={[
+                        styles.orgItem,
+                        {
+                          backgroundColor: isSelected ? colors.surfaceSubtle : colors.card,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => handleSelectOrg(org)}
+                      disabled={switching}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.orgItemLeft}>
+                        <View
+                          style={[
+                            styles.orgIcon,
+                            {
+                              backgroundColor: isSelected ? colors.primary : colors.surfaceSubtle,
+                            },
+                          ]}
+                        >
+                          <Building2
+                            size={18}
+                            color={isSelected ? colors.primaryForeground : colors.foreground}
+                          />
+                        </View>
+                        <View>
+                          <Text
+                            style={[
+                              styles.orgItemTitle,
+                              { color: colors.foreground, fontWeight: isSelected ? '700' : '600' },
+                            ]}
+                          >
+                            {org.name}
+                          </Text>
+                          <Text style={[styles.orgItemMeta, { color: colors.mutedForeground }]}>
+                            Currency: {org.currency || 'INR'}
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected ? (
+                        <Check size={18} color={colors.primary} strokeWidth={2.5} />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -238,6 +351,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     fontFamily: fonts.bold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    maxHeight: '80%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
+  },
+  modalSub: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    marginTop: 2,
+  },
+  orgList: {
+    padding: 16,
+    gap: 10,
+  },
+  orgItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  orgItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  orgIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orgItemTitle: {
+    fontSize: 14,
+    fontFamily: fonts.semiBold,
+  },
+  orgItemMeta: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    marginTop: 2,
   },
 });
 

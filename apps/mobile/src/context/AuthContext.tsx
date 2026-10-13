@@ -17,6 +17,7 @@ export interface MobileOrganization {
 interface AuthContextType {
   user: MobileUser | null;
   currentOrg: MobileOrganization | null;
+  organizations: MobileOrganization[];
   token: string | null;
   loading: boolean;
   isAuthenticated: boolean;
@@ -28,6 +29,7 @@ interface AuthContextType {
   verifyEmail: (token: string) => Promise<any>;
   logout: () => Promise<void>;
   setCurrentOrg: (org: MobileOrganization | null) => Promise<void>;
+  refreshOrganizations: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,8 +37,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MobileUser | null>(null);
   const [currentOrg, setCurrentOrgState] = useState<MobileOrganization | null>(null);
+  const [organizations, setOrganizations] = useState<MobileOrganization[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshOrganizations = useCallback(async () => {
+    try {
+      const { data: orgs } = await api.get('/organizations');
+      const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+      if (list.length > 0) {
+        setOrganizations(list);
+        await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
+        setCurrentOrgState((prev) => {
+          if (!prev) return list[0];
+          const matched = list.find((o: any) => o.id === prev.id);
+          return matched || list[0];
+        });
+      }
+    } catch {
+      // Offline fallback
+    }
+  }, []);
 
   // Restore stored session on mount
   useEffect(() => {
@@ -45,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedToken = await AsyncStorage.getItem('accountiva_token');
         const storedUser = await AsyncStorage.getItem('accountiva_user');
         const storedOrg = await AsyncStorage.getItem('accountiva_current_org');
+        const storedOrgs = await AsyncStorage.getItem('accountiva_organizations');
 
         if (storedToken && storedUser) {
           setToken(storedToken);
@@ -53,6 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (storedOrg) {
           setCurrentOrgState(JSON.parse(storedOrg));
+        }
+
+        if (storedOrgs) {
+          setOrganizations(JSON.parse(storedOrgs));
         }
       } catch (err) {
         console.error('Failed to restore mobile auth:', err);
@@ -93,12 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Attempt to load user organizations
       try {
         const { data: orgs } = await api.get('/organizations');
-        if (Array.isArray(orgs) && orgs.length > 0) {
-          await setCurrentOrg(orgs[0]);
+        const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+        if (list.length > 0) {
+          setOrganizations(list);
+          await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
+          await setCurrentOrg(list[0]);
         }
       } catch {
         // Fallback default org if backend has none
-        await setCurrentOrg({ id: 'org-demo', name: 'Primary Organization', currency: 'INR' });
+        const fallback = { id: 'org-demo', name: 'Primary Organization', currency: 'INR' };
+        setOrganizations([fallback]);
+        await setCurrentOrg(fallback);
       }
 
       return data;
@@ -159,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         currentOrg,
+        organizations,
         token,
         loading,
         isAuthenticated: Boolean(user || token),
@@ -170,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyEmail,
         logout,
         setCurrentOrg,
+        refreshOrganizations,
       }}
     >
       {children}

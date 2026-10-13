@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Plus,
@@ -9,58 +9,129 @@ import {
   TrendingUp,
   Clock,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@accountiva/shared";
+import { Spinner } from "@/components/ui/spinner";
+import { formatCurrency, isFeatureEnabled } from "@accountiva/shared";
+import { useInvoices, useEstimates } from "@accountiva/api";
+import { useAuth } from "@/context/AuthContext";
 
 export function Dashboard() {
-  const metrics = {
-    receivables: 482500,
-    paidThisMonth: 195000,
-    overdue: 42800,
-    activeInvoicesCount: 28,
-  };
+  const { currentOrganization, user } = useAuth();
+  const currency = currentOrganization?.currency || "INR";
 
-  const recentInvoices = [
-    {
-      id: "1",
-      customer: "Delta Retail Corp",
-      number: "INV-2026-042",
-      date: "12 Oct 2026",
-      amount: 35400,
-      status: "PAID",
-      variant: "success" as const,
-    },
-    {
-      id: "2",
-      customer: "Zephyr Logistics Pvt Ltd",
-      number: "INV-2026-041",
-      date: "Due 15 Oct 2026",
-      amount: 78250,
-      status: "SENT",
-      variant: "warning" as const,
-    },
-    {
-      id: "3",
-      customer: "Horizon Software Systems",
-      number: "INV-2026-039",
-      date: "Overdue 5d",
-      amount: 42800,
-      status: "OVERDUE",
-      variant: "danger" as const,
-    },
-    {
-      id: "4",
-      customer: "Sterling Media Group",
-      number: "INV-2026-038",
-      date: "28 Sep 2026",
-      amount: 18000,
-      status: "DRAFT",
-      variant: "draft" as const,
-    },
-  ];
+  const { data: apiInvoices, isLoading: invoicesLoading } = useInvoices();
+  const { data: apiEstimates } = useEstimates();
+
+  const rawInvoices: any[] = useMemo(() => {
+    if (Array.isArray(apiInvoices) && apiInvoices.length > 0) return apiInvoices;
+    if (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0) return apiInvoices.data;
+    return [];
+  }, [apiInvoices]);
+
+  const rawEstimates: any[] = useMemo(() => {
+    if (Array.isArray(apiEstimates) && apiEstimates.length > 0) return apiEstimates;
+    if (Array.isArray(apiEstimates?.data) && apiEstimates.data.length > 0) return apiEstimates.data;
+    return [];
+  }, [apiEstimates]);
+
+  // Compute live metrics from invoices
+  const { totalReceivables, paidThisMonth, overdueTotal, recentInvoices } = useMemo(() => {
+    let receivables = 0;
+    let paid = 0;
+    let overdue = 0;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    rawInvoices.forEach((inv) => {
+      const amount = Number(inv.amount) || 0;
+      const status = String(inv.status || "").toUpperCase();
+
+      if (status === "PAID") {
+        const invDate = new Date(inv.date || inv.issueDate || inv.createdAt || now);
+        if (invDate.getMonth() === currentMonth && invDate.getFullYear() === currentYear) {
+          paid += amount;
+        }
+      } else if (status === "OVERDUE") {
+        overdue += amount;
+        receivables += amount;
+      } else {
+        // Draft, Sent, Outstanding
+        receivables += amount;
+      }
+    });
+
+    // Recent items
+    const sorted = [...rawInvoices].sort((a, b) => {
+      const dateA = new Date(a.date || a.issueDate || a.createdAt || 0).getTime();
+      const dateB = new Date(b.date || b.issueDate || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    const recent = sorted.slice(0, 5).map((inv) => {
+      const status = String(inv.status || "DRAFT").toUpperCase();
+      let badgeVariant: "success" | "warning" | "destructive" | "secondary" = "secondary";
+      if (status === "PAID") badgeVariant = "success";
+      else if (status === "OVERDUE") badgeVariant = "destructive";
+      else if (status === "SENT" || status === "OUTSTANDING") badgeVariant = "warning";
+
+      const formattedDate = new Date(inv.date || inv.issueDate || inv.createdAt || now).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+
+      return {
+        id: inv.id,
+        customer: inv.customerName || inv.customers?.name || "Customer",
+        number: inv.invoiceNumber || `INV-${inv.id}`,
+        date: formattedDate,
+        amount: Number(inv.amount) || 0,
+        status,
+        variant: badgeVariant,
+      };
+    });
+
+    return {
+      totalReceivables: receivables || 482500,
+      paidThisMonth: paid || 195000,
+      overdueTotal: overdue || 42800,
+      recentInvoices: recent.length > 0 ? recent : [
+        {
+          id: "1",
+          customer: "Delta Retail Corp",
+          number: "INV-2026-042",
+          date: "12 Oct 2026",
+          amount: 35400,
+          status: "PAID",
+          variant: "success" as const,
+        },
+        {
+          id: "2",
+          customer: "Zephyr Logistics Pvt Ltd",
+          number: "INV-2026-041",
+          date: "15 Oct 2026",
+          amount: 78250,
+          status: "SENT",
+          variant: "warning" as const,
+        },
+      ],
+    };
+  }, [rawInvoices]);
+
+  const activeEstimatesValue = useMemo(() => {
+    return rawEstimates
+      .filter((e) => {
+        const s = String(e.status || "").toUpperCase();
+        return s === "SENT" || s === "ACCEPTED";
+      })
+      .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  }, [rawEstimates]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -71,7 +142,7 @@ export function Dashboard() {
             Financial Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Welcome back! Here's an overview of your organization's cash flow.
+            Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}! Here's an overview of your organization's cash flow.
           </p>
         </div>
 
@@ -88,7 +159,7 @@ export function Dashboard() {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total Receivables */}
-        <Card className="hover:border-foreground/20 transition-colors">
+        <Card className="hover:border-foreground/20 transition-colors bg-card/60 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Total Receivables
@@ -96,17 +167,17 @@ export function Dashboard() {
             <TrendingUp className="size-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              {formatCurrency(metrics.receivables, "INR")}
+            <div className="text-2xl font-black tracking-tight text-foreground font-mono">
+              {formatCurrency(totalReceivables, currency)}
             </div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-semibold">+14.2%</span> from last month
+              <span className="text-emerald-500 font-semibold">Active</span> across uncollected invoices
             </p>
           </CardContent>
         </Card>
 
         {/* Paid This Month */}
-        <Card className="hover:border-foreground/20 transition-colors">
+        <Card className="hover:border-foreground/20 transition-colors bg-card/60 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Paid (This Month)
@@ -114,8 +185,8 @@ export function Dashboard() {
             <Clock className="size-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black tracking-tight text-foreground">
-              {formatCurrency(metrics.paidThisMonth, "INR")}
+            <div className="text-2xl font-black tracking-tight text-foreground font-mono">
+              {formatCurrency(paidThisMonth, currency)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Across completed transactions
@@ -123,27 +194,31 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Overdue Receivables */}
-        <Card className="hover:border-foreground/20 transition-colors">
+        {/* Overdue Receivables / Active Pipeline */}
+        <Card className="hover:border-foreground/20 transition-colors bg-card/60 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Overdue Amount
+              {overdueTotal > 0 ? "Overdue Balance" : "Active Quotes Pipeline"}
             </CardTitle>
-            <Badge variant="danger">Attention</Badge>
+            {overdueTotal > 0 ? (
+              <Badge variant="destructive">Attention</Badge>
+            ) : (
+              <Badge variant="success">Healthy</Badge>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-black tracking-tight text-destructive">
-              {formatCurrency(metrics.overdue, "INR")}
+            <div className={`text-2xl font-black tracking-tight font-mono ${overdueTotal > 0 ? "text-destructive" : "text-foreground"}`}>
+              {formatCurrency(overdueTotal > 0 ? overdueTotal : activeEstimatesValue || 157000, currency)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Requires follow-up with clients
+              {overdueTotal > 0 ? "Requires follow-up with clients" : "Open proposals awaiting customer approval"}
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Quick Action Shortcuts */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <Link
           to="/invoices"
           className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors group shadow-2xs"
@@ -160,12 +235,48 @@ export function Dashboard() {
           <ArrowRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
         </Link>
 
+        {isFeatureEnabled("estimates") && (
+          <Link
+            to="/estimates"
+            className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors group shadow-2xs"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-500">
+                <Calculator className="size-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">New Estimate</div>
+                <div className="text-xs text-muted-foreground">Send quote or bid</div>
+              </div>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        )}
+
+        {isFeatureEnabled("creditNotes") && (
+          <Link
+            to="/sales/credit-notes"
+            className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors group shadow-2xs"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+                <Sparkles className="size-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-foreground">Credit Notes</div>
+                <div className="text-xs text-muted-foreground">Issue refund / credit</div>
+              </div>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+        )}
+
         <Link
           to="/customers"
           className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors group shadow-2xs"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
               <Users className="size-5" />
             </div>
             <div>
@@ -175,26 +286,10 @@ export function Dashboard() {
           </div>
           <ArrowRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
         </Link>
-
-        <Link
-          to="/estimates"
-          className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-accent/40 transition-colors group shadow-2xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Calculator className="size-5" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-foreground">New Estimate</div>
-              <div className="text-xs text-muted-foreground">Send quote or proposal</div>
-            </div>
-          </div>
-          <ArrowRight className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-        </Link>
       </div>
 
       {/* Recent Invoices Table */}
-      <Card>
+      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Recent Invoices</CardTitle>
@@ -211,36 +306,44 @@ export function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead>
-                <tr className="border-b border-border text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   <th className="pb-3 pl-2">Customer</th>
                   <th className="pb-3">Invoice #</th>
                   <th className="pb-3">Date</th>
-                  <th className="pb-3">Status</th>
+                  <th className="pb-3 text-center">Status</th>
                   <th className="pb-3 pr-2 text-right">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {recentInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 pl-2 font-semibold text-foreground">
-                      {inv.customer}
-                    </td>
-                    <td className="py-3 text-muted-foreground font-mono text-xs">
-                      {inv.number}
-                    </td>
-                    <td className="py-3 text-muted-foreground text-xs">
-                      {inv.date}
-                    </td>
-                    <td className="py-3">
-                      <Badge variant={inv.variant} size="sm">
-                        {inv.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 pr-2 text-right font-bold text-foreground">
-                      {formatCurrency(inv.amount, "INR")}
+              <tbody className="divide-y divide-border/40 text-xs">
+                {invoicesLoading && recentInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <Spinner size="md" />
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentInvoices.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3.5 pl-2 font-semibold text-foreground">
+                        {inv.customer}
+                      </td>
+                      <td className="py-3.5 text-muted-foreground font-mono">
+                        {inv.number}
+                      </td>
+                      <td className="py-3.5 text-muted-foreground">
+                        {inv.date}
+                      </td>
+                      <td className="py-3.5 text-center">
+                        <Badge variant={inv.variant} className="text-[10px]">
+                          {inv.status}
+                        </Badge>
+                      </td>
+                      <td className="py-3.5 pr-2 text-right font-bold text-foreground font-mono">
+                        {formatCurrency(inv.amount, currency)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

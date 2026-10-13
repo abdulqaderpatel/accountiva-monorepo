@@ -34,7 +34,7 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
     ? apiCustomers.data
     : [];
 
-  const [customer, setCustomer] = useState('Delta Retail Corp');
+  const [customer, setCustomer] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -47,6 +47,12 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
 
   const handleSave = async () => {
     setErrors({});
+    if (!customer.trim()) {
+      setErrors({ customer: 'Please select a customer' });
+      Alert.alert('Required', 'Please select a customer for this credit note.');
+      return;
+    }
+
     const numAmount = parseFloat(amount);
     if (!amount || isNaN(numAmount) || numAmount <= 0) {
       setErrors({ amount: 'Please enter a valid credit amount' });
@@ -107,7 +113,14 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
                   <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
                     <Users size={16} color={colors.foreground} />
                   </View>
-                  <Text style={[styles.selectText, { color: colors.foreground }]}>{customer}</Text>
+                  <Text
+                    style={[
+                      styles.selectText,
+                      { color: customer ? colors.foreground : colors.mutedForeground },
+                    ]}
+                  >
+                    {customer || 'Select a customer...'}
+                  </Text>
                 </View>
                 <ChevronDown size={16} color={colors.mutedForeground} />
               </TouchableOpacity>

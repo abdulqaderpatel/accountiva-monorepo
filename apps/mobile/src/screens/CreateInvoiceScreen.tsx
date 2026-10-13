@@ -40,7 +40,7 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
     ? apiItems.data
     : [];
 
-  const [customer, setCustomer] = useState('Delta Retail Corp');
+  const [customer, setCustomer] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -50,9 +50,13 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
   const [invoiceNumber, setInvoiceNumber] = useState(
     `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
   );
-  const [dueDate, setDueDate] = useState('26 Oct 2026');
+  const [dueDate, setDueDate] = useState(() => {
+    const due = new Date();
+    due.setDate(due.getDate() + 15);
+    return due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  });
   const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: 'Cloud Hosting Support', quantity: 1, rate: 25000 },
+    { id: '1', name: '', quantity: 1, rate: 0 },
   ]);
 
   const subtotal = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
@@ -84,6 +88,17 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
   };
 
   const handleSave = async () => {
+    if (!customer.trim()) {
+      Alert.alert('Required', 'Please select a customer for this invoice.');
+      return;
+    }
+
+    const validItems = items.filter((i) => i.name.trim().length > 0 && i.rate > 0);
+    if (validItems.length === 0) {
+      Alert.alert('Required', 'Please add at least one line item with a name and rate.');
+      return;
+    }
+
     try {
       await createInvoiceMutation.mutateAsync({
         invoiceNumber,
@@ -93,7 +108,7 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
         subtotal,
         taxAmount: tax,
         status: 'Draft',
-        items: items.map((i) => ({
+        items: validItems.map((i) => ({
           itemName: i.name,
           quantity: i.quantity,
           rate: i.rate,
@@ -143,7 +158,14 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
               <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
                 <Users size={16} color={colors.foreground} />
               </View>
-              <Text style={[styles.customerSelectText, { color: colors.foreground }]}>{customer}</Text>
+              <Text
+                style={[
+                  styles.customerSelectText,
+                  { color: customer ? colors.foreground : colors.mutedForeground },
+                ]}
+              >
+                {customer || 'Select a customer...'}
+              </Text>
             </View>
             <ChevronDown size={16} color={colors.mutedForeground} />
           </TouchableOpacity>

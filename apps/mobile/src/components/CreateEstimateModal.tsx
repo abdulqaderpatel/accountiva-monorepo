@@ -50,7 +50,7 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
     ? apiItems.data
     : [];
 
-  const [customer, setCustomer] = useState('Delta Retail Corp');
+  const [customer, setCustomer] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -62,7 +62,7 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
   );
   const [expiryDate, setExpiryDate] = useState('30 Days');
   const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: 'Software Consulting Services', quantity: 1, rate: 20000 },
+    { id: '1', name: '', quantity: 1, rate: 0 },
   ]);
 
   const subtotal = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
@@ -94,6 +94,17 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
   };
 
   const handleSave = async () => {
+    if (!customer.trim()) {
+      Alert.alert('Required', 'Please select a customer for this quote.');
+      return;
+    }
+
+    const validItems = items.filter((i) => i.name.trim().length > 0 && i.rate > 0);
+    if (validItems.length === 0) {
+      Alert.alert('Required', 'Please add at least one line item with a name and rate.');
+      return;
+    }
+
     try {
       await createEstimateMutation.mutateAsync({
         estimateNumber,
@@ -103,7 +114,7 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
         subtotal,
         taxAmount: tax,
         status: 'Draft',
-        items: items.map((i) => ({
+        items: validItems.map((i) => ({
           itemName: i.name,
           quantity: i.quantity,
           rate: i.rate,
@@ -156,7 +167,14 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
                   <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
                     <Users size={16} color={colors.foreground} />
                   </View>
-                  <Text style={[styles.selectText, { color: colors.foreground }]}>{customer}</Text>
+                  <Text
+                    style={[
+                      styles.selectText,
+                      { color: customer ? colors.foreground : colors.mutedForeground },
+                    ]}
+                  >
+                    {customer || 'Select a customer...'}
+                  </Text>
                 </View>
                 <ChevronDown size={16} color={colors.mutedForeground} />
               </TouchableOpacity>

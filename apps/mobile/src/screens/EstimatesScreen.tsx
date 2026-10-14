@@ -43,6 +43,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted'>('all');
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateRecord | null>(null);
+  const [editingEstimate, setEditingEstimate] = useState<any | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: apiEstimates, isLoading, refetch, isRefetching } = useEstimates({
@@ -237,14 +238,25 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
         estimate={selectedEstimate}
         onClose={() => setSelectedEstimate(null)}
         onRefresh={() => refetch()}
+        onEdit={(est) => {
+          setSelectedEstimate(null);
+          setEditingEstimate(est);
+        }}
         onConvertToInvoice={() => onNavigate('invoices')}
       />
 
-      {/* Create Estimate Modal */}
+      {/* Create / Edit Estimate Modal */}
       <CreateEstimateModal
-        visible={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => refetch()}
+        visible={isCreateModalOpen || Boolean(editingEstimate)}
+        initialEstimate={editingEstimate}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setEditingEstimate(null);
+        }}
+        onSuccess={() => {
+          refetch();
+          setEditingEstimate(null);
+        }}
       />
     </View>
   );

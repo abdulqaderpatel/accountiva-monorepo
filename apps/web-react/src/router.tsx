@@ -190,10 +190,22 @@ const organizationSettingsRoute = createRoute({
   component: OrganizationSettings,
 });
 
+const itemsRedirectRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/items",
+  component: () => <Navigate to="/products-and-services/items" replace />,
+});
+
+const projectsRedirectRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/projects",
+  component: () => <Navigate to="/dashboard" replace />,
+});
+
 const trashRedirectRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/trash",
-  component: () => <Navigate to="/organization-settings" search={{ tab: "trash" }} replace />,
+  component: () => <Navigate to="/organization-settings" search={{ tab: "recently-deleted" }} replace />,
 });
 
 const teamRedirectRoute = createRoute({
@@ -248,6 +260,8 @@ const routeTree = rootRoute.addChildren([
     adminRoute,
     trashRedirectRoute,
     teamRedirectRoute,
+    itemsRedirectRoute,
+    projectsRedirectRoute,
   ]),
 ]);
 

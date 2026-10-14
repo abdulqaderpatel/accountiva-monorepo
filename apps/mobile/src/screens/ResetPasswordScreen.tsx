@@ -26,7 +26,22 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
   const { colors, isDark } = useTheme();
   const { resetPassword } = useAuth();
 
-  const [token, setToken] = useState(initialToken);
+  const extractToken = (raw: string): string => {
+    const clean = raw.trim();
+    if (clean.includes("token=")) {
+      try {
+        const urlObj = new URL(clean);
+        const extracted = urlObj.searchParams.get("token");
+        if (extracted) return extracted;
+      } catch {
+        const match = clean.match(/token=([^&]+)/);
+        if (match && match[1]) return decodeURIComponent(match[1]);
+      }
+    }
+    return clean;
+  };
+
+  const [token, setToken] = useState(extractToken(initialToken));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +50,8 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
   const [success, setSuccess] = useState(false);
 
   const handleReset = async () => {
-    if (!token.trim()) {
+    const activeToken = extractToken(token);
+    if (!activeToken) {
       Alert.alert('Required', 'Please enter your reset token');
       return;
     }
@@ -108,10 +124,10 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
               <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <KeyRound size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
                 <TextInput
-                  placeholder="Paste reset token here"
+                  placeholder="Paste reset token or link here"
                   placeholderTextColor={colors.mutedForeground}
                   value={token}
-                  onChangeText={setToken}
+                  onChangeText={(text) => setToken(extractToken(text))}
                   autoCapitalize="none"
                   style={[styles.input, { color: colors.foreground }]}
                 />

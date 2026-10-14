@@ -9,12 +9,12 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { X, Share2, CheckCircle2, XCircle, Users, Calculator, ArrowRight } from 'lucide-react-native';
+import { X, Share2, CheckCircle2, XCircle, Users, Calculator, ArrowRight, Trash2, Edit3 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { formatCurrency } from '@accountiva/shared';
-import { useUpdateEstimate, useCreateInvoice } from '@accountiva/api';
+import { useUpdateEstimate, useDeleteEstimate, useCreateInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface EstimateDetailModalProps {
@@ -22,6 +22,7 @@ interface EstimateDetailModalProps {
   estimate: any | null;
   onClose: () => void;
   onRefresh?: () => void;
+  onEdit?: (estimate: any) => void;
   onConvertToInvoice?: () => void;
 }
 
@@ -30,10 +31,12 @@ export function EstimateDetailModal({
   estimate,
   onClose,
   onRefresh,
+  onEdit,
   onConvertToInvoice,
 }: EstimateDetailModalProps) {
   const { colors } = useTheme();
   const updateEstimateMutation = useUpdateEstimate();
+  const deleteEstimateMutation = useDeleteEstimate();
   const createInvoiceMutation = useCreateInvoice();
 
   if (!estimate) return null;
@@ -70,6 +73,30 @@ export function EstimateDetailModal({
     } catch (err: any) {
       Alert.alert('Update Failed', err?.message || 'Could not update quote status');
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Quote',
+      `Delete quote ${estimate.number || estimate.estimateNumber}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEstimateMutation.mutateAsync(estimate.id);
+              Alert.alert('Deleted', 'Quote removed');
+              if (onRefresh) onRefresh();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete quote');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleConvert = async () => {
@@ -147,6 +174,21 @@ export function EstimateDetailModal({
               </Text>
             </View>
             <View style={styles.headerRight}>
+              {status === 'DRAFT' && onEdit && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onEdit(estimate);
+                  }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.7}
+                >
+                  <Edit3 size={18} color={colors.foreground} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
+                <Trash2 size={18} color={colors.destructive} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
               </TouchableOpacity>

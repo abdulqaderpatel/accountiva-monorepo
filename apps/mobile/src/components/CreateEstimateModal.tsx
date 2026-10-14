@@ -15,13 +15,14 @@ import { X, Plus, Trash2, Users, Package, Wrench, Search, Check, ChevronDown } f
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { formatCurrency } from '@accountiva/shared';
-import { useCreateEstimate, useCustomers, useItems } from '@accountiva/api';
+import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface CreateEstimateModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialEstimate?: any;
 }
 
 interface LineItem {
@@ -31,9 +32,15 @@ interface LineItem {
   rate: number;
 }
 
-export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstimateModalProps) {
+export function CreateEstimateModal({
+  visible,
+  onClose,
+  onSuccess,
+  initialEstimate,
+}: CreateEstimateModalProps) {
   const { colors } = useTheme();
   const createEstimateMutation = useCreateEstimate();
+  const updateEstimateMutation = useUpdateEstimate();
 
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
@@ -50,7 +57,9 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
     ? apiItems.data
     : [];
 
-  const [customer, setCustomer] = useState('');
+  const [customer, setCustomer] = useState(
+    initialEstimate?.customer || initialEstimate?.customerName || ''
+  );
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -58,12 +67,40 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
   const [itemSearch, setItemSearch] = useState('');
 
   const [estimateNumber, setEstimateNumber] = useState(
-    `EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+    initialEstimate?.number ||
+      initialEstimate?.estimateNumber ||
+      `EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
   );
-  const [expiryDate, setExpiryDate] = useState('30 Days');
-  const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: '', quantity: 1, rate: 0 },
-  ]);
+  const [expiryDate, setExpiryDate] = useState(initialEstimate?.expiryDate || '30 Days');
+  const [items, setItems] = useState<LineItem[]>(() => {
+    if (Array.isArray(initialEstimate?.items) && initialEstimate.items.length > 0) {
+      return initialEstimate.items.map((i: any, idx: number) => ({
+        id: String(i.id || idx),
+        name: i.name || i.itemName || '',
+        quantity: Number(i.quantity) || 1,
+        rate: Number(i.rate) || 0,
+      }));
+    }
+    return [{ id: '1', name: '', quantity: 1, rate: 0 }];
+  });
+
+  React.useEffect(() => {
+    if (initialEstimate) {
+      setCustomer(initialEstimate.customer || initialEstimate.customerName || '');
+      setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
+      setExpiryDate(initialEstimate.expiryDate || '30 Days');
+      if (Array.isArray(initialEstimate.items) && initialEstimate.items.length > 0) {
+        setItems(
+          initialEstimate.items.map((i: any, idx: number) => ({
+            id: String(i.id || idx),
+            name: i.name || i.itemName || '',
+            quantity: Number(i.quantity) || 1,
+            rate: Number(i.rate) || 0,
+          }))
+        );
+      }
+    }
+  }, [initialEstimate, visible]);
 
   const subtotal = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
   const tax = subtotal * 0.18;
@@ -105,24 +142,33 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
       return;
     }
 
-    try {
-      await createEstimateMutation.mutateAsync({
-        estimateNumber,
-        customerName: customer,
-        expiryDate,
-        amount: grandTotal,
-        subtotal,
-        taxAmount: tax,
-        status: 'Draft',
-        items: validItems.map((i) => ({
-          itemName: i.name,
-          quantity: i.quantity,
-          rate: i.rate,
-          amount: i.quantity * i.rate,
-        })),
-      });
+    const payload = {
+      estimateNumber,
+      customerName: customer,
+      expiryDate,
+      amount: grandTotal,
+      subtotal,
+      taxAmount: tax,
+      status: initialEstimate?.status || 'Draft',
+      items: validItems.map((i) => ({
+        itemName: i.name,
+        quantity: i.quantity,
+        rate: i.rate,
+        amount: i.quantity * i.rate,
+      })),
+    };
 
-      Alert.alert('Quote Created', `Quote ${estimateNumber} created for ${customer}!`);
+    try {
+      if (initialEstimate?.id) {
+        await updateEstimateMutation.mutateAsync({
+          id: initialEstimate.id,
+          payload,
+        });
+        Alert.alert('Quote Updated', `Quote ${estimateNumber} updated!`);
+      } else {
+        await createEstimateMutation.mutateAsync(payload);
+        Alert.alert('Quote Created', `Quote ${estimateNumber} created for ${customer}!`);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -139,14 +185,16 @@ export function CreateEstimateModal({ visible, onClose, onSuccess }: CreateEstim
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
               <X size={20} color={colors.mutedForeground} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>New Estimate / Quote</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+              {initialEstimate ? 'Edit Estimate / Quote' : 'New Estimate / Quote'}
+            </Text>
             <TouchableOpacity
               onPress={handleSave}
-              disabled={createEstimateMutation.isPending}
+              disabled={createEstimateMutation.isPending || updateEstimateMutation.isPending}
               style={[styles.saveBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.8}
             >
-              {createEstimateMutation.isPending ? (
+              {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
                 <ActivityIndicator size="small" color={colors.primaryForeground} />
               ) : (
                 <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>

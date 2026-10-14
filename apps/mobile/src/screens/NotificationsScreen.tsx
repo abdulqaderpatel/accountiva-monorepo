@@ -433,3 +433,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
 });
+

@@ -18,13 +18,14 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatCurrency } from "@accountiva/shared";
+import { formatCurrency, exportToCsv } from "@accountiva/shared";
 import { useCustomer, useDeleteCustomer, useInvoices, useEstimates } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
@@ -121,6 +122,22 @@ export function CustomerDetail() {
     }
   };
 
+  const handleExportHistory = () => {
+    if (!transactions || transactions.length === 0) {
+      toast.error("No transactions to export");
+      return;
+    }
+    const exportData = transactions.map((t) => ({
+      "Type": t.type,
+      "Number": t.number,
+      "Date": t.date,
+      "Amount": t.amount,
+      "Status": t.status,
+    }));
+    exportToCsv(exportData, `customer-${customer.name || id}-transactions`);
+    toast.success(`Exported ${exportData.length} transaction(s) to CSV`);
+  };
+
   if (isCustLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center gap-3">
@@ -180,6 +197,10 @@ export function CustomerDetail() {
 
         {/* Action CTAs */}
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button size="sm" variant="outline" onClick={handleExportHistory} className="gap-1.5 text-xs">
+            <Download className="size-3.5" />
+            <span>Export CSV</span>
+          </Button>
           <Button size="sm" onClick={() => setIsInvoiceOpen(true)} className="gap-1.5 font-semibold shadow-xs">
             <Plus className="size-3.5" />
             <span>New Invoice</span>
@@ -415,3 +436,4 @@ export function CustomerDetail() {
 }
 
 export default CustomerDetail;
+

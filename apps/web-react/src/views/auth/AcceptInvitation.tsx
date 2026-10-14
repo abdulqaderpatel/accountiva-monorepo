@@ -270,3 +270,4 @@ export function AcceptInvitation() {
     </div>
   );
 }
+

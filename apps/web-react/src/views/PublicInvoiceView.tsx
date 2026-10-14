@@ -357,3 +357,4 @@ export function PublicInvoiceView() {
 }
 
 export default PublicInvoiceView;
+

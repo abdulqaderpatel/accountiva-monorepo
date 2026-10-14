@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Plus, Search, Mail, Phone, Building2, Eye, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, Building2, Eye, MoreVertical, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { formatCurrency } from "@accountiva/shared";
+import { formatCurrency, exportToCsv } from "@accountiva/shared";
 import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { toast } from "sonner";
@@ -71,6 +71,23 @@ export function Customers() {
     0
   );
 
+  const handleExport = () => {
+    if (!filtered || filtered.length === 0) {
+      toast.error("No customers available to export");
+      return;
+    }
+    const exportData = filtered.map((c) => ({
+      "Name": c.name,
+      "Email": c.email || "",
+      "Phone": c.phone || "",
+      "Company": c.company || "",
+      "GST Treatment": c.gstTreatment || "",
+      "Outstanding": Number(c.outstanding) || Number(c.opening_balance) || 0,
+    }));
+    exportToCsv(exportData, "customers");
+    toast.success(`Exported ${exportData.length} customer(s) to CSV`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -85,6 +102,10 @@ export function Customers() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
           <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
             <Plus className="h-4 w-4" />
             Add Customer

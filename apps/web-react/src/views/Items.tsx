@@ -1,15 +1,14 @@
 import React, { useState } from "react";
-import { Plus, Search, Package, Wrench, MoreVertical, Trash2, Eye, Boxes } from "lucide-react";
+import { Plus, Search, Package, Wrench, MoreVertical, Trash2, Eye, Boxes, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { formatCurrency } from "@accountiva/shared";
+import { formatCurrency, exportToCsv } from "@accountiva/shared";
 import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { toast } from "sonner";
-
 import { EmptyState } from "@/components/ui/empty-state";
 
 interface ItemRecord {
@@ -80,6 +79,24 @@ export function Items() {
   const serviceCount = filtered.filter((i) => i.type === "Service").length;
   const totalStockUnits = filtered.reduce((acc, i) => acc + (Number(i.stockOnHand) || Number(i.openingStock) || 0), 0);
 
+  const handleExport = () => {
+    if (!filtered || filtered.length === 0) {
+      toast.error("No items available to export");
+      return;
+    }
+    const exportData = filtered.map((item) => ({
+      "Name": item.name,
+      "Type": item.type,
+      "SKU": item.sku || "",
+      "Selling Price": Number(item.sellingPrice) || Number(item.unitPrice) || 0,
+      "Cost Price": Number(item.costPrice) || 0,
+      "Stock on Hand": Number(item.stockOnHand) || Number(item.openingStock) || 0,
+      "Description": item.description || "",
+    }));
+    exportToCsv(exportData, "items");
+    toast.success(`Exported ${exportData.length} item(s) to CSV`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -94,6 +111,10 @@ export function Items() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export
+          </Button>
           <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
             <Plus className="h-4 w-4" />
             Add Item

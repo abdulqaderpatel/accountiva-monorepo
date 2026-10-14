@@ -17,11 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { formatCurrency } from "@accountiva/shared";
+import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
 import { useInvoices } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { EmptyState } from "@/components/ui/empty-state";
+import { toast } from "sonner";
 
 interface InvoiceRecord {
   id: string;
@@ -87,6 +88,23 @@ export function Invoices() {
   const paidCount = filteredInvoices.filter((i) => i.status.toUpperCase() === "PAID").length;
   const overdueCount = filteredInvoices.filter((i) => i.status.toUpperCase() === "OVERDUE").length;
 
+  const handleExport = () => {
+    if (!filteredInvoices || filteredInvoices.length === 0) {
+      toast.error("No invoices available to export");
+      return;
+    }
+    const exportData = filteredInvoices.map((inv) => ({
+      "Invoice #": inv.invoiceNumber || (inv as any).number || "N/A",
+      "Customer": inv.customerName || inv.customers?.name || (inv as any).customer || "N/A",
+      "Date": formatDate(inv.date || (inv as any).issueDate || (inv as any).createdAt),
+      "Due Date": formatDate(inv.dueDate),
+      "Amount": inv.amount,
+      "Status": inv.status,
+    }));
+    exportToCsv(exportData, "invoices");
+    toast.success(`Exported ${exportData.length} invoice(s) to CSV`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -98,7 +116,7 @@ export function Invoices() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleExport}>
             <Download className="h-4 w-4" />
             Export
           </Button>

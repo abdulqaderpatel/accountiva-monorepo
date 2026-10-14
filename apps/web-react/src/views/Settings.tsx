@@ -14,6 +14,8 @@ import {
   DollarSign,
   ArrowRight,
   ExternalLink,
+  Bell,
+  Hash,
 } from "lucide-react";
 import api from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
@@ -24,10 +26,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type SettingsTab = "profile" | "organization" | "appearance" | "invoices";
+type SettingsTab = "profile" | "organization" | "appearance" | "invoices" | "notifications";
 
 export function Settings() {
   const { theme, accentColor, setTheme, setAccentColor } = useTheme();
@@ -39,6 +42,7 @@ export function Settings() {
       if (tab === "profile" || tab === "account") return "profile";
       if (tab === "organization") return "organization";
       if (tab === "invoices") return "invoices";
+      if (tab === "notifications") return "notifications";
     }
     return "appearance";
   };
@@ -56,6 +60,78 @@ export function Settings() {
   const [gstin, setGstin] = useState("");
   const [pan, setPan] = useState("");
   const [isSavingOrg, setIsSavingOrg] = useState(false);
+
+  // Notification Preferences
+  const [weeklyReport, setWeeklyReport] = useState(true);
+  const [isUpdatingPrefs, setIsUpdatingPrefs] = useState(false);
+
+  useEffect(() => {
+    api.get("/notifications/preferences").then(({ data }) => {
+      if (data && typeof data.weekly_report === "boolean") {
+        setWeeklyReport(data.weekly_report);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleToggleWeeklyReport = async (val: boolean) => {
+    setWeeklyReport(val);
+    setIsUpdatingPrefs(true);
+    try {
+      await api.put("/notifications/preferences", { weekly_report: val });
+      toast.success("Notification preferences updated");
+    } catch {
+      toast.error("Failed to update preferences");
+      setWeeklyReport(!val);
+    } finally {
+      setIsUpdatingPrefs(false);
+    }
+  };
+
+  // Numbering Sequences
+  interface NumberingSequenceItem {
+    module: "customers" | "vendors" | "items";
+    prefix: string;
+    nextNumber: number;
+    padding: number;
+    enabled: boolean;
+    preview?: string;
+  }
+
+  const [sequences, setSequences] = useState<NumberingSequenceItem[]>([
+    { module: "customers", prefix: "CUST-", nextNumber: 1, padding: 4, enabled: true, preview: "CUST-0001" },
+    { module: "items", prefix: "ITEM-", nextNumber: 1, padding: 4, enabled: true, preview: "ITEM-0001" },
+  ]);
+  const [isLoadingSequences, setIsLoadingSequences] = useState(false);
+  const [savingSequenceModule, setSavingSequenceModule] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoadingSequences(true);
+    api.get("/organizations/numbering-sequences").then(({ data }) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setSequences(data);
+      }
+    }).catch(() => {}).finally(() => {
+      setIsLoadingSequences(false);
+    });
+  }, []);
+
+  const handleSaveSequence = async (seq: NumberingSequenceItem) => {
+    setSavingSequenceModule(seq.module);
+    try {
+      const { data } = await api.put(`/organizations/numbering-sequences/${seq.module}`, {
+        prefix: seq.prefix,
+        nextNumber: Number(seq.nextNumber),
+        padding: Number(seq.padding),
+        enabled: seq.enabled,
+      });
+      setSequences((prev) => prev.map((s) => (s.module === seq.module ? (data || s) : s)));
+      toast.success(`${seq.module.toUpperCase()} numbering sequence updated`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to save sequence");
+    } finally {
+      setSavingSequenceModule(null);
+    }
+  };
 
   useEffect(() => {
     if (user?.name) {
@@ -118,7 +194,8 @@ export function Settings() {
     { id: "appearance" as SettingsTab, label: "Appearance", icon: Palette },
     { id: "profile" as SettingsTab, label: "Account Profile", icon: User },
     { id: "organization" as SettingsTab, label: "Organization Details", icon: Building2 },
-    { id: "invoices" as SettingsTab, label: "Invoice Presets", icon: FileText },
+    { id: "invoices" as SettingsTab, label: "Numbering & Invoices", icon: FileText },
+    { id: "notifications" as SettingsTab, label: "Notifications", icon: Bell },
   ];
 
   return (
@@ -355,36 +432,190 @@ export function Settings() {
             </Card>
           )}
 
-          {/* Invoices Presets Section */}
+          {/* Invoices & Numbering Presets Section */}
           {activeTab === "invoices" && (
+            <div className="space-y-6">
+              <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Invoice Defaults</CardTitle>
+                  <CardDescription className="text-xs">
+                    Standard payment terms and default credit policy.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Invoice Numbering Prefix</Label>
+                      <Input defaultValue="INV-" className="font-mono text-xs uppercase" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Default Payment Terms</Label>
+                      <select className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+                        <option>Due on Receipt</option>
+                        <option>Net 15 Days</option>
+                        <option>Net 30 Days</option>
+                        <option>Net 60 Days</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <Button onClick={() => toast.success("Invoice preferences updated!")}>
+                      Save Preferences
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Numbering Sequences */}
+              <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Entity Numbering Sequences</CardTitle>
+                  <CardDescription className="text-xs">
+                    Automated prefixes, zero-padding, and sequential counters across records.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {isLoadingSequences ? (
+                    <div className="py-8 flex justify-center">
+                      <Spinner size="md" />
+                    </div>
+                  ) : (
+                    sequences.map((seq, idx) => {
+                      const isSaving = savingSequenceModule === seq.module;
+                      const previewStr = `${seq.prefix || ""}${String(seq.nextNumber || 1).padStart(Number(seq.padding) || 4, "0")}`;
+
+                      return (
+                        <div
+                          key={seq.module}
+                          className="p-4 rounded-xl border border-border/50 bg-muted/10 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Hash className="size-4 text-primary" />
+                              <span className="text-xs font-bold text-foreground capitalize">
+                                {seq.module} Sequence
+                              </span>
+                            </div>
+                            <Badge variant="outline" className="font-mono text-[10px]">
+                              Preview: {previewStr}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Prefix</Label>
+                              <Input
+                                value={seq.prefix}
+                                onChange={(e) => {
+                                  const val = e.target.value.toUpperCase();
+                                  setSequences((prev) =>
+                                    prev.map((s, i) => (i === idx ? { ...s, prefix: val } : s))
+                                  );
+                                }}
+                                className="font-mono text-xs uppercase"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Next Counter</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={seq.nextNumber}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10) || 1;
+                                  setSequences((prev) =>
+                                    prev.map((s, i) => (i === idx ? { ...s, nextNumber: val } : s))
+                                  );
+                                }}
+                                className="font-mono text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">Zero Padding</Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={8}
+                                value={seq.padding}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value, 10) || 4;
+                                  setSequences((prev) =>
+                                    prev.map((s, i) => (i === idx ? { ...s, padding: val } : s))
+                                  );
+                                }}
+                                className="font-mono text-xs"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-1 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSaveSequence(seq)}
+                              disabled={isSaving}
+                              className="text-xs gap-1.5"
+                            >
+                              {isSaving && <Spinner size="sm" />}
+                              <span>{isSaving ? "Saving..." : "Save Sequence"}</span>
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Notifications Preferences Section */}
+          {activeTab === "notifications" && (
             <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-base">Invoice Defaults & Sequence</CardTitle>
+                <CardTitle className="text-base">Notification Preferences</CardTitle>
                 <CardDescription className="text-xs">
-                  Standard payment terms and automated numbering prefixes.
+                  Configure email summaries, activity digests, and notification alerts.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Invoice Numbering Prefix</Label>
-                    <Input defaultValue="INV-" className="font-mono text-xs uppercase" />
+              <CardContent className="space-y-6">
+                <div className="p-4 rounded-xl border border-border/50 bg-muted/10 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-foreground block">
+                      Weekly Performance Digest
+                    </span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Receive a weekly automated email summary detailing invoices paid, outstanding receivables, and business growth metrics.
+                    </p>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Default Payment Terms</Label>
-                    <select className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                      <option>Due on Receipt</option>
-                      <option>Net 15 Days</option>
-                      <option>Net 30 Days</option>
-                      <option>Net 60 Days</option>
-                    </select>
-                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={weeklyReport}
+                      disabled={isUpdatingPrefs}
+                      onChange={(e) => handleToggleWeeklyReport(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-10 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary" />
+                  </label>
                 </div>
 
-                <div className="pt-2 flex justify-end">
-                  <Button onClick={() => toast.success("Invoice preferences updated!")}>
-                    Save Preferences
-                  </Button>
+                <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-foreground block">
+                      In-App Notification Center
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Review live workspace activity logs, customer events, and invitation updates.
+                    </p>
+                  </div>
+                  <Link to="/notifications">
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs shrink-0">
+                      <span>Open Notification Center</span>
+                      <ArrowRight className="size-3" />
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

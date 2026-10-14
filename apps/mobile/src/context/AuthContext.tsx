@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import api from '@accountiva/api';
 
 export interface MobileUser {
@@ -23,6 +24,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
   signup: (name: string, email: string, password: string) => Promise<any>;
+  signInWithGoogle: () => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (password: string, token: string) => Promise<any>;
   resendVerification: (email: string) => Promise<any>;
@@ -138,6 +140,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     throw new Error(data?.message || 'Invalid credentials');
   };
 
+  // Configure GoogleSignin on mount
+  useEffect(() => {
+    try {
+      GoogleSignin.configure({
+        webClientId:
+          process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+          '971420250309-1509bhvqfo791mfhqlmpp9bgq48ksohe.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      });
+    } catch (e) {
+      console.warn('Failed to configure GoogleSignin:', e);
+    }
+  }, []);
+
+  const signInWithGoogle = async () => {
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const signInResult = await GoogleSignin.signIn();
+
+      if (signInResult.type === 'cancelled') {
+        return null;
+      }
+
+      const idToken = signInResult.data?.idToken;
+      if (!idToken) {
+        throw new Error('Google Sign-In did not return an ID token.');
+      }
+
+      const { data } = await api.post('/auth/sign-in/social', {
+        provider: 'google',
+        idToken: {
+          token: idToken,
+        },
+      });
+
+      if (data?.token || data?.session?.token) {
+        const authToken = data.token || data.session.token;
+        const authUser = data.user || {
+          id: signInResult.data?.user?.id || 'usr-google',
+          email: signInResult.data?.user?.email || '',
+          name: signInResult.data?.user?.name || 'Google User',
+        };
+
+        setToken(authToken);
+        setUser(authUser);
+        await AsyncStorage.setItem('accountiva_token', authToken);
+        await AsyncStorage.setItem('accountiva_user', JSON.stringify(authUser));
+
+        // Attempt to load user organizations
+        try {
+          const { data: orgs } = await api.get('/organizations');
+          const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+          if (list.length > 0) {
+            setOrganizations(list);
+            await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
+            await setCurrentOrg(list[0]);
+          }
+        } catch {
+          const fallback = { id: 'org-demo', name: 'Primary Organization', currency: 'INR' };
+          setOrganizations([fallback]);
+          await setCurrentOrg(fallback);
+        }
+
+        return data;
+      }
+
+      throw new Error(data?.message || 'Failed to authenticate with Google');
+    } catch (err: any) {
+      if (err?.code === 'SIGN_IN_CANCELLED' || err?.code === '12501') {
+        return null;
+      }
+      throw err;
+    }
+  };
+
   const signup = async (name: string, email: string, password: string) => {
     const { data } = await api.post('/auth/sign-up/email', {
       name,
@@ -176,6 +253,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    try {
+      await GoogleSignin.signOut();
+    } catch {}
     setUser(null);
     setToken(null);
     setCurrentOrgState(null);
@@ -196,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: Boolean(user || token),
         login,
         signup,
+        signInWithGoogle,
         forgotPassword,
         resetPassword,
         resendVerification,

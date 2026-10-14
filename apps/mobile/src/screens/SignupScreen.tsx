@@ -16,6 +16,7 @@ import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
+import { GoogleIcon } from '../components/ui/GoogleIcon';
 
 interface SignupScreenProps {
   onNavigateToLogin: () => void;
@@ -25,7 +26,7 @@ interface SignupScreenProps {
 
 export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuccess }: SignupScreenProps) {
   const { colors, isDark } = useTheme();
-  const { signup } = useAuth();
+  const { signup, signInWithGoogle } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -33,6 +34,21 @@ export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuc
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setSocialLoading(true);
+    try {
+      const res = await signInWithGoogle();
+      if (res) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      Alert.alert('Google Sign Up Failed', err.response?.data?.message || err.message || 'Could not sign up with Google');
+    } finally {
+      setSocialLoading(false);
+    }
+  };
 
   const handleSignup = async () => {
     if (!fullName.trim() || !email.trim() || !password) {
@@ -102,6 +118,29 @@ export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuc
 
         {/* Input Card */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Google Sign In */}
+          <TouchableOpacity
+            onPress={handleGoogleSignIn}
+            disabled={socialLoading || loading}
+            style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+            activeOpacity={0.8}
+          >
+            {socialLoading ? (
+              <ActivityIndicator size="small" color={colors.foreground} />
+            ) : (
+              <>
+                <GoogleIcon size={18} />
+                <Text style={[styles.socialBtnText, { color: colors.foreground }]}>Sign up with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground }]}>or sign up with email</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
           <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Full Name</Text>
           <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
             <User size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
@@ -250,6 +289,37 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
+  },
+  socialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  socialBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    fontFamily: fonts.display,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   submitBtn: {
     flexDirection: 'row',

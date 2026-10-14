@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Settings,
   ShieldAlert,
+  Keyboard,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -20,9 +21,10 @@ import { Button } from "@/components/ui/button";
 interface TopBarProps {
   organizationName?: string;
   onOpenSearch?: () => void;
+  onOpenShortcuts?: () => void;
 }
 
-export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
+export function TopBar({ organizationName, onOpenSearch, onOpenShortcuts }: TopBarProps) {
   const { isDark, toggleTheme } = useTheme();
   const { currentOrganization, organizations, setCurrentOrganization, user, isAdmin } = useAuth();
   const { data: notifications = [] } = useNotifications();
@@ -133,6 +135,17 @@ export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
             Ctrl K
           </kbd>
         </button>
+
+        {/* Keyboard Shortcuts Trigger */}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onOpenShortcuts}
+          title="Keyboard Shortcuts (?)"
+          className="hidden sm:flex"
+        >
+          <Keyboard className="size-4" />
+        </Button>
 
         {/* Theme Switcher Toggle */}
         <Button

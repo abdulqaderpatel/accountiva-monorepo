@@ -10,6 +10,7 @@ import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { quickCreate } from "@/lib/quickCreate";
 
 interface ItemRecord {
   id: string;
@@ -30,6 +31,18 @@ export function Items() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (quickCreate.consume("item")) {
+      setIsAddOpen(true);
+    }
+    return quickCreate.subscribe((action) => {
+      if (action === "item") {
+        quickCreate.consume("item");
+        setIsAddOpen(true);
+      }
+    });
+  }, []);
 
   const { data: apiItems, isLoading, refetch } = useItems({
     search: search || undefined,

@@ -31,6 +31,7 @@ interface SearchItem {
   subtitle: string;
   type: "Invoice" | "Customer" | "Item" | "Estimate" | "Page";
   route: string;
+  shortcut?: string;
   badgeVariant?: "default" | "secondary" | "success" | "warning" | "destructive";
   icon: React.ComponentType<{ className?: string }>;
 }
@@ -65,6 +66,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Financial metrics and overview",
         type: "Page",
         route: "/dashboard",
+        shortcut: "G D",
         icon: LayoutDashboard,
       },
     ];
@@ -76,6 +78,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Client billing & receivables",
         type: "Page",
         route: "/invoices",
+        shortcut: "G I",
         icon: FileText,
       });
     }
@@ -87,6 +90,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Client contacts & accounts",
         type: "Page",
         route: "/customers",
+        shortcut: "G C",
         icon: Users,
       });
     }
@@ -98,6 +102,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Inventory catalog and rates",
         type: "Page",
         route: "/products-and-services/items",
+        shortcut: "G P",
         icon: Package,
       });
     }
@@ -109,6 +114,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Quotes and proposals",
         type: "Page",
         route: "/estimates",
+        shortcut: "G E",
         icon: Calculator,
       });
     }
@@ -120,6 +126,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         subtitle: "Refunds and adjustments",
         type: "Page",
         route: "/sales/credit-notes",
+        shortcut: "G N",
         icon: FileMinus,
       });
     }
@@ -130,6 +137,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       subtitle: "Business profile, team members, branding, trash",
       type: "Page",
       route: "/organization-settings",
+      shortcut: "G O",
       icon: Building2,
     });
 
@@ -139,6 +147,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       subtitle: "System alerts, actions, and invites",
       type: "Page",
       route: "/notifications",
+      shortcut: "G R",
       icon: Bell,
     });
 
@@ -148,6 +157,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       subtitle: "Profile, theme, organization config",
       type: "Page",
       route: "/settings",
+      shortcut: "G S",
       icon: Settings,
     });
 
@@ -403,6 +413,11 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 ml-3">
+                    {item.shortcut && (
+                      <span className="text-[9px] font-mono text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded border border-border/50">
+                        {item.shortcut}
+                      </span>
+                    )}
                     <Badge
                       variant={isSelected ? "secondary" : item.badgeVariant || "outline"}
                       className="text-[10px] font-normal"
@@ -435,7 +450,10 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               <span>select</span>
             </span>
           </div>
-          <span>Accountiva Quick Search</span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">?</kbd>
+            <span>all shortcuts</span>
+          </span>
         </div>
       </div>
     </div>

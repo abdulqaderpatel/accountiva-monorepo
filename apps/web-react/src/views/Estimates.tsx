@@ -22,6 +22,7 @@ import { useEstimates, useDeleteEstimate, useUpdateEstimate, useCreateInvoice } 
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
+import { quickCreate } from "@/lib/quickCreate";
 
 interface EstimateRecord {
   id: string;
@@ -40,6 +41,18 @@ export function Estimates() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (quickCreate.consume("estimate")) {
+      setIsCreateOpen(true);
+    }
+    return quickCreate.subscribe((action) => {
+      if (action === "estimate") {
+        quickCreate.consume("estimate");
+        setIsCreateOpen(true);
+      }
+    });
+  }, []);
 
   const { data: apiEstimates, isLoading, refetch } = useEstimates();
   const createInvoiceMutation = useCreateInvoice();

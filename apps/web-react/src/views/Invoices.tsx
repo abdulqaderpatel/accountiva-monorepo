@@ -23,6 +23,7 @@ import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
+import { quickCreate } from "@/lib/quickCreate";
 
 interface InvoiceRecord {
   id: string;
@@ -41,6 +42,18 @@ export function Invoices() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
+
+  React.useEffect(() => {
+    if (quickCreate.consume("invoice")) {
+      setIsCreateOpen(true);
+    }
+    return quickCreate.subscribe((action) => {
+      if (action === "invoice") {
+        quickCreate.consume("invoice");
+        setIsCreateOpen(true);
+      }
+    });
+  }, []);
 
   const { data: apiInvoices, isLoading, refetch } = useInvoices({
     search: search || undefined,

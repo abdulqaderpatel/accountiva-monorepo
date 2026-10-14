@@ -10,8 +10,8 @@ import { formatCurrency, exportToCsv } from "@accountiva/shared";
 import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { toast } from "sonner";
-
 import { EmptyState } from "@/components/ui/empty-state";
+import { quickCreate } from "@/lib/quickCreate";
 
 interface CustomerRecord {
   id: string;
@@ -28,6 +28,18 @@ export function Customers() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (quickCreate.consume("customer")) {
+      setIsAddOpen(true);
+    }
+    return quickCreate.subscribe((action) => {
+      if (action === "customer") {
+        quickCreate.consume("customer");
+        setIsAddOpen(true);
+      }
+    });
+  }, []);
 
   const { data: apiCustomers, isLoading, refetch } = useCustomers({
     search: search || undefined,

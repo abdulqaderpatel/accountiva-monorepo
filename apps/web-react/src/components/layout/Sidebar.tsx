@@ -25,6 +25,7 @@ interface NavItem {
   name: string;
   icon: React.ComponentType<{ className?: string }>;
   route: string;
+  shortcut?: string;
   feature?: keyof FeatureFlags;
 }
 
@@ -40,29 +41,29 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
     {
       title: "General",
       items: [
-        { name: "Dashboard", icon: LayoutDashboard, route: "/dashboard", feature: "dashboard" },
+        { name: "Dashboard", icon: LayoutDashboard, route: "/dashboard", shortcut: "G D", feature: "dashboard" },
       ],
     },
     {
       title: "Inventory",
       items: [
-        { name: "Items", icon: Package, route: "/products-and-services/items", feature: "items" },
+        { name: "Items", icon: Package, route: "/products-and-services/items", shortcut: "G P", feature: "items" },
       ],
     },
     {
       title: "Sales",
       items: [
-        { name: "Customers", icon: Users, route: "/customers", feature: "customers" },
-        { name: "Estimates", icon: Calculator, route: "/estimates", feature: "estimates" },
-        { name: "Invoices", icon: FileText, route: "/invoices", feature: "invoices" },
-        { name: "Credit Notes", icon: FileMinus, route: "/sales/credit-notes", feature: "creditNotes" },
+        { name: "Customers", icon: Users, route: "/customers", shortcut: "G C", feature: "customers" },
+        { name: "Estimates", icon: Calculator, route: "/estimates", shortcut: "G E", feature: "estimates" },
+        { name: "Invoices", icon: FileText, route: "/invoices", shortcut: "G I", feature: "invoices" },
+        { name: "Credit Notes", icon: FileMinus, route: "/sales/credit-notes", shortcut: "G N", feature: "creditNotes" },
       ],
     },
     {
       title: "Settings",
       items: [
-        { name: "Organization", icon: Building2, route: "/organization-settings" },
-        { name: "Settings", icon: Settings, route: "/settings" },
+        { name: "Organization", icon: Building2, route: "/organization-settings", shortcut: "G O" },
+        { name: "Settings", icon: Settings, route: "/settings", shortcut: "G S" },
       ],
     },
   ];
@@ -134,16 +135,21 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                   key={item.name}
                   to={item.route}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
                       : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
                     isCollapsed && "justify-center px-0"
                   )}
-                  title={isCollapsed ? item.name : undefined}
+                  title={isCollapsed ? `${item.name}${item.shortcut ? ` (${item.shortcut})` : ""}` : undefined}
                 >
                   <Icon className="size-4.5 shrink-0" />
                   {!isCollapsed && <span className="truncate">{item.name}</span>}
+                  {item.shortcut && !isCollapsed && !isActive && (
+                    <span className="hidden group-hover:inline-flex ml-auto text-[9px] font-mono text-muted-foreground/80 bg-muted/80 px-1 py-0.5 rounded border border-border/50 transition-all select-none">
+                      {item.shortcut}
+                    </span>
+                  )}
                 </Link>
               );
             })}

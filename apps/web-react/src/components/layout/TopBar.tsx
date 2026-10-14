@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button";
 
 interface TopBarProps {
   organizationName?: string;
+  onOpenSearch?: () => void;
 }
 
-export function TopBar({ organizationName }: TopBarProps) {
+export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
   const { isDark, toggleTheme } = useTheme();
   const { currentOrganization, organizations, setCurrentOrganization, user } = useAuth();
   const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
@@ -110,7 +111,7 @@ export function TopBar({ organizationName }: TopBarProps) {
         {/* Global Search Shortcut */}
         <button
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground transition-colors shadow-2xs cursor-pointer"
-          onClick={() => {}}
+          onClick={onOpenSearch}
         >
           <Search className="size-3.5" />
           <span>Search...</span>

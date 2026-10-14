@@ -229,6 +229,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
         visible={Boolean(selectedNote)}
         creditNote={selectedNote}
         onClose={() => setSelectedNote(null)}
+        onRefresh={() => refetch()}
       />
 
       {/* Create Credit Note Modal */}

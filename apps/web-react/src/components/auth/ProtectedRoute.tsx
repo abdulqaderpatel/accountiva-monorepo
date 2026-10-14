@@ -3,7 +3,7 @@ import { Navigate, useLocation, Outlet } from "@tanstack/react-router";
 import { useAuth } from "@/context/AuthContext";
 
 export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, organizations } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -20,6 +20,16 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   if (!isAuthenticated) {
     const redirectUrl = `${location.pathname}${location.searchStr || ""}`;
     return <Navigate to="/login" search={{ redirect: redirectUrl }} replace />;
+  }
+
+  // Force onboarding if user has no organizations and is not on onboarding
+  if (organizations.length === 0 && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  // If user already has organizations but visits onboarding, redirect to dashboard
+  if (organizations.length > 0 && location.pathname === "/onboarding") {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

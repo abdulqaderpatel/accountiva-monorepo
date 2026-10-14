@@ -16,6 +16,7 @@ import { CustomerDetail } from "./views/CustomerDetail";
 import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import { PublicInvoiceView } from "./views/PublicInvoiceView";
+import { Onboarding } from "./views/Onboarding";
 import Login from "./views/auth/Login";
 import Signup from "./views/auth/Signup";
 import ForgotPassword from "./views/auth/ForgotPassword";
@@ -79,6 +80,16 @@ const publicInvoiceAliasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/invoices/$id",
   component: PublicInvoiceView,
+});
+
+const onboardingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/onboarding",
+  component: () => (
+    <ProtectedRoute>
+      <Onboarding />
+    </ProtectedRoute>
+  ),
 });
 
 // 3. Protected Layout Route
@@ -157,6 +168,7 @@ const routeTree = rootRoute.addChildren([
   verifyEmailRoute,
   publicInvoiceRoute,
   publicInvoiceAliasRoute,
+  onboardingRoute,
   protectedLayoutRoute.addChildren([
     indexRoute,
     dashboardRoute,

@@ -34,6 +34,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
+  createOrganization: (formData: any) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,6 +82,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to fetch organizations:", err);
     }
   }, [setCurrentOrganization]);
+
+  const createOrganization = useCallback(async (formData: any) => {
+    const isFormData = typeof FormData !== "undefined" && formData instanceof FormData;
+    const { data } = await api.post("/organizations", formData, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+    await fetchOrganizations();
+    if (data?.id) {
+      setCurrentOrganization(data);
+    }
+    return data;
+  }, [fetchOrganizations, setCurrentOrganization]);
 
   // Restore session on mount
   useEffect(() => {
@@ -218,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         setCurrentOrganization,
         fetchOrganizations,
+        createOrganization,
       }}
     >
       {children}

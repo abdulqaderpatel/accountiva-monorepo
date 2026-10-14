@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@accountiva/api";
 import { Button } from "@/components/ui/button";
 
 interface TopBarProps {
@@ -23,7 +24,10 @@ interface TopBarProps {
 export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
   const { isDark, toggleTheme } = useTheme();
   const { currentOrganization, organizations, setCurrentOrganization, user } = useAuth();
+  const { data: notifications = [] } = useNotifications();
   const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeOrgName = organizationName || currentOrganization?.name || "Acme Technologies";
@@ -140,15 +144,21 @@ export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
         </Button>
 
         {/* Notifications */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative"
-          title="Notifications"
-        >
-          <Bell className="size-4" />
-          <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-emerald-500" />
-        </Button>
+        <Link to="/notifications">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="relative"
+            title="Notifications"
+          >
+            <Bell className="size-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[15px] h-3.5 rounded-full bg-rose-500 text-white font-bold text-[9px] flex items-center justify-center px-0.5 shadow-2xs select-none">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </Button>
+        </Link>
 
         {/* User Avatar */}
         <Link to="/settings">

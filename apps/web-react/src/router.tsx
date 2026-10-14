@@ -16,6 +16,7 @@ import { CustomerDetail } from "./views/CustomerDetail";
 import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import { OrganizationSettings } from "./views/OrganizationSettings";
+import { Notifications } from "./views/Notifications";
 import { PublicInvoiceView } from "./views/PublicInvoiceView";
 import { Onboarding } from "./views/Onboarding";
 import { Landing } from "./views/Landing";
@@ -200,6 +201,18 @@ const teamRedirectRoute = createRoute({
   component: () => <Navigate to="/organization-settings" search={{ tab: "members" }} replace />,
 });
 
+const notificationsRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/notifications",
+  component: Notifications,
+});
+
+const notificationsRedirectRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/settings/notifications",
+  component: () => <Navigate to="/notifications" replace />,
+});
+
 // 4. Create Route Tree
 const routeTree = rootRoute.addChildren([
   rootIndexRoute,
@@ -223,6 +236,8 @@ const routeTree = rootRoute.addChildren([
     creditNotesRoute,
     settingsRoute,
     organizationSettingsRoute,
+    notificationsRoute,
+    notificationsRedirectRoute,
     trashRedirectRoute,
     teamRedirectRoute,
   ]),

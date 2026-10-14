@@ -5,4 +5,5 @@ export * from './queries/customers';
 export * from './queries/items';
 export * from './queries/estimates';
 export * from './queries/creditNotes';
+export * from './queries/notifications';
 

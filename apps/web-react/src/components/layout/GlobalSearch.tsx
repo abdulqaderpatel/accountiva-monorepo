@@ -13,6 +13,7 @@ import {
   CreditCard,
   FileMinus,
   Building2,
+  Bell,
 } from "lucide-react";
 import { isFeatureEnabled, formatCurrency } from "@accountiva/shared";
 import { useInvoices, useCustomers, useItems, useEstimates } from "@accountiva/api";
@@ -130,6 +131,15 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
       type: "Page",
       route: "/organization-settings",
       icon: Building2,
+    });
+
+    links.push({
+      id: "nav-notif",
+      title: "Notification Center",
+      subtitle: "System alerts, actions, and invites",
+      type: "Page",
+      route: "/notifications",
+      icon: Bell,
     });
 
     links.push({

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
 import { useCreditNotes } from "@accountiva/api";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "sonner";
 
 interface CreditNoteRecord {
@@ -29,33 +30,6 @@ interface CreditNoteRecord {
   status: "Open" | "Closed" | "OPEN" | "CLOSED" | "Draft" | "DRAFT";
 }
 
-const FALLBACK_CREDIT_NOTES: CreditNoteRecord[] = [
-  {
-    id: "1",
-    customerName: "Delta Retail Corp",
-    creditNoteNumber: "CN-2026-004",
-    date: "2026-10-08",
-    amount: 5400,
-    status: "Open",
-  },
-  {
-    id: "2",
-    customerName: "Zephyr Logistics Pvt Ltd",
-    creditNoteNumber: "CN-2026-003",
-    date: "2026-09-25",
-    amount: 12000,
-    status: "Closed",
-  },
-  {
-    id: "3",
-    customerName: "Horizon Software Systems",
-    creditNoteNumber: "CN-2026-002",
-    date: "2026-09-12",
-    amount: 3200,
-    status: "Closed",
-  },
-];
-
 export function CreditNotes() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -65,7 +39,7 @@ export function CreditNotes() {
   const creditNoteList: CreditNoteRecord[] = React.useMemo(() => {
     if (Array.isArray(apiCreditNotes) && apiCreditNotes.length > 0) return apiCreditNotes;
     if (Array.isArray(apiCreditNotes?.data) && apiCreditNotes.data.length > 0) return apiCreditNotes.data;
-    return FALLBACK_CREDIT_NOTES;
+    return [];
   }, [apiCreditNotes]);
 
   const filteredCreditNotes = creditNoteList.filter((cn) => {
@@ -217,9 +191,21 @@ export function CreditNotes() {
                 </tr>
               ) : filteredCreditNotes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    <FileMinus className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    No credit notes found matching your criteria.
+                  <td colSpan={6} className="p-4">
+                    <EmptyState
+                      icon={FileMinus}
+                      title="No credit notes found"
+                      description={
+                        search || statusFilter !== "ALL"
+                          ? "No credit notes match the current filter or search criteria."
+                          : "Issue credit adjustments and refunds to client balances when goods are returned or billed incorrectly."
+                      }
+                      actionLabel={search || statusFilter !== "ALL" ? "Clear Filters" : undefined}
+                      onAction={() => {
+                        setSearch("");
+                        setStatusFilter("ALL");
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (

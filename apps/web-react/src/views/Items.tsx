@@ -10,6 +10,8 @@ import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/ui/empty-state";
+
 interface ItemRecord {
   id: string;
   name: string;
@@ -25,55 +27,6 @@ interface ItemRecord {
   description?: string;
 }
 
-const FALLBACK_ITEMS: ItemRecord[] = [
-  {
-    id: "1",
-    name: "Cloud Hosting Support",
-    type: "Service",
-    sku: "SRV-CLOUD-01",
-    sellingPrice: 25000,
-    unitPrice: 25000,
-    salesTaxRate: 18,
-    description: "24/7 Enterprise SLA cloud hosting infrastructure support.",
-  },
-  {
-    id: "2",
-    name: "Enterprise Architecture Review",
-    type: "Service",
-    sku: "SRV-ARCH-02",
-    sellingPrice: 50000,
-    unitPrice: 50000,
-    salesTaxRate: 18,
-    description: "In-depth architecture security and scalability audit.",
-  },
-  {
-    id: "3",
-    name: "Standard Ergonomic Chair",
-    type: "Product",
-    productType: "Inventory",
-    sku: "PRD-CHR-01",
-    sellingPrice: 14500,
-    unitPrice: 14500,
-    costPrice: 9000,
-    salesTaxRate: 18,
-    stockOnHand: 42,
-    openingStock: 50,
-  },
-  {
-    id: "4",
-    name: "Mechanical Keyboard Pro",
-    type: "Product",
-    productType: "Inventory",
-    sku: "PRD-KBD-09",
-    sellingPrice: 6200,
-    unitPrice: 6200,
-    costPrice: 3800,
-    salesTaxRate: 18,
-    stockOnHand: 18,
-    openingStock: 25,
-  },
-];
-
 export function Items() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
@@ -86,11 +39,11 @@ export function Items() {
 
   const deleteItemMutation = useDeleteItem();
 
-  const itemList: ItemRecord[] = Array.isArray(apiItems) && apiItems.length > 0
+  const itemList: ItemRecord[] = Array.isArray(apiItems)
     ? apiItems
-    : (Array.isArray(apiItems?.data) && apiItems.data.length > 0
+    : (Array.isArray(apiItems?.data)
         ? apiItems.data
-        : FALLBACK_ITEMS);
+        : []);
 
   const filtered = itemList.filter((item) => {
     const q = search.toLowerCase();
@@ -225,9 +178,25 @@ export function Items() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    <Boxes className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    No products or services found.
+                  <td colSpan={6} className="p-4">
+                    <EmptyState
+                      icon={Boxes}
+                      title="No products or services found"
+                      description={
+                        search || filterType !== "ALL"
+                          ? "No catalog item matches your current search or filter."
+                          : "Create inventory products or billable services to use across invoices."
+                      }
+                      actionLabel={search || filterType !== "ALL" ? "Clear Filters" : "Add Item"}
+                      onAction={() => {
+                        if (search || filterType !== "ALL") {
+                          setSearch("");
+                          setFilterType("ALL");
+                        } else {
+                          setIsAddOpen(true);
+                        }
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (

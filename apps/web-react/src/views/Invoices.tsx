@@ -21,6 +21,7 @@ import { formatCurrency } from "@accountiva/shared";
 import { useInvoices } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface InvoiceRecord {
   id: string;
@@ -34,54 +35,6 @@ interface InvoiceRecord {
   status: "Draft" | "Outstanding" | "Paid" | "Overdue" | "SENT" | "PAID" | "OVERDUE" | "DRAFT";
 }
 
-const FALLBACK_INVOICES: InvoiceRecord[] = [
-  {
-    id: "1",
-    customerName: "Delta Retail Corp",
-    invoiceNumber: "INV-2026-042",
-    date: "2026-10-12",
-    dueDate: "2026-10-26",
-    amount: 35400,
-    status: "Paid",
-  },
-  {
-    id: "2",
-    customerName: "Zephyr Logistics Pvt Ltd",
-    invoiceNumber: "INV-2026-041",
-    date: "2026-10-01",
-    dueDate: "2026-10-15",
-    amount: 78250,
-    status: "Outstanding",
-  },
-  {
-    id: "3",
-    customerName: "Horizon Software Systems",
-    invoiceNumber: "INV-2026-039",
-    date: "2026-09-15",
-    dueDate: "2026-10-05",
-    amount: 42800,
-    status: "Overdue",
-  },
-  {
-    id: "4",
-    customerName: "Sterling Media Group",
-    invoiceNumber: "INV-2026-038",
-    date: "2026-09-10",
-    dueDate: "2026-09-24",
-    amount: 19500,
-    status: "Paid",
-  },
-  {
-    id: "5",
-    customerName: "Apex Cloud Infrastructure",
-    invoiceNumber: "INV-2026-037",
-    date: "2026-09-02",
-    dueDate: "2026-09-16",
-    amount: 112000,
-    status: "Draft",
-  },
-];
-
 export function Invoices() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -93,11 +46,11 @@ export function Invoices() {
     status: statusFilter === "ALL" ? undefined : statusFilter,
   });
 
-  const invoiceList: InvoiceRecord[] = Array.isArray(apiInvoices) && apiInvoices.length > 0
+  const invoiceList: InvoiceRecord[] = Array.isArray(apiInvoices)
     ? apiInvoices
-    : (Array.isArray(apiInvoices?.data) && apiInvoices.data.length > 0
+    : (Array.isArray(apiInvoices?.data)
         ? apiInvoices.data
-        : FALLBACK_INVOICES);
+        : []);
 
   const filteredInvoices = invoiceList.filter((inv) => {
     const custName = inv.customerName || inv.customers?.name || "";
@@ -233,9 +186,25 @@ export function Invoices() {
                 </tr>
               ) : filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    <FileText className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    No invoices found matching your criteria.
+                  <td colSpan={6} className="p-4">
+                    <EmptyState
+                      icon={FileText}
+                      title="No invoices found"
+                      description={
+                        search || statusFilter !== "ALL"
+                          ? "No invoices match the selected filter or search keyword."
+                          : "Create and issue your first invoice to get paid faster."
+                      }
+                      actionLabel={search || statusFilter !== "ALL" ? "Clear Filters" : "Create Invoice"}
+                      onAction={() => {
+                        if (search || statusFilter !== "ALL") {
+                          setSearch("");
+                          setStatusFilter("ALL");
+                        } else {
+                          setIsCreateOpen(true);
+                        }
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (

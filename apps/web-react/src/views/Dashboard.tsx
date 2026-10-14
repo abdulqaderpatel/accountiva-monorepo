@@ -15,6 +15,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, isFeatureEnabled } from "@accountiva/shared";
 import { useInvoices, useEstimates } from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
@@ -98,29 +99,10 @@ export function Dashboard() {
     });
 
     return {
-      totalReceivables: receivables || 482500,
-      paidThisMonth: paid || 195000,
-      overdueTotal: overdue || 42800,
-      recentInvoices: recent.length > 0 ? recent : [
-        {
-          id: "1",
-          customer: "Delta Retail Corp",
-          number: "INV-2026-042",
-          date: "12 Oct 2026",
-          amount: 35400,
-          status: "PAID",
-          variant: "success" as const,
-        },
-        {
-          id: "2",
-          customer: "Zephyr Logistics Pvt Ltd",
-          number: "INV-2026-041",
-          date: "15 Oct 2026",
-          amount: 78250,
-          status: "SENT",
-          variant: "warning" as const,
-        },
-      ],
+      totalReceivables: receivables || 0,
+      paidThisMonth: paid || 0,
+      overdueTotal: overdue || 0,
+      recentInvoices: recent,
     };
   }, [rawInvoices]);
 
@@ -303,26 +285,34 @@ export function Dashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-3 pl-2">Customer</th>
-                  <th className="pb-3">Invoice #</th>
-                  <th className="pb-3">Date</th>
-                  <th className="pb-3 text-center">Status</th>
-                  <th className="pb-3 pr-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40 text-xs">
-                {invoicesLoading && recentInvoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                      <Spinner size="md" />
-                    </td>
+          {invoicesLoading ? (
+            <div className="py-12 flex justify-center">
+              <Spinner size="md" />
+            </div>
+          ) : recentInvoices.length === 0 ? (
+            <EmptyState
+              icon={FileText}
+              title="No invoices yet"
+              description="Create your first client invoice to start tracking receivables and cash flow."
+              actionLabel="Create Invoice"
+              onAction={() => {
+                window.location.href = "/invoices";
+              }}
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="border-b border-border/60 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <th className="pb-3 pl-2">Customer</th>
+                    <th className="pb-3">Invoice #</th>
+                    <th className="pb-3">Date</th>
+                    <th className="pb-3 text-center">Status</th>
+                    <th className="pb-3 pr-2 text-right">Amount</th>
                   </tr>
-                ) : (
-                  recentInvoices.map((inv) => (
+                </thead>
+                <tbody className="divide-y divide-border/40 text-xs">
+                  {recentInvoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3.5 pl-2 font-semibold text-foreground">
                         {inv.customer}
@@ -342,11 +332,11 @@ export function Dashboard() {
                         {formatCurrency(inv.amount, currency)}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

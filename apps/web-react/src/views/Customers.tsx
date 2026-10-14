@@ -10,6 +10,8 @@ import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/ui/empty-state";
+
 interface CustomerRecord {
   id: string;
   name: string;
@@ -21,36 +23,6 @@ interface CustomerRecord {
   opening_balance?: number;
 }
 
-const FALLBACK_CUSTOMERS: CustomerRecord[] = [
-  {
-    id: "1",
-    name: "Delta Retail Corp",
-    email: "delta@retailcorp.in",
-    phone: "+91 98201 23456",
-    company: "Delta Retail Corporation",
-    gstTreatment: "Registered",
-    outstanding: 0,
-  },
-  {
-    id: "2",
-    name: "Zephyr Logistics Pvt Ltd",
-    email: "billing@zephyr.co",
-    phone: "+91 99123 45678",
-    company: "Zephyr Logistics Private Limited",
-    gstTreatment: "Registered",
-    outstanding: 78250,
-  },
-  {
-    id: "3",
-    name: "Horizon Software Systems",
-    email: "accounts@horizonsoft.com",
-    phone: "+91 98450 11223",
-    company: "Horizon Software Systems LLC",
-    gstTreatment: "Consumer",
-    outstanding: 42800,
-  },
-];
-
 export function Customers() {
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -61,11 +33,11 @@ export function Customers() {
 
   const deleteCustomerMutation = useDeleteCustomer();
 
-  const customerList: CustomerRecord[] = Array.isArray(apiCustomers) && apiCustomers.length > 0
+  const customerList: CustomerRecord[] = Array.isArray(apiCustomers)
     ? apiCustomers
-    : (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0
+    : (Array.isArray(apiCustomers?.data)
         ? apiCustomers.data
-        : FALLBACK_CUSTOMERS);
+        : []);
 
   const filtered = customerList.filter((c) => {
     const q = search.toLowerCase();
@@ -178,9 +150,24 @@ export function Customers() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                    <Building2 className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    No customers found matching your search.
+                  <td colSpan={5} className="p-4">
+                    <EmptyState
+                      icon={Building2}
+                      title="No customers found"
+                      description={
+                        search
+                          ? `No customer record matches "${search}".`
+                          : "Build your client directory to quickly issue invoices and track balances."
+                      }
+                      actionLabel={search ? "Clear Search" : "Add Customer"}
+                      onAction={() => {
+                        if (search) {
+                          setSearch("");
+                        } else {
+                          setIsAddOpen(true);
+                        }
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (

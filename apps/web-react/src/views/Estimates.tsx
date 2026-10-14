@@ -21,6 +21,8 @@ import { formatCurrency } from "@accountiva/shared";
 import { useEstimates, useDeleteEstimate } from "@accountiva/api";
 import { toast } from "sonner";
 
+import { EmptyState } from "@/components/ui/empty-state";
+
 interface EstimateRecord {
   id: string;
   customerName?: string;
@@ -32,36 +34,6 @@ interface EstimateRecord {
   status: "Draft" | "Sent" | "Accepted" | "Declined" | "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED";
 }
 
-const FALLBACK_ESTIMATES: EstimateRecord[] = [
-  {
-    id: "1",
-    customerName: "Delta Retail Corp",
-    estimateNumber: "EST-2026-012",
-    date: "2026-10-10",
-    expiryDate: "2026-11-10",
-    amount: 45000,
-    status: "Sent",
-  },
-  {
-    id: "2",
-    customerName: "Zephyr Logistics Pvt Ltd",
-    estimateNumber: "EST-2026-011",
-    date: "2026-10-02",
-    expiryDate: "2026-11-02",
-    amount: 112000,
-    status: "Accepted",
-  },
-  {
-    id: "3",
-    customerName: "Horizon Software Systems",
-    estimateNumber: "EST-2026-010",
-    date: "2026-09-28",
-    expiryDate: "2026-10-28",
-    amount: 68500,
-    status: "Draft",
-  },
-];
-
 export function Estimates() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -71,7 +43,7 @@ export function Estimates() {
   const estimateList: EstimateRecord[] = React.useMemo(() => {
     if (Array.isArray(apiEstimates) && apiEstimates.length > 0) return apiEstimates;
     if (Array.isArray(apiEstimates?.data) && apiEstimates.data.length > 0) return apiEstimates.data;
-    return FALLBACK_ESTIMATES;
+    return [];
   }, [apiEstimates]);
 
   const filteredEstimates = estimateList.filter((est) => {
@@ -227,9 +199,21 @@ export function Estimates() {
                 </tr>
               ) : filteredEstimates.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    <Calculator className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                    No estimates found matching your criteria.
+                  <td colSpan={6} className="p-4">
+                    <EmptyState
+                      icon={Calculator}
+                      title="No estimates found"
+                      description={
+                        search || statusFilter !== "ALL"
+                          ? "No estimates match your current filters."
+                          : "Create quotations to send to prospective clients and convert them to invoices once approved."
+                      }
+                      actionLabel={search || statusFilter !== "ALL" ? "Clear Filters" : undefined}
+                      onAction={() => {
+                        setSearch("");
+                        setStatusFilter("ALL");
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (

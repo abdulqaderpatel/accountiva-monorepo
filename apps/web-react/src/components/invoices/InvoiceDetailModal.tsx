@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,9 @@ import {
   Share2,
   Send,
   Check,
+  Copy,
 } from "lucide-react";
+import { SendInvoiceModal } from "./SendInvoiceModal";
 
 interface InvoiceDetailModalProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ export function InvoiceDetailModal({
   onClose,
   onSuccess,
 }: InvoiceDetailModalProps) {
+  const [isSendOpen, setIsSendOpen] = useState(false);
   const updateInvoiceMutation = useUpdateInvoice();
 
   if (!invoice) return null;
@@ -211,9 +214,32 @@ export function InvoiceDetailModal({
               <Printer className="size-3.5" />
               <span>Print / PDF</span>
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = `${window.location.origin}/invoices/view/${invoice.id}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Public invoice link copied to clipboard!");
+              }}
+              className="gap-1.5 text-xs"
+            >
+              <Copy className="size-3.5" />
+              <span>Copy Link</span>
+            </Button>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsSendOpen(true)}
+              className="gap-1.5 text-xs"
+            >
+              <Send className="size-3.5" />
+              <span>Send Email</span>
+            </Button>
+
             {!isPaid && (
               <Button
                 size="sm"
@@ -245,6 +271,16 @@ export function InvoiceDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Send Invoice Modal */}
+      <SendInvoiceModal
+        isOpen={isSendOpen}
+        invoice={invoice}
+        onClose={() => setIsSendOpen(false)}
+        onSuccess={() => {
+          onSuccess?.();
+        }}
+      />
     </Modal>
   );
 }

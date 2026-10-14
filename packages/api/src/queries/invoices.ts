@@ -56,3 +56,31 @@ export function useUpdateInvoice() {
   });
 }
 
+export function useSendInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: { recipientEmail: string; subject: string; message: string } }) => {
+      const { data } = await api.post(`/invoices/${id}/send`, payload);
+      return data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', id] });
+    },
+  });
+}
+
+export function useDeleteInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/invoices/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+  });
+}
+
+

@@ -41,3 +41,31 @@ export function useCreateCreditNote() {
     },
   });
 }
+
+export function useUpdateCreditNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
+      const { data } = await api.put(`/credit-notes/${id}`, payload);
+      return data;
+    },
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });
+    },
+  });
+}
+
+export function useDeleteCreditNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.delete(`/credit-notes/${id}`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+    },
+  });
+}
+

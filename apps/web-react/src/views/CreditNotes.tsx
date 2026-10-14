@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
 import { useCreditNotes } from "@accountiva/api";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CreateCreditNoteModal } from "@/components/credit-notes/CreateCreditNoteModal";
 import { toast } from "sonner";
 
 interface CreditNoteRecord {
@@ -33,6 +34,7 @@ interface CreditNoteRecord {
 export function CreditNotes() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { data: apiCreditNotes, isLoading, refetch } = useCreditNotes();
 
@@ -106,7 +108,7 @@ export function CreditNotes() {
           <Button
             size="sm"
             className="gap-2 font-bold shadow-xs"
-            onClick={() => toast.info("New credit note adjustment recorded.")}
+            onClick={() => setIsCreateOpen(true)}
           >
             <Plus className="h-4 w-4" />
             New Credit Note
@@ -257,6 +259,13 @@ export function CreditNotes() {
           </table>
         </div>
       </Card>
+
+      {/* Create Credit Note Modal */}
+      <CreateCreditNoteModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

@@ -18,10 +18,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency } from "@accountiva/shared";
-import { useEstimates, useDeleteEstimate } from "@accountiva/api";
+import { useEstimates, useDeleteEstimate, useUpdateEstimate, useCreateInvoice } from "@accountiva/api";
 import { toast } from "sonner";
-
 import { EmptyState } from "@/components/ui/empty-state";
+import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 
 interface EstimateRecord {
   id: string;
@@ -31,14 +31,57 @@ interface EstimateRecord {
   date?: string;
   expiryDate?: string;
   amount: number;
+  items?: any[];
+  notes?: string;
   status: "Draft" | "Sent" | "Accepted" | "Declined" | "DRAFT" | "SENT" | "ACCEPTED" | "DECLINED";
 }
 
 export function Estimates() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const { data: apiEstimates, isLoading, refetch } = useEstimates();
+  const createInvoiceMutation = useCreateInvoice();
+  const updateEstimateMutation = useUpdateEstimate();
+
+  const handleConvertToInvoice = async (est: EstimateRecord) => {
+    try {
+      const invNumber = `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+      await createInvoiceMutation.mutateAsync({
+        invoiceNumber: invNumber,
+        customerName: est.customerName || est.customers?.name || "Customer",
+        date: new Date().toISOString().split("T")[0],
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        amount: Number(est.amount) || 0,
+        subtotal: Number(est.amount) * 0.847,
+        taxPercent: 18,
+        taxAmount: Number(est.amount) * 0.153,
+        status: "Draft",
+        notes: `Converted from Estimate ${est.estimateNumber}. ${est.notes || ""}`.trim(),
+        items: est.items || [
+          {
+            itemName: `Quote items from ${est.estimateNumber}`,
+            quantity: 1,
+            rate: Number(est.amount) || 0,
+            amount: Number(est.amount) || 0,
+          },
+        ],
+      });
+
+      await updateEstimateMutation.mutateAsync({
+        id: est.id,
+        payload: { status: "Accepted" },
+      });
+
+      toast.success(`Estimate converted to Invoice ${invNumber}!`, {
+        description: "Draft invoice created and estimate marked as Accepted.",
+      });
+      refetch();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to convert estimate");
+    }
+  };
 
   const estimateList: EstimateRecord[] = React.useMemo(() => {
     if (Array.isArray(apiEstimates) && apiEstimates.length > 0) return apiEstimates;
@@ -114,7 +157,7 @@ export function Estimates() {
           <Button
             size="sm"
             className="gap-2 font-bold shadow-xs"
-            onClick={() => toast.info("New estimate draft created. Use invoice screen to convert to billing.")}
+            onClick={() => setIsCreateOpen(true)}
           >
             <Plus className="h-4 w-4" />
             Create Estimate
@@ -239,12 +282,25 @@ export function Estimates() {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {est.status.toUpperCase() !== "ACCEPTED" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                            title="Convert to Invoice"
+                            onClick={() => handleConvertToInvoice(est)}
+                            disabled={createInvoiceMutation.isPending}
+                          >
+                            <FileCheck className="h-3 w-3" />
+                            <span>Convert</span>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           title="View Details"
-                          onClick={() => toast.info(`Viewing ${est.estimateNumber}`)}
+                          onClick={() => toast.info(`Estimate ${est.estimateNumber}: ${formatCurrency(est.amount)} (${est.status})`)}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
@@ -265,6 +321,13 @@ export function Estimates() {
           </table>
         </div>
       </Card>
+
+      {/* Create Estimate Modal */}
+      <CreateEstimateModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }

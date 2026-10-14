@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { configureApi } from '@accountiva/api';
+import api, { configureApi } from '@accountiva/api';
 
 // For physical devices or Android emulator:
 // Android Emulator uses 10.0.2.2 to access host machine localhost.
@@ -27,6 +27,8 @@ const getApiBaseUrl = () => {
 export const API_BASE_URL = getApiBaseUrl();
 
 export async function setupMobileApi() {
+  api.defaults.headers.common['Origin'] = 'https://accountiva.ai';
+
   configureApi({
     baseURL: API_BASE_URL,
     getOrganizationId: async () => {

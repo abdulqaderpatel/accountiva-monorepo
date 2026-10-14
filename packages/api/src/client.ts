@@ -24,6 +24,12 @@ export function configureApi(config: Partial<ApiClientConfig>) {
 }
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  // Ensure non-browser / mobile environments always provide a valid trusted origin
+  const currentOrigin = config.headers.get('Origin');
+  if (!currentOrigin || currentOrigin === 'null') {
+    config.headers.set('Origin', 'https://accountiva.ai');
+  }
+
   if (currentConfig.getOrganizationId) {
     const orgId = await currentConfig.getOrganizationId();
     if (orgId) {

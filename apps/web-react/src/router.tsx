@@ -15,6 +15,7 @@ import { Customers } from "./views/Customers";
 import { CustomerDetail } from "./views/CustomerDetail";
 import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
+import { PublicInvoiceView } from "./views/PublicInvoiceView";
 import Login from "./views/auth/Login";
 import Signup from "./views/auth/Signup";
 import ForgotPassword from "./views/auth/ForgotPassword";
@@ -66,6 +67,18 @@ const verifyEmailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/verify-email",
   component: VerifyEmail,
+});
+
+const publicInvoiceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/invoices/view/$id",
+  component: PublicInvoiceView,
+});
+
+const publicInvoiceAliasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/invoices/$id",
+  component: PublicInvoiceView,
 });
 
 // 3. Protected Layout Route
@@ -142,6 +155,8 @@ const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
   checkEmailRoute,
   verifyEmailRoute,
+  publicInvoiceRoute,
+  publicInvoiceAliasRoute,
   protectedLayoutRoute.addChildren([
     indexRoute,
     dashboardRoute,

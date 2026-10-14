@@ -46,12 +46,7 @@ export async function setupMobileApi() {
       }
     },
     onUnauthorized: async () => {
-      try {
-        await AsyncStorage.removeItem('accountiva_token');
-        await AsyncStorage.removeItem('accountiva_user');
-      } catch (err) {
-        console.error('Error clearing mobile session:', err);
-      }
+      console.warn('[Mobile API] Received 401 Unauthorized response');
     },
   });
 }

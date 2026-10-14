@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X, Check, Package, Wrench } from 'lucide-react-native';
+import { X, Check, Package, Wrench, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useCreateItem, useUpdateItem } from '@accountiva/api';
 import { itemSchema } from '@accountiva/shared';
@@ -35,6 +35,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
   const [description, setDescription] = useState('');
   const [openingStock, setOpeningStock] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialItem) {
@@ -63,6 +64,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
     setDescription('');
     setOpeningStock('');
     setErrors({});
+    setApiError(null);
   };
 
   const handleClose = () => {
@@ -72,6 +74,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
 
   const handleSave = async () => {
     setErrors({});
+    setApiError(null);
 
     const formData = {
       name: name.trim(),
@@ -101,16 +104,19 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
           id: initialItem.id,
           payload: formData,
         });
-        Alert.alert('Success', 'Item updated successfully');
       } else {
         await createItemMutation.mutateAsync(formData);
-        Alert.alert('Success', 'Item created successfully');
       }
       resetForm();
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to save item');
+      setApiError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to save item. Please check all fields.'
+      );
     }
   };
 
@@ -129,6 +135,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
           </View>
 
           <ScrollView contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false}>
+            {/* API Error Banner */}
+            {apiError ? (
+              <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
+                <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+                <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
+              </View>
+            ) : null}
             {/* Item Type Switcher */}
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.foreground }]}>Item Type</Text>
@@ -405,5 +418,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     fontFamily: fonts.bold,
+  },
+  apiErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  apiErrorText: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    flex: 1,
+    lineHeight: 18,
   },
 });

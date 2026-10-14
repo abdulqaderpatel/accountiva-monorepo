@@ -8,9 +8,9 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
-import { X, Check, Sparkles } from 'lucide-react-native';
+import { X, Sparkles, AlertCircle } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import api, { useCreateCustomer, useUpdateCustomer } from '@accountiva/api';
 import { customerSchema } from '@accountiva/shared';
@@ -37,6 +37,8 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
   const [pan, setPan] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [gstNotice, setGstNotice] = useState<string | null>(null);
   const [fetchingGst, setFetchingGst] = useState(false);
 
   React.useEffect(() => {
@@ -60,6 +62,8 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
       setBillingAddress('');
     }
     setErrors({});
+    setApiError(null);
+    setGstNotice(null);
   }, [initialCustomer, visible]);
 
   const handleGstChange = (val: string) => {
@@ -68,16 +72,18 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
     if (uppercase.length >= 12 && !pan) {
       setPan(uppercase.substring(2, 12));
     }
+    if (errors.gstNumber) setErrors((prev) => ({ ...prev, gstNumber: '' }));
   };
 
   const handleFetchGstin = async () => {
     const cleanGst = gstNumber.trim().toUpperCase();
     if (cleanGst.length !== 15) {
-      Alert.alert('Invalid GSTIN', 'Please enter a full 15-character GSTIN number first.');
+      setErrors((prev) => ({ ...prev, gstNumber: 'Please enter a full 15-character GSTIN first' }));
       return;
     }
 
     setFetchingGst(true);
+    setGstNotice(null);
     try {
       const res = await api.get(`/customers/gstin/${cleanGst}`);
       const data = res.data;
@@ -91,11 +97,10 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
           setBillingAddress(fullAddr || data.address);
         }
         setGstTreatment('Registered Business - Regular');
-        Alert.alert('GST Details Fetched', `Auto-filled details for ${data.company || data.name || cleanGst}`);
+        setGstNotice(`Details auto-filled for ${data.company || data.name || cleanGst}`);
       }
     } catch (err: any) {
-      Alert.alert(
-        'GST Lookup Notice',
+      setGstNotice(
         err.response?.data?.error || err.message || 'Could not fetch GSTIN details. Please enter manually.'
       );
     } finally {
@@ -105,6 +110,7 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
 
   const handleSave = async () => {
     setErrors({});
+    setApiError(null);
 
     const formData = {
       name: name.trim(),
@@ -125,7 +131,6 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
         if (!fieldErrors[field]) fieldErrors[field] = issue.message;
       }
       setErrors(fieldErrors);
-      Alert.alert('Validation Error', 'Please check the highlighted fields.');
       return;
     }
 
@@ -135,24 +140,27 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
           id: initialCustomer.id,
           payload: formData,
         });
-        Alert.alert('Customer Updated', `${name}'s details have been updated.`);
       } else {
         await createCustomerMutation.mutateAsync(formData);
-        Alert.alert('Customer Added', `${name} has been added to your client list.`);
       }
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to save customer');
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to save customer. Please check all fields.';
+      setApiError(msg);
     }
   };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
             <X size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.foreground }]}>
@@ -162,6 +170,7 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
             onPress={handleSave}
             disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
             style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
           >
             {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
@@ -171,131 +180,194 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>Display Name *</Text>
-          <TextInput
-            placeholder="e.g. John Doe or Acme Corp"
-            placeholderTextColor={colors.mutedForeground}
-            value={name}
-            onChangeText={setName}
-            style={[styles.input, { borderColor: errors.name ? colors.destructive : colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
-          {errors.name && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.name}</Text>}
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          {/* API Error Banner */}
+          {apiError ? (
+            <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
+              <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+              <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
+            </View>
+          ) : null}
 
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Company Name</Text>
-          <TextInput
-            placeholder="e.g. Acme Industries Ltd"
-            placeholderTextColor={colors.mutedForeground}
-            value={company}
-            onChangeText={setCompany}
-            style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
-
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Email Address</Text>
-          <TextInput
-            placeholder="contact@company.com"
-            placeholderTextColor={colors.mutedForeground}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={[styles.input, { borderColor: errors.email ? colors.destructive : colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
-          {errors.email && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.email}</Text>}
-
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Phone Number</Text>
-          <TextInput
-            placeholder="+91 98765 43210"
-            placeholderTextColor={colors.mutedForeground}
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
-
-          {/* GST Details */}
-          <View style={[styles.sectionDivider, { borderColor: colors.border }]} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>GST & Tax Details</Text>
-
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>GSTIN (15 Digits)</Text>
-          <View style={styles.gstinRow}>
+          {/* Display Name */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Display Name *</Text>
             <TextInput
-              placeholder="22AAAAA0000A1Z5"
+              placeholder="e.g. John Doe or Acme Corp"
               placeholderTextColor={colors.mutedForeground}
-              value={gstNumber}
-              onChangeText={handleGstChange}
-              autoCapitalize="characters"
-              maxLength={15}
+              value={name}
+              onChangeText={(val) => {
+                setName(val);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
+              }}
               style={[
-                styles.gstinInput,
+                styles.input,
                 {
-                  borderColor: errors.gstNumber ? colors.destructive : colors.border,
+                  borderColor: errors.name ? colors.destructive : colors.border,
                   color: colors.foreground,
                   backgroundColor: colors.card,
                 },
               ]}
             />
-            <TouchableOpacity
-              onPress={handleFetchGstin}
-              disabled={fetchingGst || gstNumber.length < 15}
+            {errors.name ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.name}</Text> : null}
+          </View>
+
+          {/* Company Name */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Company Name</Text>
+            <TextInput
+              placeholder="e.g. Acme Industries Ltd"
+              placeholderTextColor={colors.mutedForeground}
+              value={company}
+              onChangeText={setCompany}
+              style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
+
+          {/* Email */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Email Address</Text>
+            <TextInput
+              placeholder="contact@company.com"
+              placeholderTextColor={colors.mutedForeground}
+              value={email}
+              onChangeText={(val) => {
+                setEmail(val);
+                if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
               style={[
-                styles.fetchGstBtn,
+                styles.input,
                 {
-                  backgroundColor: gstNumber.length === 15 ? colors.primary : colors.surfaceSubtle,
-                  borderColor: colors.border,
+                  borderColor: errors.email ? colors.destructive : colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
                 },
               ]}
-              activeOpacity={0.8}
-            >
-              {fetchingGst ? (
-                <ActivityIndicator size="small" color={colors.primaryForeground} />
-              ) : (
-                <>
-                  <Sparkles
-                    size={14}
-                    color={gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground}
-                  />
-                  <Text
-                    style={[
-                      styles.fetchGstBtnText,
-                      {
-                        color: gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    Auto-fill
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            />
+            {errors.email ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.email}</Text> : null}
           </View>
-          {errors.gstNumber && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.gstNumber}</Text>}
 
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>PAN (10 Digits)</Text>
-          <TextInput
-            placeholder="AAAAA0000A"
-            placeholderTextColor={colors.mutedForeground}
-            value={pan}
-            onChangeText={(val) => setPan(val.toUpperCase())}
-            autoCapitalize="characters"
-            maxLength={10}
-            style={[styles.input, { borderColor: errors.pan ? colors.destructive : colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
-          {errors.pan && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.pan}</Text>}
+          {/* Phone */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Phone Number</Text>
+            <TextInput
+              placeholder="+91 98765 43210"
+              placeholderTextColor={colors.mutedForeground}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
+
+          {/* GST Section */}
+          <View style={[styles.sectionDivider, { borderColor: colors.border }]} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>GST & Tax Details</Text>
+
+          {gstNotice ? (
+            <View style={[styles.noticeBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+              <Text style={[styles.noticeText, { color: colors.foreground }]}>{gstNotice}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>GSTIN (15 Digits)</Text>
+            <View style={styles.gstinRow}>
+              <TextInput
+                placeholder="22AAAAA0000A1Z5"
+                placeholderTextColor={colors.mutedForeground}
+                value={gstNumber}
+                onChangeText={handleGstChange}
+                autoCapitalize="characters"
+                maxLength={15}
+                style={[
+                  styles.gstinInput,
+                  {
+                    borderColor: errors.gstNumber ? colors.destructive : colors.border,
+                    color: colors.foreground,
+                    backgroundColor: colors.card,
+                  },
+                ]}
+              />
+              <TouchableOpacity
+                onPress={handleFetchGstin}
+                disabled={fetchingGst || gstNumber.length < 15}
+                style={[
+                  styles.fetchGstBtn,
+                  {
+                    backgroundColor: gstNumber.length === 15 ? colors.primary : colors.surfaceSubtle,
+                    borderColor: colors.border,
+                  },
+                ]}
+                activeOpacity={0.8}
+              >
+                {fetchingGst ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <>
+                    <Sparkles
+                      size={14}
+                      color={gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground}
+                    />
+                    <Text
+                      style={[
+                        styles.fetchGstBtnText,
+                        {
+                          color: gstNumber.length === 15 ? colors.primaryForeground : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      Auto-fill
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+            {errors.gstNumber ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.gstNumber}</Text> : null}
+          </View>
+
+          {/* PAN */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>PAN (10 Digits)</Text>
+            <TextInput
+              placeholder="AAAAA0000A"
+              placeholderTextColor={colors.mutedForeground}
+              value={pan}
+              onChangeText={(val) => {
+                setPan(val.toUpperCase());
+                if (errors.pan) setErrors((prev) => ({ ...prev, pan: '' }));
+              }}
+              autoCapitalize="characters"
+              maxLength={10}
+              style={[
+                styles.input,
+                {
+                  borderColor: errors.pan ? colors.destructive : colors.border,
+                  color: colors.foreground,
+                  backgroundColor: colors.card,
+                },
+              ]}
+            />
+            {errors.pan ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.pan}</Text> : null}
+          </View>
 
           {/* Address */}
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 12 }]}>Billing Address</Text>
-          <TextInput
-            placeholder="Street, City, State, PIN"
-            placeholderTextColor={colors.mutedForeground}
-            value={billingAddress}
-            onChangeText={setBillingAddress}
-            multiline
-            numberOfLines={3}
-            style={[styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
-          />
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Billing Address</Text>
+            <TextInput
+              placeholder="Street, City, State, PIN"
+              placeholderTextColor={colors.mutedForeground}
+              value={billingAddress}
+              onChangeText={setBillingAddress}
+              multiline
+              numberOfLines={3}
+              style={[styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -318,25 +390,52 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
   },
   saveBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 8,
   },
   saveBtnText: {
     fontSize: 13,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   content: {
     padding: 16,
     paddingBottom: 40,
+    gap: 12,
+  },
+  apiErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  apiErrorText: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    flex: 1,
+    lineHeight: 18,
+  },
+  noticeBox: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  noticeText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+  },
+  fieldGroup: {
+    gap: 4,
   },
   label: {
     fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 6,
+    fontFamily: fonts.semiBold,
   },
   input: {
     height: 42,
@@ -344,35 +443,34 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 13,
+    fontFamily: fonts.regular,
   },
   textArea: {
     height: 72,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingVertical: 8,
     fontSize: 13,
+    fontFamily: fonts.regular,
     textAlignVertical: 'top',
   },
   errorText: {
     fontSize: 11,
-    marginTop: 4,
-    fontWeight: '500',
+    fontFamily: fonts.medium,
+    marginTop: 2,
   },
   sectionDivider: {
-    borderTopWidth: 1,
-    marginTop: 18,
-    marginBottom: 14,
+    borderBottomWidth: 1,
+    marginVertical: 8,
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 12,
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
+    marginBottom: 4,
   },
   gstinRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
   gstinInput: {
@@ -382,19 +480,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 13,
+    fontFamily: fonts.regular,
   },
   fetchGstBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    height: 42,
+    gap: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
+    justifyContent: 'center',
   },
   fetchGstBtnText: {
     fontSize: 12,
-    fontWeight: '700',
-    fontFamily: fonts.semiBold,
+    fontFamily: fonts.bold,
   },
 });

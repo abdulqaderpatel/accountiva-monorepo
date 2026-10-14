@@ -41,6 +41,14 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     const token = await currentConfig.getAuthToken();
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`);
+      const existingCookie = config.headers.get('Cookie');
+      const cookieStr = typeof existingCookie === 'string' ? existingCookie : '';
+      if (!cookieStr.includes('session_token')) {
+        config.headers.set(
+          'Cookie',
+          `better-auth.session_token=${token}; __Secure-better-auth.session_token=${token}${cookieStr ? '; ' + cookieStr : ''}`
+        );
+      }
     }
   }
 

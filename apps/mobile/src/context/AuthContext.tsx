@@ -32,6 +32,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setCurrentOrg: (org: MobileOrganization | null) => Promise<void>;
   refreshOrganizations: () => Promise<void>;
+  createOrganization: (name: string, currency?: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,6 +83,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (storedOrgs) {
           setOrganizations(JSON.parse(storedOrgs));
         }
+
+        // Fetch fresh organization list if authenticated
+        if (storedToken) {
+          refreshOrganizations().catch(() => {});
+        }
       } catch (err) {
         console.error('Failed to restore mobile auth:', err);
       } finally {
@@ -90,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadStoredAuth();
-  }, []);
+  }, [refreshOrganizations]);
 
   const setCurrentOrg = useCallback(async (org: MobileOrganization | null) => {
     setCurrentOrgState(org);
@@ -252,6 +258,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return data;
   };
 
+  const createOrganization = async (name: string, currency = 'INR') => {
+    const { data } = await api.post('/organizations', {
+      name: name.trim(),
+      currency: currency.trim().toUpperCase(),
+    });
+    const newOrg = data?.organization || data?.data || data;
+    await refreshOrganizations();
+    if (newOrg?.id) {
+      await setCurrentOrg(newOrg);
+    }
+    return newOrg;
+  };
+
   const logout = async () => {
     try {
       await GoogleSignin.signOut();
@@ -284,6 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         setCurrentOrg,
         refreshOrganizations,
+        createOrganization,
       }}
     >
       {children}

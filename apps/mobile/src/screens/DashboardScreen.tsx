@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import {
   Bell,
@@ -13,6 +13,7 @@ import {
   Receipt,
   Clock,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +24,7 @@ import { formatCurrency, isFeatureEnabled } from '@accountiva/shared';
 import { useInvoices, useEstimates, useNotifications } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
+import { OrganizationSwitcherModal } from '../components/OrganizationSwitcherModal';
 
 interface DashboardScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -31,6 +33,7 @@ interface DashboardScreenProps {
 export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const [orgModalOpen, setOrgModalOpen] = useState(false);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices();
   const { data: apiEstimates } = useEstimates();
@@ -114,19 +117,28 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top Bar */}
       <View style={[styles.topBar, { borderBottomColor: colors.border }]}>
-        <View style={styles.orgHeader}>
+        <TouchableOpacity
+          style={styles.orgHeader}
+          onPress={() => setOrgModalOpen(true)}
+          activeOpacity={0.7}
+        >
           <View style={[styles.orgAvatar, { backgroundColor: colors.primary }]}>
             <Text style={[styles.orgAvatarText, { color: colors.primaryForeground }]}>
               {currentOrg?.name ? currentOrg.name[0]?.toUpperCase() : 'A'}
             </Text>
           </View>
           <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={[styles.orgTitle, { color: colors.foreground }]} numberOfLines={1}>
+                {currentOrg?.name || 'My Organization'}
+              </Text>
+              <ChevronDown size={14} color={colors.mutedForeground} />
+            </View>
             <Text style={[styles.orgSubtitle, { color: colors.mutedForeground }]}>
-              {currentOrg?.name || 'Primary Workspace'}
+              Tap to switch workspace
             </Text>
-            <Text style={[styles.orgTitle, { color: colors.foreground }]}>Dashboard ▾</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.iconButton, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}
@@ -203,6 +215,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.quickActionsContainer}
           contentContainerStyle={styles.quickActionsScroll}
         >
           <TouchableOpacity
@@ -355,6 +368,11 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
           )}
         </View>
       </ScrollView>
+
+      <OrganizationSwitcherModal
+        visible={orgModalOpen}
+        onClose={() => setOrgModalOpen(false)}
+      />
     </View>
   );
 }
@@ -427,7 +445,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   heroCard: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -473,14 +491,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sectionHeader: {
-    marginBottom: 8,
+    marginBottom: 10,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 11,
@@ -494,8 +511,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: fonts.semiBold,
   },
+  quickActionsContainer: {
+    marginHorizontal: -16,
+    marginBottom: 22,
+  },
   quickActionsScroll: {
-    paddingRight: 16,
+    paddingHorizontal: 16,
     gap: 10,
   },
   actionBtn: {

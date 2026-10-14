@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,38 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Alert,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { X, Plus, Trash2, Users, Package, Wrench, Search, Check, ChevronDown } from 'lucide-react-native';
+import {
+  X,
+  Plus,
+  Trash2,
+  Users,
+  Package,
+  Wrench,
+  Search,
+  Check,
+  ChevronDown,
+  AlertCircle,
+} from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Card } from './ui/Card';
 import { formatCurrency } from '@accountiva/shared';
 import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from '@accountiva/api';
 import { fonts } from '../theme/typography';
+import { AddCustomerModal } from './AddCustomerModal';
+
+export interface EstimateLineItem {
+  id: string;
+  itemId?: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  rate: number;
+}
 
 interface CreateEstimateModalProps {
   visible: boolean;
@@ -25,12 +47,9 @@ interface CreateEstimateModalProps {
   initialEstimate?: any;
 }
 
-interface LineItem {
-  id: string;
-  name: string;
-  quantity: number;
-  rate: number;
-}
+const formatDateToISO = (d: Date): string => {
+  return d.toISOString().split('T')[0];
+};
 
 export function CreateEstimateModal({
   visible,
@@ -39,122 +58,247 @@ export function CreateEstimateModal({
   initialEstimate,
 }: CreateEstimateModalProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
+
   const createEstimateMutation = useCreateEstimate();
   const updateEstimateMutation = useUpdateEstimate();
 
-  const { data: apiCustomers } = useCustomers();
+  const { data: apiCustomers, refetch: refetchCustomers } = useCustomers();
   const { data: apiItems } = useItems();
 
-  const rawCustomers: any[] = Array.isArray(apiCustomers)
-    ? apiCustomers
-    : Array.isArray(apiCustomers?.data)
-    ? apiCustomers.data
-    : [];
+  const rawCustomers: any[] = useMemo(() => {
+    if (Array.isArray(apiCustomers)) return apiCustomers;
+    if (Array.isArray(apiCustomers?.data)) return apiCustomers.data;
+    return [];
+  }, [apiCustomers]);
 
-  const rawItems: any[] = Array.isArray(apiItems)
-    ? apiItems
-    : Array.isArray(apiItems?.data)
-    ? apiItems.data
-    : [];
+  const rawItems: any[] = useMemo(() => {
+    if (Array.isArray(apiItems)) return apiItems;
+    if (Array.isArray(apiItems?.data)) return apiItems.data;
+    return [];
+  }, [apiItems]);
 
-  const [customer, setCustomer] = useState(
-    initialEstimate?.customer || initialEstimate?.customerName || ''
-  );
+  const [customer, setCustomer] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [createCustomerModalOpen, setCreateCustomerModalOpen] = useState(false);
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [itemSearch, setItemSearch] = useState('');
 
-  const [estimateNumber, setEstimateNumber] = useState(
-    initialEstimate?.number ||
-      initialEstimate?.estimateNumber ||
-      `EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
-  );
-  const [expiryDate, setExpiryDate] = useState(initialEstimate?.expiryDate || '30 Days');
-  const [items, setItems] = useState<LineItem[]>(() => {
-    if (Array.isArray(initialEstimate?.items) && initialEstimate.items.length > 0) {
-      return initialEstimate.items.map((i: any, idx: number) => ({
-        id: String(i.id || idx),
-        name: i.name || i.itemName || '',
-        quantity: Number(i.quantity) || 1,
-        rate: Number(i.rate) || 0,
-      }));
-    }
-    return [{ id: '1', name: '', quantity: 1, rate: 0 }];
+  const [estimateNumber, setEstimateNumber] = useState('');
+  const [date, setDate] = useState(() => formatDateToISO(new Date()));
+  const [expiryDate, setExpiryDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return formatDateToISO(d);
   });
 
-  React.useEffect(() => {
+  const [items, setItems] = useState<EstimateLineItem[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+
     if (initialEstimate) {
-      setCustomer(initialEstimate.customer || initialEstimate.customerName || '');
+      setCustomer(initialEstimate.customer || initialEstimate.customerName || initialEstimate.customers?.name || '');
+      setCustomerId(initialEstimate.customerId || initialEstimate.customer_id || '');
       setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
-      setExpiryDate(initialEstimate.expiryDate || '30 Days');
+
+      if (initialEstimate.date) {
+        try {
+          setDate(formatDateToISO(new Date(initialEstimate.date)));
+        } catch {
+          setDate(formatDateToISO(new Date()));
+        }
+      } else {
+        setDate(formatDateToISO(new Date()));
+      }
+
+      if (initialEstimate.expiryDate || initialEstimate.expiry_date) {
+        try {
+          setExpiryDate(formatDateToISO(new Date(initialEstimate.expiryDate || initialEstimate.expiry_date)));
+        } catch {
+          const d = new Date();
+          d.setDate(d.getDate() + 30);
+          setExpiryDate(formatDateToISO(d));
+        }
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        setExpiryDate(formatDateToISO(d));
+      }
+
       if (Array.isArray(initialEstimate.items) && initialEstimate.items.length > 0) {
         setItems(
           initialEstimate.items.map((i: any, idx: number) => ({
-            id: String(i.id || idx),
-            name: i.name || i.itemName || '',
+            id: String(i.id || `init-${idx}`),
+            itemId: i.itemId || i.item_id || undefined,
+            name: i.name || i.itemName || i.description || 'Item',
+            description: i.description || '',
             quantity: Number(i.quantity) || 1,
             rate: Number(i.rate) || 0,
           }))
         );
+      } else {
+        setItems([]);
       }
+    } else {
+      setCustomer('');
+      setCustomerId('');
+      setEstimateNumber(`EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+      setDate(formatDateToISO(new Date()));
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      setExpiryDate(formatDateToISO(d));
+      setItems([]);
     }
+
+    setErrors({});
+    setApiError(null);
   }, [initialEstimate, visible]);
 
-  const subtotal = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
+  // Calculations
+  const subtotal = useMemo(() => {
+    return items.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
+  }, [items]);
+
   const tax = subtotal * 0.18;
   const grandTotal = subtotal + tax;
 
-  const addItem = () => {
-    const newItem: LineItem = {
-      id: Date.now().toString(),
-      name: 'Custom Service Item',
+  const applyValidityDays = (days: number) => {
+    const d = new Date(date || new Date());
+    d.setDate(d.getDate() + days);
+    setExpiryDate(formatDateToISO(d));
+    if (errors.expiryDate) {
+      setErrors((prev) => ({ ...prev, expiryDate: '' }));
+    }
+  };
+
+  const addItemFromCatalog = (catalogItem: any) => {
+    const rate = Number(catalogItem.sellingPrice) || Number(catalogItem.unitPrice) || 0;
+    const existingIndex = items.findIndex((i) => i.itemId === catalogItem.id);
+
+    if (existingIndex > -1) {
+      setItems((prev) =>
+        prev.map((it, idx) =>
+          idx === existingIndex ? { ...it, quantity: it.quantity + 1 } : it
+        )
+      );
+    } else {
+      setItems((prev) => [
+        ...prev,
+        {
+          id: `item-${Date.now()}-${Math.random()}`,
+          itemId: catalogItem.id,
+          name: catalogItem.name || 'Catalog Item',
+          description: catalogItem.description || '',
+          quantity: 1,
+          rate,
+        },
+      ]);
+    }
+
+    if (errors.items) {
+      setErrors((prev) => ({ ...prev, items: '' }));
+    }
+    setItemModalOpen(false);
+  };
+
+  const addCustomItem = () => {
+    const newItem: EstimateLineItem = {
+      id: `custom-${Date.now()}`,
+      name: '',
       quantity: 1,
-      rate: 5000,
+      rate: 0,
     };
-    setItems([...items, newItem]);
+    setItems((prev) => [...prev, newItem]);
+    if (errors.items) {
+      setErrors((prev) => ({ ...prev, items: '' }));
+    }
   };
 
   const removeItem = (id: string) => {
-    if (items.length <= 1) {
-      Alert.alert('Required', 'A quote requires at least 1 line item.');
-      return;
-    }
-    setItems(items.filter((item) => item.id !== id));
+    setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
   const updateQuantity = (id: string, qty: number) => {
-    setItems(
-      items.map((item) => (item.id === id ? { ...item, quantity: Math.max(1, qty) } : item))
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity: Math.max(1, qty) } : item))
     );
   };
 
-  const handleSave = async () => {
-    if (!customer.trim()) {
-      Alert.alert('Required', 'Please select a customer for this quote.');
-      return;
+  const updateRate = (id: string, newRate: number) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, rate: Math.max(0, newRate) } : item))
+    );
+  };
+
+  const updateName = (id: string, name: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, name } : item))
+    );
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!customer.trim() || !customerId) {
+      newErrors.customer = 'Please select a customer';
     }
 
-    const validItems = items.filter((i) => i.name.trim().length > 0 && i.rate > 0);
-    if (validItems.length === 0) {
-      Alert.alert('Required', 'Please add at least one line item with a name and rate.');
-      return;
+    if (!estimateNumber.trim()) {
+      newErrors.estimateNumber = 'Quote number is required';
     }
+
+    if (!date.trim() || isNaN(new Date(date).getTime())) {
+      newErrors.date = 'Valid date required (YYYY-MM-DD)';
+    }
+
+    if (!expiryDate.trim() || isNaN(new Date(expiryDate).getTime())) {
+      newErrors.expiryDate = 'Valid expiry date required (YYYY-MM-DD)';
+    } else if (new Date(expiryDate) < new Date(date)) {
+      newErrors.expiryDate = 'Expiry date cannot be before estimate date';
+    }
+
+    if (items.length === 0) {
+      newErrors.items = 'Please add at least one line item';
+    } else {
+      const hasEmpty = items.some((i) => !i.name.trim() || i.rate < 0 || i.quantity <= 0);
+      if (hasEmpty) {
+        newErrors.items = 'Each item must have a name, positive quantity, and non-negative rate';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    setApiError(null);
+    if (!validateForm()) return;
 
     const payload = {
-      estimateNumber,
+      estimateNumber: estimateNumber.trim(),
+      customerId,
       customerName: customer,
+      date,
       expiryDate,
       amount: grandTotal,
       subtotal,
       taxAmount: tax,
+      taxPercent: 18,
       status: initialEstimate?.status || 'Draft',
-      items: validItems.map((i) => ({
-        itemName: i.name,
-        quantity: i.quantity,
-        rate: i.rate,
-        amount: i.quantity * i.rate,
+      items: items.map((i) => ({
+        itemId: i.itemId || undefined,
+        itemName: i.name.trim(),
+        description: i.description || undefined,
+        quantity: Number(i.quantity) || 1,
+        rate: Number(i.rate) || 0,
+        amount: (Number(i.quantity) || 1) * (Number(i.rate) || 0),
       })),
     };
 
@@ -164,110 +308,267 @@ export function CreateEstimateModal({
           id: initialEstimate.id,
           payload,
         });
-        Alert.alert('Quote Updated', `Quote ${estimateNumber} updated!`);
       } else {
         await createEstimateMutation.mutateAsync(payload);
-        Alert.alert('Quote Created', `Quote ${estimateNumber} created for ${customer}!`);
       }
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to save quote');
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to save quote. Please check all fields.';
+      setApiError(msg);
     }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <X size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-              {initialEstimate ? 'Edit Estimate / Quote' : 'New Estimate / Quote'}
-            </Text>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+            <X size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            {initialEstimate ? 'Edit Estimate' : 'New Estimate'}
+          </Text>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={createEstimateMutation.isPending || updateEstimateMutation.isPending}
+            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+          >
+            {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
+            ) : (
+              <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {/* API Error Banner */}
+          {apiError ? (
+            <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
+              <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+              <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
+            </View>
+          ) : null}
+
+          {/* Customer Selection */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Customer *</Text>
             <TouchableOpacity
-              onPress={handleSave}
-              disabled={createEstimateMutation.isPending || updateEstimateMutation.isPending}
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
+              onPress={() => {
+                setCustomerModalOpen(true);
+                setErrors((prev) => ({ ...prev, customer: '' }));
+              }}
+              style={[
+                styles.selectBox,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: errors.customer ? colors.destructive : colors.border,
+                },
+              ]}
+              activeOpacity={0.7}
             >
-              {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
-                <ActivityIndicator size="small" color={colors.primaryForeground} />
-              ) : (
-                <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
-              )}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
+                  <Users size={16} color={colors.foreground} />
+                </View>
+                <Text
+                  style={[
+                    styles.selectText,
+                    { color: customer ? colors.foreground : colors.mutedForeground },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {customer || 'Select a customer...'}
+                </Text>
+              </View>
+              <ChevronDown size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
+            {errors.customer ? (
+              <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.customer}</Text>
+            ) : null}
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Customer Picker */}
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Customer *</Text>
+          {/* Quote # & Date */}
+          <View style={styles.rowFields}>
+            <View style={styles.halfField}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Estimate # *</Text>
+              <TextInput
+                value={estimateNumber}
+                onChangeText={(val) => {
+                  setEstimateNumber(val);
+                  if (errors.estimateNumber) setErrors((prev) => ({ ...prev, estimateNumber: '' }));
+                }}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: errors.estimateNumber ? colors.destructive : colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="EST-0001"
+                placeholderTextColor={colors.mutedForeground}
+              />
+              {errors.estimateNumber ? (
+                <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.estimateNumber}</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.halfField}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Date (YYYY-MM-DD) *</Text>
+              <TextInput
+                value={date}
+                onChangeText={(val) => {
+                  setDate(val);
+                  if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
+                }}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: errors.date ? colors.destructive : colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.mutedForeground}
+              />
+              {errors.date ? (
+                <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.date}</Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Validity / Expiry Date */}
+          <View style={styles.fieldGroup}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Expiry Date (YYYY-MM-DD) *</Text>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {[
+                  { label: '15 Days', days: 15 },
+                  { label: '30 Days', days: 30 },
+                  { label: '60 Days', days: 60 },
+                ].map((chip) => (
+                  <TouchableOpacity
+                    key={chip.label}
+                    onPress={() => applyValidityDays(chip.days)}
+                    style={[styles.presetChip, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}
+                  >
+                    <Text style={[styles.presetChipText, { color: colors.foreground }]}>{chip.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <TextInput
+              value={expiryDate}
+              onChangeText={(val) => {
+                setExpiryDate(val);
+                if (errors.expiryDate) setErrors((prev) => ({ ...prev, expiryDate: '' }));
+              }}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: errors.expiryDate ? colors.destructive : colors.border,
+                  color: colors.foreground,
+                },
+              ]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.mutedForeground}
+            />
+            {errors.expiryDate ? (
+              <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.expiryDate}</Text>
+            ) : null}
+          </View>
+
+          {/* Line Items Section Header */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+              Line Items ({items.length}) *
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
-                onPress={() => setCustomerModalOpen(true)}
-                style={[styles.selectBox, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={() => setItemModalOpen(true)}
+                style={[styles.itemActionBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
                 activeOpacity={0.7}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
-                    <Users size={16} color={colors.foreground} />
-                  </View>
-                  <Text
-                    style={[
-                      styles.selectText,
-                      { color: customer ? colors.foreground : colors.mutedForeground },
-                    ]}
-                  >
-                    {customer || 'Select a customer...'}
-                  </Text>
-                </View>
-                <ChevronDown size={16} color={colors.mutedForeground} />
+                <Package size={13} color={colors.primary} />
+                <Text style={[styles.itemActionBtnText, { color: colors.primary }]}>From Catalog</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={addCustomItem}
+                style={[styles.itemActionBtn, { backgroundColor: colors.primary }]}
+                activeOpacity={0.7}
+              >
+                <Plus size={13} color={colors.primaryForeground} />
+                <Text style={[styles.itemActionBtnText, { color: colors.primaryForeground }]}>Custom</Text>
               </TouchableOpacity>
             </View>
+          </View>
 
-            {/* Quote Number & Expiry */}
-            <View style={styles.rowFields}>
-              <View style={styles.halfField}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Quote #</Text>
-                <TextInput
-                  value={estimateNumber}
-                  onChangeText={setEstimateNumber}
-                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                />
-              </View>
-              <View style={styles.halfField}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Validity</Text>
-                <TextInput
-                  value={expiryDate}
-                  onChangeText={setExpiryDate}
-                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
-                />
-              </View>
-            </View>
+          {errors.items ? (
+            <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.items}</Text>
+          ) : null}
 
-            {/* Line Items Header */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
-                Line Items ({items.length})
+          {/* Line Items List */}
+          {items.length === 0 ? (
+            <View style={[styles.emptyItemsContainer, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}>
+              <Package size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+              <Text style={[styles.emptyItemsTitle, { color: colors.foreground }]}>No items in estimate</Text>
+              <Text style={[styles.emptyItemsSub, { color: colors.mutedForeground }]}>
+                Add catalog items or create custom quote rows.
               </Text>
-              <TouchableOpacity onPress={() => setItemModalOpen(true)} activeOpacity={0.7}>
-                <Text style={[styles.addItemText, { color: colors.primary }]}>+ Add Item</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <TouchableOpacity
+                  onPress={() => setItemModalOpen(true)}
+                  style={[styles.emptyAddBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={[styles.emptyAddBtnText, { color: colors.primaryForeground }]}>+ Add From Catalog</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={addCustomItem}
+                  style={[styles.emptyAddBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+                >
+                  <Text style={[styles.emptyAddBtnText, { color: colors.foreground }]}>+ Custom Item</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {/* Line Items List */}
+          ) : (
             <View style={styles.itemsList}>
               {items.map((item) => (
                 <Card key={item.id} style={styles.itemCard}>
                   <View style={styles.itemCardHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
-                      <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>Taxable Supply</Text>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      {item.itemId ? (
+                        <View>
+                          <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
+                          <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>Catalog Product</Text>
+                        </View>
+                      ) : (
+                        <TextInput
+                          value={item.name}
+                          onChangeText={(val) => updateName(item.id, val)}
+                          placeholder="Item or service name..."
+                          placeholderTextColor={colors.mutedForeground}
+                          style={[
+                            styles.itemNameInput,
+                            {
+                              backgroundColor: colors.surfaceSubtle,
+                              borderColor: colors.border,
+                              color: colors.foreground,
+                            },
+                          ]}
+                        />
+                      )}
                     </View>
-                    <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7} style={styles.deleteBtn}>
                       <Trash2 size={16} color={colors.destructive} />
                     </TouchableOpacity>
                   </View>
@@ -276,7 +577,7 @@ export function CreateEstimateModal({
 
                   <View style={styles.itemMathGrid}>
                     <View style={styles.mathCol}>
-                      <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Qty</Text>
+                      <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Quantity</Text>
                       <View style={[styles.qtyControl, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
                         <TouchableOpacity
                           onPress={() => updateQuantity(item.id, item.quantity - 1)}
@@ -295,62 +596,73 @@ export function CreateEstimateModal({
                     </View>
 
                     <View style={styles.mathCol}>
-                      <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Rate (₹)</Text>
-                      <Text style={[styles.mathValue, { color: colors.foreground }]}>
-                        {formatCurrency(item.rate, 'INR')}
-                      </Text>
+                      <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Rate ({currency})</Text>
+                      <TextInput
+                        value={String(item.rate || '')}
+                        onChangeText={(val) => updateRate(item.id, parseFloat(val) || 0)}
+                        keyboardType="decimal-pad"
+                        placeholder="0.00"
+                        placeholderTextColor={colors.mutedForeground}
+                        style={[
+                          styles.rateInput,
+                          {
+                            backgroundColor: colors.surfaceSubtle,
+                            borderColor: colors.border,
+                            color: colors.foreground,
+                          },
+                        ]}
+                      />
                     </View>
 
                     <View style={[styles.mathCol, { alignItems: 'flex-end' }]}>
                       <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Amount</Text>
                       <Text style={[styles.mathValueBold, { color: colors.foreground }]}>
-                        {formatCurrency(item.quantity * item.rate, 'INR')}
+                        {formatCurrency(item.quantity * item.rate, currency)}
                       </Text>
                     </View>
                   </View>
                 </Card>
               ))}
             </View>
+          )}
 
-            {/* Calculations Summary Card */}
-            <Card style={styles.summaryCard}>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
-                <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(subtotal, 'INR')}
-                </Text>
+          {/* Calculations Summary */}
+          <Card style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {formatCurrency(subtotal, currency)}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {formatCurrency(tax, currency)}
+              </Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.summaryRow}>
+              <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Estimated Total</Text>
+              <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
+                {formatCurrency(grandTotal, currency)}
+              </Text>
+            </View>
+          </Card>
+        </ScrollView>
+
+        {/* Customer Modal */}
+        <Modal visible={customerModalOpen} animationType="slide" transparent onRequestClose={() => setCustomerModalOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
+                <TouchableOpacity onPress={() => setCustomerModalOpen(false)}>
+                  <X size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
-                <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(tax, 'INR')}
-                </Text>
-              </View>
-
-              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-
-              <View style={styles.summaryRow}>
-                <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Estimated Total</Text>
-                <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
-                  {formatCurrency(grandTotal, 'INR')}
-                </Text>
-              </View>
-            </Card>
-          </ScrollView>
-
-          {/* Customer Selection Modal */}
-          <Modal visible={customerModalOpen} animationType="slide" transparent>
-            <View style={styles.modalOverlay}>
-              <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
-                  <TouchableOpacity onPress={() => setCustomerModalOpen(false)}>
-                    <X size={20} color={colors.mutedForeground} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <View style={styles.customerModalTopRow}>
+                <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border, flex: 1 }]}>
                   <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
                   <TextInput
                     placeholder="Search customers..."
@@ -360,145 +672,153 @@ export function CreateEstimateModal({
                     style={[styles.modalSearchInput, { color: colors.foreground }]}
                   />
                 </View>
+                <TouchableOpacity
+                  onPress={() => setCreateCustomerModalOpen(true)}
+                  style={[styles.modalAddCustomerBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Plus size={16} color={colors.primaryForeground} />
+                </TouchableOpacity>
+              </View>
 
-                <FlatList
-                  data={rawCustomers.filter((c: any) =>
-                    (c.name || '').toLowerCase().includes(customerSearch.toLowerCase())
-                  )}
-                  keyExtractor={(item) => item.id || item.name}
-                  contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-                  renderItem={({ item }) => (
+              <FlatList
+                data={rawCustomers.filter((c: any) =>
+                  (c.name || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+                  (c.email || '').toLowerCase().includes(customerSearch.toLowerCase())
+                )}
+                keyExtractor={(item) => item.id || item.name}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setCustomer(item.name);
+                      setCustomerId(item.id);
+                      setCustomerModalOpen(false);
+                      if (errors.customer) setErrors((prev) => ({ ...prev, customer: '' }));
+                    }}
+                    style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
+                  >
+                    <View style={styles.modalItemLeft}>
+                      <Users size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.modalItemText, { color: colors.foreground }]}>
+                          {item.name}
+                        </Text>
+                        {item.email ? (
+                          <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
+                            {item.email}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                    {customerId === item.id ? <Check size={18} color={colors.primary} /> : null}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={() => (
+                  <View style={{ paddingVertical: 36, alignItems: 'center' }}>
+                    <Users size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
+                      {customerSearch ? 'No matching customers found' : 'No customers yet'}
+                    </Text>
                     <TouchableOpacity
-                      onPress={() => {
-                        setCustomer(item.name);
-                        setCustomerModalOpen(false);
-                      }}
+                      onPress={() => setCreateCustomerModalOpen(true)}
+                      style={{ marginTop: 10 }}
+                    >
+                      <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.primary }}>
+                        + Add New Customer
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Catalog Item Modal */}
+        <Modal visible={itemModalOpen} animationType="slide" transparent onRequestClose={() => setItemModalOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
+                <TouchableOpacity onPress={() => setItemModalOpen(false)}>
+                  <X size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border, marginHorizontal: 16, marginVertical: 12 }]}>
+                <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+                <TextInput
+                  placeholder="Search products & services..."
+                  placeholderTextColor={colors.mutedForeground}
+                  value={itemSearch}
+                  onChangeText={setItemSearch}
+                  style={[styles.modalSearchInput, { color: colors.foreground }]}
+                />
+              </View>
+
+              <FlatList
+                data={rawItems.filter((i: any) =>
+                  (i.name || '').toLowerCase().includes(itemSearch.toLowerCase()) ||
+                  (i.sku || '').toLowerCase().includes(itemSearch.toLowerCase())
+                )}
+                keyExtractor={(item) => item.id || item.name}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+                renderItem={({ item }) => {
+                  const itemRate = Number(item.sellingPrice) || Number(item.unitPrice) || 0;
+                  return (
+                    <TouchableOpacity
+                      onPress={() => addItemFromCatalog(item)}
                       style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
                     >
                       <View style={styles.modalItemLeft}>
-                        <Users size={16} color={colors.foreground} style={{ marginRight: 10 }} />
-                        <View>
+                        {item.type === 'Service' ? (
+                          <Wrench size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                        ) : (
+                          <Package size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                        )}
+                        <View style={{ flex: 1 }}>
                           <Text style={[styles.modalItemText, { color: colors.foreground }]}>
                             {item.name}
                           </Text>
+                          <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
+                            {item.type || 'Product'} • {formatCurrency(itemRate, currency)}
+                          </Text>
                         </View>
                       </View>
-                      {customer === item.name ? <Check size={18} color={colors.primary} /> : null}
+                      <Plus size={16} color={colors.primary} />
                     </TouchableOpacity>
-                  )}
-                  ListEmptyComponent={() => (
-                    <View style={{ paddingVertical: 36, alignItems: 'center' }}>
-                      <Users size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-                      <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
-                        {customerSearch ? 'No matching customers found' : 'No customers found'}
-                      </Text>
-                      <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.mutedForeground, marginTop: 4, textAlign: 'center' }}>
-                        {customerSearch ? 'Try a different search keyword' : 'Add clients from the Customers tab to select here'}
-                      </Text>
-                    </View>
-                  )}
-                />
-              </View>
+                  );
+                }}
+                ListEmptyComponent={() => (
+                  <View style={{ paddingVertical: 36, alignItems: 'center' }}>
+                    <Package size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
+                    <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
+                      {itemSearch ? 'No matching items found' : 'Catalog is empty'}
+                    </Text>
+                  </View>
+                )}
+              />
             </View>
-          </Modal>
+          </View>
+        </Modal>
 
-          {/* Line Item Catalog Modal */}
-          <Modal visible={itemModalOpen} animationType="slide" transparent>
-            <View style={styles.modalOverlay}>
-              <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                  <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
-                  <TouchableOpacity onPress={() => setItemModalOpen(false)}>
-                    <X size={20} color={colors.mutedForeground} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
-                  <TextInput
-                    placeholder="Search products & services..."
-                    placeholderTextColor={colors.mutedForeground}
-                    value={itemSearch}
-                    onChangeText={setItemSearch}
-                    style={[styles.modalSearchInput, { color: colors.foreground }]}
-                  />
-                </View>
-
-                <FlatList
-                  data={rawItems.filter((i: any) =>
-                    (i.name || '').toLowerCase().includes(itemSearch.toLowerCase())
-                  )}
-                  keyExtractor={(item) => item.id || item.name}
-                  contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-                  renderItem={({ item }) => {
-                    const itemRate = Number(item.sellingPrice) || Number(item.unitPrice) || 0;
-                    return (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setItems([
-                            ...items,
-                            {
-                              id: Date.now().toString(),
-                              name: item.name || 'Catalog Item',
-                              quantity: 1,
-                              rate: itemRate,
-                            },
-                          ]);
-                          setItemModalOpen(false);
-                        }}
-                        style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
-                      >
-                        <View style={styles.modalItemLeft}>
-                          {item.type === 'Service' ? (
-                            <Wrench size={16} color={colors.foreground} style={{ marginRight: 10 }} />
-                          ) : (
-                            <Package size={16} color={colors.foreground} style={{ marginRight: 10 }} />
-                          )}
-                          <View>
-                            <Text style={[styles.modalItemText, { color: colors.foreground }]}>
-                              {item.name}
-                            </Text>
-                            <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
-                              {item.type || 'Product'} • {formatCurrency(itemRate, 'INR')}
-                            </Text>
-                          </View>
-                        </View>
-                        <Plus size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                    );
-                  }}
-                  ListEmptyComponent={() => (
-                    <View style={{ paddingVertical: 36, alignItems: 'center' }}>
-                      <Package size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-                      <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
-                        {itemSearch ? 'No matching items found' : 'Catalog is empty'}
-                      </Text>
-                      <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: colors.mutedForeground, marginTop: 4, textAlign: 'center' }}>
-                        {itemSearch ? 'Try a different search keyword' : 'Add products & services in Catalog to select here'}
-                      </Text>
-                    </View>
-                  )}
-                />
-              </View>
-            </View>
-          </Modal>
-        </View>
-      </View>
+        {/* Embedded Add Customer Modal */}
+        <AddCustomerModal
+          visible={createCustomerModalOpen}
+          onClose={() => setCreateCustomerModalOpen(false)}
+          onSuccess={() => {
+            refetchCustomers();
+            setCreateCustomerModalOpen(false);
+          }}
+        />
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  container: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    maxHeight: '92%',
   },
   header: {
     flexDirection: 'row',
@@ -509,26 +829,41 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
   },
   headerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    fontFamily: fonts.bold,
+    fontFamily: fonts.display,
   },
   saveBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: 8,
   },
   saveBtnText: {
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   content: {
     padding: 16,
     paddingBottom: 40,
     gap: 14,
+  },
+  apiErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  apiErrorText: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    flex: 1,
+    lineHeight: 18,
   },
   fieldGroup: {
     gap: 6,
@@ -549,17 +884,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
   },
+  selectText: {
+    fontSize: 13,
+    fontWeight: '500',
+    fontFamily: fonts.medium,
+  },
   selectIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  selectText: {
-    fontSize: 13,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
   },
   rowFields: {
     flexDirection: 'row',
@@ -575,15 +910,63 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  presetChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  presetChipText: {
+    fontSize: 10,
+    fontFamily: fonts.medium,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 4,
   },
-  addItemText: {
+  itemActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  itemActionBtnText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+  },
+  emptyItemsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  emptyItemsTitle: {
+    fontSize: 14,
+    fontFamily: fonts.semiBold,
+  },
+  emptyItemsSub: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 240,
+  },
+  emptyAddBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  emptyAddBtnText: {
     fontSize: 12,
-    fontWeight: '700',
     fontFamily: fonts.bold,
   },
   itemsList: {
@@ -595,17 +978,28 @@ const styles = StyleSheet.create({
   itemCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   itemName: {
     fontSize: 13,
     fontWeight: '700',
-    fontFamily: fonts.semiBold,
+    fontFamily: fonts.bold,
+  },
+  itemNameInput: {
+    fontSize: 13,
+    fontFamily: fonts.medium,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
   },
   itemSub: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fonts.regular,
     marginTop: 2,
+  },
+  deleteBtn: {
+    padding: 4,
   },
   itemDivider: {
     height: 1,
@@ -621,44 +1015,46 @@ const styles = StyleSheet.create({
   },
   mathLabel: {
     fontSize: 10,
-    fontWeight: '600',
-    fontFamily: fonts.medium,
-    textTransform: 'uppercase',
-  },
-  mathValue: {
-    fontSize: 12,
     fontFamily: fonts.regular,
-  },
-  mathValueBold: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: fonts.semiBold,
   },
   qtyControl: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 6,
-    height: 28,
   },
   qtyBtn: {
-    width: 26,
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   qtyBtnText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   qtyNumber: {
-    paddingHorizontal: 6,
     fontSize: 12,
     fontWeight: '700',
+    fontFamily: fonts.bold,
+    paddingHorizontal: 4,
+  },
+  rateInput: {
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    minWidth: 80,
+  },
+  mathValueBold: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   summaryCard: {
     padding: 14,
-    gap: 6,
+    gap: 8,
     marginTop: 4,
   },
   summaryRow: {
@@ -677,55 +1073,68 @@ const styles = StyleSheet.create({
   },
   summaryDivider: {
     height: 1,
-    marginVertical: 6,
+    marginVertical: 4,
   },
   grandTotalLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     fontFamily: fonts.bold,
   },
   grandTotalValue: {
     fontSize: 15,
     fontWeight: '800',
-    fontFamily: fonts.bold,
+    fontFamily: fonts.extraBold,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderWidth: 1,
     maxHeight: '75%',
-    paddingBottom: 24,
+    paddingTop: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    fontFamily: fonts.bold,
+    fontFamily: fonts.display,
+  },
+  customerModalTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginVertical: 12,
   },
   modalSearchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
-    margin: 16,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     height: 38,
   },
   modalSearchInput: {
     flex: 1,
     fontSize: 13,
+  },
+  modalAddCustomerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalItemRow: {
     flexDirection: 'row',
@@ -749,5 +1158,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     marginTop: 2,
   },
+  inlineError: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    marginTop: 2,
+  },
 });
-

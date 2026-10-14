@@ -8,6 +8,7 @@ import {
   Calculator,
   FileMinus,
   Settings,
+  Building2,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -60,6 +61,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
     {
       title: "Settings",
       items: [
+        { name: "Organization", icon: Building2, route: "/organization-settings" },
         { name: "Settings", icon: Settings, route: "/settings" },
       ],
     },

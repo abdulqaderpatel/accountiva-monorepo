@@ -9,6 +9,7 @@ import {
   Plus,
   Check,
   ChevronDown,
+  Settings,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -85,7 +86,15 @@ export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
                 })
               )}
             </div>
-            <div className="border-t border-border/60 pt-1 mt-1">
+            <div className="border-t border-border/60 pt-1 mt-1 flex flex-col gap-0.5">
+              <Link
+                to="/organization-settings"
+                onClick={() => setIsOrgDropdownOpen(false)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 rounded transition-colors font-medium"
+              >
+                <Settings className="size-3 text-muted-foreground" />
+                Organization Settings
+              </Link>
               <Link
                 to="/settings"
                 onClick={() => setIsOrgDropdownOpen(false)}

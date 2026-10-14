@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   User,
   Palette,
@@ -11,7 +12,11 @@ import {
   Shield,
   FileText,
   DollarSign,
+  ArrowRight,
+  ExternalLink,
 } from "lucide-react";
+import api from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { useTheme, ACCENT_COLORS, Theme, AccentColor } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -26,28 +31,87 @@ type SettingsTab = "profile" | "organization" | "appearance" | "invoices";
 
 export function Settings() {
   const { theme, accentColor, setTheme, setAccentColor } = useTheme();
-  const { user, currentOrganization } = useAuth();
+  const { user, currentOrganization, fetchOrganizations } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
-
-  // Profile Form
-  const [fullName, setFullName] = useState(user?.name || "Demo Administrator");
-  const [email] = useState(user?.email || "admin@accountiva.com");
-
-  // Organization Form
-  const [orgName, setOrgName] = useState(currentOrganization?.name || "Acme Technologies Pvt Ltd");
-  const [currency, setCurrency] = useState(currentOrganization?.currency || "INR");
-  const [gstin, setGstin] = useState("27AABCU9603R1ZM");
-  const [pan, setPan] = useState("AABCU9603R");
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Profile updated successfully!");
+  const getInitialTab = (): SettingsTab => {
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab")?.toLowerCase();
+      if (tab === "profile" || tab === "account") return "profile";
+      if (tab === "organization") return "organization";
+      if (tab === "invoices") return "invoices";
+    }
+    return "appearance";
   };
 
-  const handleSaveOrg = (e: React.FormEvent) => {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(getInitialTab);
+
+  // Profile Form
+  const [fullName, setFullName] = useState(user?.name || "");
+  const [email] = useState(user?.email || "");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Organization Form
+  const [orgName, setOrgName] = useState(currentOrganization?.name || "");
+  const [currency, setCurrency] = useState(currentOrganization?.currency || "INR");
+  const [gstin, setGstin] = useState("");
+  const [pan, setPan] = useState("");
+  const [isSavingOrg, setIsSavingOrg] = useState(false);
+
+  useEffect(() => {
+    if (user?.name) {
+      setFullName(user.name);
+    }
+    if (currentOrganization) {
+      setOrgName(currentOrganization.name);
+      setCurrency(currentOrganization.currency || "INR");
+      api.get(`/organizations/${currentOrganization.id}`).then(({ data }) => {
+        if (data) {
+          setOrgName(data.name || currentOrganization.name);
+          setCurrency(data.currency || "INR");
+          setGstin(data.gstin || "");
+          setPan(data.pan || "");
+        }
+      }).catch(() => {});
+    }
+  }, [user, currentOrganization]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Organization settings saved!");
+    setIsSavingProfile(true);
+    try {
+      try {
+        await api.put("/profile", { fullName });
+      } catch {
+        if ((authClient as any)?.updateUser) {
+          await (authClient as any).updateUser({ name: fullName });
+        }
+      }
+      toast.success("Profile updated successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update profile");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleSaveOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentOrganization) return;
+    setIsSavingOrg(true);
+    try {
+      await api.put(`/organizations/${currentOrganization.id}`, {
+        name: orgName,
+        currency,
+        gstin,
+        pan,
+      });
+      await fetchOrganizations();
+      toast.success("Organization settings saved!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update organization");
+    } finally {
+      setIsSavingOrg(false);
+    }
   };
 
   const tabs = [
@@ -196,7 +260,9 @@ export function Settings() {
                   </div>
 
                   <div className="pt-2 flex justify-end">
-                    <Button type="submit">Update Profile</Button>
+                    <Button type="submit" disabled={isSavingProfile}>
+                      {isSavingProfile ? "Updating..." : "Update Profile"}
+                    </Button>
                   </div>
                 </form>
               </CardContent>
@@ -212,7 +278,22 @@ export function Settings() {
                   Legal company identity, tax compliance codes, and base billing currency.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Building2 className="size-4 text-primary shrink-0" />
+                    <p className="text-xs text-foreground font-medium">
+                      Manage team members, branding logo, document theme, and trash recovery.
+                    </p>
+                  </div>
+                  <Link to="/organization-settings">
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs shrink-0 self-start sm:self-auto">
+                      <span>Full Organization Settings</span>
+                      <ArrowRight className="size-3" />
+                    </Button>
+                  </Link>
+                </div>
+
                 <form onSubmit={handleSaveOrg} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5 sm:col-span-2">
@@ -265,7 +346,9 @@ export function Settings() {
                   </div>
 
                   <div className="pt-2 flex justify-end">
-                    <Button type="submit">Save Organization</Button>
+                    <Button type="submit" disabled={isSavingOrg}>
+                      {isSavingOrg ? "Saving..." : "Save Organization"}
+                    </Button>
                   </div>
                 </form>
               </CardContent>

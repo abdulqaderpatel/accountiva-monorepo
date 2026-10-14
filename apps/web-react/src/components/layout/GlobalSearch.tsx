@@ -12,6 +12,7 @@ import {
   X,
   CreditCard,
   FileMinus,
+  Building2,
 } from "lucide-react";
 import { isFeatureEnabled, formatCurrency } from "@accountiva/shared";
 import { useInvoices, useCustomers, useItems, useEstimates } from "@accountiva/api";
@@ -121,6 +122,15 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         icon: FileMinus,
       });
     }
+
+    links.push({
+      id: "nav-org",
+      title: "Organization Settings",
+      subtitle: "Business profile, team members, branding, trash",
+      type: "Page",
+      route: "/organization-settings",
+      icon: Building2,
+    });
 
     links.push({
       id: "nav-set",

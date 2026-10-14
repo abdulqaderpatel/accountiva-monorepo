@@ -55,3 +55,4 @@ export function exportToJson(data: any[], filename: string) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+

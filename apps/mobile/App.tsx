@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Platform, ActivityIndicator, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -54,24 +54,48 @@ function AppShell() {
   const [pendingToken, setPendingToken] = useState('');
 
   useEffect(() => {
-    // Check for web URL query parameters when running in React Native Web
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const token = searchParams.get('token');
-      const email = searchParams.get('email');
-      const path = window.location.pathname;
-
-      if (token) {
-        setPendingToken(token);
-        if (path.includes('reset-password')) {
-          setAuthView('reset_password');
+    const handleUrl = (urlStr: string | null) => {
+      if (!urlStr) return;
+      try {
+        let queryString = "";
+        let path = "";
+        if (urlStr.includes("?")) {
+          const parts = urlStr.split("?");
+          path = parts[0];
+          queryString = parts[1];
         } else {
-          setAuthView('verify_email');
+          path = urlStr;
         }
-      } else if (email) {
-        setPendingEmail(email);
+
+        const params = new URLSearchParams(queryString);
+        const token = params.get("token");
+        const email = params.get("email");
+
+        if (token) {
+          setPendingToken(token);
+          if (path.includes("reset-password")) {
+            setAuthView("reset_password");
+          } else {
+            setAuthView("verify_email");
+          }
+        } else if (email) {
+          setPendingEmail(email);
+        }
+      } catch (err) {
+        console.error("Failed to parse deep link URL:", err);
       }
+    };
+
+    Linking.getInitialURL().then(handleUrl);
+    const subscription = Linking.addEventListener("url", (event) => handleUrl(event.url));
+
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      handleUrl(window.location.href);
     }
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {

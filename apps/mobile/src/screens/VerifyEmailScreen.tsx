@@ -45,8 +45,23 @@ export function VerifyEmailScreen({
     }
   }, [initialToken]);
 
+  const extractToken = (raw: string): string => {
+    const clean = raw.trim();
+    if (clean.includes("token=")) {
+      try {
+        const urlObj = new URL(clean);
+        const extracted = urlObj.searchParams.get("token");
+        if (extracted) return extracted;
+      } catch {
+        const match = clean.match(/token=([^&]+)/);
+        if (match && match[1]) return decodeURIComponent(match[1]);
+      }
+    }
+    return clean;
+  };
+
   const handleVerify = async (tokenToVerify?: string) => {
-    const activeToken = (tokenToVerify || token).trim();
+    const activeToken = extractToken(tokenToVerify || token);
     if (!activeToken) {
       Alert.alert('Required', 'Please enter your verification token');
       return;
@@ -149,10 +164,10 @@ export function VerifyEmailScreen({
               </Text>
               <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <TextInput
-                  placeholder="Paste verification token here"
+                  placeholder="Paste verification token or link here"
                   placeholderTextColor={colors.mutedForeground}
                   value={token}
-                  onChangeText={setToken}
+                  onChangeText={(text) => setToken(extractToken(text))}
                   autoCapitalize="none"
                   style={[styles.input, { color: colors.foreground }]}
                 />

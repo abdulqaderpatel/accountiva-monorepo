@@ -11,6 +11,17 @@ export function useCustomers(params?: { search?: string }) {
   });
 }
 
+export function useCustomer(id: string) {
+  return useQuery({
+    queryKey: ['customers', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/customers/${id}`);
+      return data;
+    },
+    enabled: Boolean(id),
+  });
+}
+
 export function useCreateCustomer() {
   const queryClient = useQueryClient();
   return useMutation({

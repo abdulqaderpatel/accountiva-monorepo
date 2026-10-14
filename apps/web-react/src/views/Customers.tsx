@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Plus, Search, Mail, Phone, Building2, Eye, MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +25,7 @@ interface CustomerRecord {
 }
 
 export function Customers() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
 
@@ -174,6 +176,7 @@ export function Customers() {
                 filtered.map((c) => (
                   <tr
                     key={c.id}
+                    onClick={() => navigate({ to: `/customers/${c.id}` as any })}
                     className="hover:bg-muted/30 transition-colors group cursor-pointer"
                   >
                     <td className="py-3.5 px-4">

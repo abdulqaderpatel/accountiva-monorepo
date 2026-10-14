@@ -12,6 +12,7 @@ import { Invoices } from "./views/Invoices";
 import { Estimates } from "./views/Estimates";
 import { CreditNotes } from "./views/CreditNotes";
 import { Customers } from "./views/Customers";
+import { CustomerDetail } from "./views/CustomerDetail";
 import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import Login from "./views/auth/Login";
@@ -103,6 +104,12 @@ const customersRoute = createRoute({
   component: Customers,
 });
 
+const customerDetailRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/customers/$id",
+  component: CustomerDetail,
+});
+
 const itemsRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/products-and-services/items",
@@ -140,6 +147,7 @@ const routeTree = rootRoute.addChildren([
     dashboardRoute,
     invoicesRoute,
     customersRoute,
+    customerDetailRoute,
     itemsRoute,
     estimatesRoute,
     creditNotesRoute,

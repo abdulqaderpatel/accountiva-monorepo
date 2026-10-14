@@ -20,7 +20,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { formatCurrency, isFeatureEnabled } from '@accountiva/shared';
-import { useInvoices, useEstimates } from '@accountiva/api';
+import { useInvoices, useEstimates, useNotifications } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -34,6 +34,12 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices();
   const { data: apiEstimates } = useEstimates();
+  const { data: apiNotifications } = useNotifications();
+
+  const unreadNotificationsCount = useMemo(() => {
+    if (!Array.isArray(apiNotifications)) return 0;
+    return apiNotifications.filter((n: any) => !n.is_read).length;
+  }, [apiNotifications]);
 
   const rawInvoices: any[] = useMemo(() => {
     if (Array.isArray(apiInvoices) && apiInvoices.length > 0) return apiInvoices;
@@ -124,9 +130,17 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
 
         <TouchableOpacity
           style={[styles.iconButton, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}
+          onPress={() => onNavigate('notifications')}
           activeOpacity={0.7}
         >
           <Bell size={18} color={colors.foreground} />
+          {unreadNotificationsCount > 0 && (
+            <View style={[styles.badgeDot, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
+                {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -390,6 +404,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: fonts.bold,
   },
   scrollContent: {
     padding: 16,

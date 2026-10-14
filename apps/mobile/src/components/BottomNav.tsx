@@ -12,7 +12,8 @@ export type ScreenType =
   | 'customers'
   | 'estimates'
   | 'credit_notes'
-  | 'settings';
+  | 'settings'
+  | 'notifications';
 
 interface BottomNavProps {
   currentScreen: ScreenType;

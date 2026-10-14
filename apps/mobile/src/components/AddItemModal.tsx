@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { X, Check, Package, Wrench } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { useCreateItem } from '@accountiva/api';
+import { useCreateItem, useUpdateItem } from '@accountiva/api';
 import { itemSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 
@@ -20,11 +20,13 @@ interface AddItemModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialItem?: any;
 }
 
-export function AddItemModal({ visible, onClose, onSuccess }: AddItemModalProps) {
+export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddItemModalProps) {
   const { colors } = useTheme();
   const createItemMutation = useCreateItem();
+  const updateItemMutation = useUpdateItem();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<'Product' | 'Service'>('Product');
@@ -33,6 +35,25 @@ export function AddItemModal({ visible, onClose, onSuccess }: AddItemModalProps)
   const [description, setDescription] = useState('');
   const [openingStock, setOpeningStock] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    if (initialItem) {
+      setName(initialItem.name || '');
+      setType(initialItem.type === 'Service' ? 'Service' : 'Product');
+      setSku(initialItem.sku || '');
+      setSellingPrice(initialItem.sellingPrice != null ? String(initialItem.sellingPrice) : '');
+      setDescription(initialItem.description || '');
+      setOpeningStock(initialItem.stockOnHand != null ? String(initialItem.stockOnHand) : initialItem.openingStock != null ? String(initialItem.openingStock) : '');
+    } else {
+      setName('');
+      setType('Product');
+      setSku('');
+      setSellingPrice('');
+      setDescription('');
+      setOpeningStock('');
+    }
+    setErrors({});
+  }, [initialItem, visible]);
 
   const resetForm = () => {
     setName('');
@@ -75,13 +96,21 @@ export function AddItemModal({ visible, onClose, onSuccess }: AddItemModalProps)
     }
 
     try {
-      await createItemMutation.mutateAsync(formData);
-      Alert.alert('Success', 'Item created successfully');
+      if (initialItem?.id) {
+        await updateItemMutation.mutateAsync({
+          id: initialItem.id,
+          payload: formData,
+        });
+        Alert.alert('Success', 'Item updated successfully');
+      } else {
+        await createItemMutation.mutateAsync(formData);
+        Alert.alert('Success', 'Item created successfully');
+      }
       resetForm();
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to create item');
+      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to save item');
     }
   };
 
@@ -91,7 +120,9 @@ export function AddItemModal({ visible, onClose, onSuccess }: AddItemModalProps)
         <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Item</Text>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              {initialItem ? 'Edit Item' : 'New Item'}
+            </Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <X size={20} color={colors.mutedForeground} />
             </TouchableOpacity>

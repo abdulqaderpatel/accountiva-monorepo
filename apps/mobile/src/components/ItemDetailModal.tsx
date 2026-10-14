@@ -6,28 +6,57 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
-import { X, Package, Wrench, Tag, Layers, FileText } from 'lucide-react-native';
+import { X, Package, Wrench, Tag, Layers, FileText, Trash2, Edit3 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
+import { useDeleteItem } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface ItemDetailModalProps {
   visible: boolean;
   item: any | null;
   onClose: () => void;
+  onRefresh?: () => void;
+  onEdit?: (item: any) => void;
 }
 
-export function ItemDetailModal({ visible, item, onClose }: ItemDetailModalProps) {
+export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: ItemDetailModalProps) {
   const { colors } = useTheme();
+  const deleteItemMutation = useDeleteItem();
 
   if (!item) return null;
 
   const isProduct = item.type !== 'Service';
   const price = Number(item.sellingPrice) || Number(item.rate) || Number(item.price) || 0;
-  const stock = item.openingStock ?? item.stock ?? null;
+  const stock = item.openingStock ?? item.stock ?? item.stockOnHand ?? null;
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Item',
+      `Are you sure you want to delete "${item.name}" from your catalog?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteItemMutation.mutateAsync(item.id);
+              Alert.alert('Deleted', 'Item deleted successfully');
+              if (onRefresh) onRefresh();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete item');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -36,9 +65,26 @@ export function ItemDetailModal({ visible, item, onClose }: ItemDetailModalProps
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.foreground }]}>Catalog Item Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <X size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              {onEdit && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onEdit(item);
+                  }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.7}
+                >
+                  <Edit3 size={18} color={colors.foreground} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
+                <Trash2 size={18} color={colors.destructive} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -141,6 +187,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fonts.display,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconBtn: {
+    padding: 4,
   },
   closeBtn: {
     padding: 4,

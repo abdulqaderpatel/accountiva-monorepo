@@ -41,6 +41,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const [filterType, setFilterType] = useState<'ALL' | 'Product' | 'Service'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemRecord | null>(null);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
 
   const { data: apiItems, isLoading, refetch, isRefetching } = useItems({
     search: search || undefined,
@@ -230,11 +231,18 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
         )}
       </ScrollView>
 
-      {/* Add Item Modal */}
+      {/* Add / Edit Item Modal */}
       <AddItemModal
-        visible={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => refetch()}
+        visible={isAddModalOpen || Boolean(editingItem)}
+        initialItem={editingItem}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSuccess={() => {
+          refetch();
+          setEditingItem(null);
+        }}
       />
 
       {/* Item Detail Modal */}
@@ -242,6 +250,8 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
         visible={Boolean(selectedItem)}
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
+        onRefresh={() => refetch()}
+        onEdit={(it) => setEditingItem(it)}
       />
     </View>
   );

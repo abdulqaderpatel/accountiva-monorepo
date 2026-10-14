@@ -17,6 +17,8 @@ import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import { PublicInvoiceView } from "./views/PublicInvoiceView";
 import { Onboarding } from "./views/Onboarding";
+import { Landing } from "./views/Landing";
+import { useAuth } from "./context/AuthContext";
 import Login from "./views/auth/Login";
 import Signup from "./views/auth/Signup";
 import ForgotPassword from "./views/auth/ForgotPassword";
@@ -92,6 +94,27 @@ const onboardingRoute = createRoute({
   ),
 });
 
+function RootIndexComponent() {
+  const { isAuthenticated, loading, organizations } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+  if (isAuthenticated) {
+    return <Navigate to={organizations.length > 0 ? "/dashboard" : "/onboarding"} replace />;
+  }
+  return <Landing />;
+}
+
+const rootIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: RootIndexComponent,
+});
+
 // 3. Protected Layout Route
 const protectedLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -101,13 +124,6 @@ const protectedLayoutRoute = createRoute({
       <AppLayout />
     </ProtectedRoute>
   ),
-});
-
-// Index Route: redirects to /dashboard
-const indexRoute = createRoute({
-  getParentRoute: () => protectedLayoutRoute,
-  path: "/",
-  component: () => <Navigate to="/dashboard" replace />,
 });
 
 const dashboardRoute = createRoute({
@@ -160,6 +176,7 @@ const settingsRoute = createRoute({
 
 // 4. Create Route Tree
 const routeTree = rootRoute.addChildren([
+  rootIndexRoute,
   loginRoute,
   signupRoute,
   forgotPasswordRoute,
@@ -170,7 +187,6 @@ const routeTree = rootRoute.addChildren([
   publicInvoiceAliasRoute,
   onboardingRoute,
   protectedLayoutRoute.addChildren([
-    indexRoute,
     dashboardRoute,
     invoicesRoute,
     customersRoute,

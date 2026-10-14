@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { X, Check, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
-import api, { useCreateCustomer } from '@accountiva/api';
+import api, { useCreateCustomer, useUpdateCustomer } from '@accountiva/api';
 import { customerSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 
@@ -20,11 +20,13 @@ interface AddCustomerModalProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialCustomer?: any;
 }
 
-export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerModalProps) {
+export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer }: AddCustomerModalProps) {
   const { colors } = useTheme();
   const createCustomerMutation = useCreateCustomer();
+  const updateCustomerMutation = useUpdateCustomer();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,6 +38,29 @@ export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerMod
   const [billingAddress, setBillingAddress] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fetchingGst, setFetchingGst] = useState(false);
+
+  React.useEffect(() => {
+    if (initialCustomer) {
+      setName(initialCustomer.name || '');
+      setEmail(initialCustomer.email || '');
+      setPhone(initialCustomer.phone || '');
+      setCompany(initialCustomer.company || '');
+      setGstTreatment(initialCustomer.gstTreatment || 'Consumer');
+      setGstNumber(initialCustomer.gstNumber || initialCustomer.gstin || '');
+      setPan(initialCustomer.pan || '');
+      setBillingAddress(initialCustomer.billingAddress || initialCustomer.address || '');
+    } else {
+      setName('');
+      setEmail('');
+      setPhone('');
+      setCompany('');
+      setGstTreatment('Consumer');
+      setGstNumber('');
+      setPan('');
+      setBillingAddress('');
+    }
+    setErrors({});
+  }, [initialCustomer, visible]);
 
   const handleGstChange = (val: string) => {
     const uppercase = val.toUpperCase().trim();
@@ -105,15 +130,16 @@ export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerMod
     }
 
     try {
-      await createCustomerMutation.mutateAsync(formData);
-      Alert.alert('Customer Added', `${name} has been added to your client list.`);
-      setName('');
-      setEmail('');
-      setPhone('');
-      setCompany('');
-      setGstNumber('');
-      setPan('');
-      setBillingAddress('');
+      if (initialCustomer?.id) {
+        await updateCustomerMutation.mutateAsync({
+          id: initialCustomer.id,
+          payload: formData,
+        });
+        Alert.alert('Customer Updated', `${name}'s details have been updated.`);
+      } else {
+        await createCustomerMutation.mutateAsync(formData);
+        Alert.alert('Customer Added', `${name} has been added to your client list.`);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -129,13 +155,15 @@ export function AddCustomerModal({ visible, onClose, onSuccess }: AddCustomerMod
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
             <X size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.foreground }]}>New Customer</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>
+            {initialCustomer ? 'Edit Customer' : 'New Customer'}
+          </Text>
           <TouchableOpacity
             onPress={handleSave}
-            disabled={createCustomerMutation.isPending}
+            disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
             style={[styles.saveBtn, { backgroundColor: colors.primary }]}
           >
-            {createCustomerMutation.isPending ? (
+            {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
               <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
               <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>

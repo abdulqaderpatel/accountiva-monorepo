@@ -44,6 +44,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
 
   const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
     search: search || undefined,
@@ -191,11 +192,18 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         )}
       </ScrollView>
 
-      {/* Add Customer Modal */}
+      {/* Add / Edit Customer Modal */}
       <AddCustomerModal
-        visible={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={() => refetch()}
+        visible={isAddModalOpen || Boolean(editingCustomer)}
+        initialCustomer={editingCustomer}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingCustomer(null);
+        }}
+        onSuccess={() => {
+          refetch();
+          setEditingCustomer(null);
+        }}
       />
 
       {/* Customer Detail Modal */}
@@ -203,6 +211,8 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         visible={Boolean(selectedCustomer)}
         customer={selectedCustomer}
         onClose={() => setSelectedCustomer(null)}
+        onRefresh={() => refetch()}
+        onEdit={(cust) => setEditingCustomer(cust)}
         onCreateInvoice={() => onNavigate('create_invoice')}
       />
     </View>

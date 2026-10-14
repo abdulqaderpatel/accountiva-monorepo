@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,27 +9,48 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import { X, Users, Mail, Phone, MapPin, FileText, Building2, CreditCard } from 'lucide-react-native';
+import {
+  X,
+  Users,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  Building2,
+  Trash2,
+  Edit3,
+  Plus,
+  ChevronRight,
+} from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
+import { useDeleteCustomer, useInvoices } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface CustomerDetailModalProps {
   visible: boolean;
   customer: any | null;
   onClose: () => void;
+  onRefresh?: () => void;
+  onEdit?: (customer: any) => void;
   onCreateInvoice?: (customerName: string) => void;
+  onViewInvoice?: (invoice: any) => void;
 }
 
 export function CustomerDetailModal({
   visible,
   customer,
   onClose,
+  onRefresh,
+  onEdit,
   onCreateInvoice,
+  onViewInvoice,
 }: CustomerDetailModalProps) {
   const { colors } = useTheme();
+  const deleteCustomerMutation = useDeleteCustomer();
+  const { data: apiInvoices } = useInvoices();
 
   if (!customer) return null;
 
@@ -56,7 +77,60 @@ export function CustomerDetailModal({
     }
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Customer',
+      `Are you sure you want to delete ${customer.name}? This will remove them from your customer list.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCustomerMutation.mutateAsync(customer.id);
+              Alert.alert('Customer Deleted', `${customer.name} has been removed.`);
+              if (onRefresh) onRefresh();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete customer');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const outstanding = Number(customer.outstanding) || 0;
+
+  // Filter invoices for this customer
+  const customerInvoices = useMemo(() => {
+    const rawList: any[] = Array.isArray(apiInvoices)
+      ? apiInvoices
+      : Array.isArray(apiInvoices?.data)
+      ? apiInvoices.data
+      : [];
+
+    const custName = (customer.name || '').toLowerCase();
+    const custId = customer.id;
+
+    return rawList
+      .filter((inv) => {
+        const invCust = (inv.customer || inv.customerName || inv.customers?.name || '').toLowerCase();
+        const invCustId = inv.customerId || inv.customer_id;
+        return (custName && invCust.includes(custName)) || (custId && invCustId === custId);
+      })
+      .map((inv) => ({
+        id: inv.id,
+        number: inv.number || inv.invoiceNumber || 'INV-000',
+        date: inv.date || inv.issueDate || 'Recent',
+        dueDate: inv.dueDate,
+        amount: Number(inv.amount) || 0,
+        status: (inv.status || 'Draft').toUpperCase(),
+        customer: inv.customer || inv.customerName || customer.name,
+        raw: inv,
+      }));
+  }, [apiInvoices, customer]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -65,9 +139,26 @@ export function CustomerDetailModal({
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <Text style={[styles.title, { color: colors.foreground }]}>Customer Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-              <X size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              {onEdit && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onEdit(customer);
+                  }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.7}
+                >
+                  <Edit3 size={18} color={colors.foreground} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
+                <Trash2 size={18} color={colors.destructive} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
+                <X size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -153,6 +244,63 @@ export function CustomerDetailModal({
               </View>
             </Card>
 
+            {/* Invoices History Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                Invoices Issued ({customerInvoices.length})
+              </Text>
+              <TouchableOpacity onPress={handleCreateInvoice} activeOpacity={0.7}>
+                <Text style={[styles.addInvoiceLink, { color: colors.primary }]}>+ New</Text>
+              </TouchableOpacity>
+            </View>
+
+            {customerInvoices.length === 0 ? (
+              <Card style={styles.emptyInvoicesCard}>
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  No invoices issued to this customer yet.
+                </Text>
+              </Card>
+            ) : (
+              <View style={styles.invoicesList}>
+                {customerInvoices.map((inv) => {
+                  const isPaid = inv.status === 'PAID';
+                  const isOverdue = inv.status === 'OVERDUE';
+                  const badgeVariant = isPaid ? 'success' : isOverdue ? 'destructive' : 'warning';
+
+                  return (
+                    <TouchableOpacity
+                      key={inv.id}
+                      style={[styles.invoiceItemCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                      onPress={() => {
+                        if (onViewInvoice) {
+                          onClose();
+                          onViewInvoice(inv.raw || inv);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.invoiceLeft}>
+                        <View style={[styles.invIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
+                          <FileText size={14} color={colors.foreground} />
+                        </View>
+                        <View>
+                          <Text style={[styles.invNumber, { color: colors.foreground }]}>{inv.number}</Text>
+                          <Text style={[styles.invDate, { color: colors.mutedForeground }]}>{inv.date}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.invoiceRight}>
+                        <Text style={[styles.invAmount, { color: colors.foreground }]}>
+                          {formatCurrency(inv.amount, 'INR')}
+                        </Text>
+                        <Badge variant={badgeVariant}>{inv.status}</Badge>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
             {/* Tax & Legal Info */}
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Tax & Compliance</Text>
             <Card style={styles.detailCard}>
@@ -230,6 +378,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.display,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconBtn: {
+    padding: 4,
+  },
   closeBtn: {
     padding: 4,
   },
@@ -299,13 +455,73 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.semiBold,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
     fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 6,
+  },
+  addInvoiceLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: fonts.semiBold,
+  },
+  emptyInvoicesCard: {
+    padding: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+  },
+  invoicesList: {
+    gap: 8,
+  },
+  invoiceItemCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  invoiceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  invIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: fonts.semiBold,
+  },
+  invDate: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    marginTop: 1,
+  },
+  invoiceRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  invAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   detailCard: {
     padding: 14,
@@ -342,4 +558,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
 });
-

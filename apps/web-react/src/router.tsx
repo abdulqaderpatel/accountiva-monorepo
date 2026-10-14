@@ -26,6 +26,7 @@ import ForgotPassword from "./views/auth/ForgotPassword";
 import ResetPassword from "./views/auth/ResetPassword";
 import CheckEmail from "./views/auth/CheckEmail";
 import VerifyEmail from "./views/auth/VerifyEmail";
+import { AcceptInvitation } from "./views/auth/AcceptInvitation";
 
 // 1. Root Route
 const rootRoute = createRootRoute({
@@ -83,6 +84,12 @@ const publicInvoiceAliasRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/invoices/$id",
   component: PublicInvoiceView,
+});
+
+const acceptInvitationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/invite/$token",
+  component: AcceptInvitation,
 });
 
 const onboardingRoute = createRoute({
@@ -204,6 +211,7 @@ const routeTree = rootRoute.addChildren([
   verifyEmailRoute,
   publicInvoiceRoute,
   publicInvoiceAliasRoute,
+  acceptInvitationRoute,
   onboardingRoute,
   protectedLayoutRoute.addChildren([
     dashboardRoute,

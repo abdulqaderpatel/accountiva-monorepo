@@ -26,6 +26,7 @@ interface AuthContextType {
   currentOrganization: Organization | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<any>;
   signup: (signupData: { name: string; email: string; password: string; redirect?: string }) => Promise<any>;
   socialLogin: (provider: "google") => Promise<void>;
@@ -44,6 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const fetchAdminAccess = useCallback(async () => {
+    try {
+      const { data } = await api.get("/admin/access");
+      setIsAdmin(data?.isAdmin === true);
+    } catch {
+      setIsAdmin(false);
+    }
+  }, []);
 
   const setCurrentOrganization = useCallback((org: Organization | null) => {
     const prevId = currentOrganization?.id;
@@ -104,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const session = await (authClient.getSession as any)();
         if (session?.data?.user && mounted) {
           setUser(session.data.user as User);
-          await fetchOrganizations();
+          await Promise.all([fetchOrganizations(), fetchAdminAccess()]);
         }
       } catch (err) {
         console.error("Session restore error:", err);
@@ -117,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [fetchOrganizations]);
+  }, [fetchOrganizations, fetchAdminAccess]);
 
   const login = async (email: string, password: string) => {
     const result = await authClient.signIn.email({
@@ -131,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (result.data?.user) {
       setUser(result.data.user as User);
-      await fetchOrganizations();
+      await Promise.all([fetchOrganizations(), fetchAdminAccess()]);
     }
     return result.data;
   };
@@ -206,6 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await (authClient.signOut as any)();
     } finally {
       setUser(null);
+      setIsAdmin(false);
       setOrganizations([]);
       setCurrentOrganization(null);
       localStorage.removeItem("accountiva_org_id");
@@ -223,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentOrganization,
         loading,
         isAuthenticated,
+        isAdmin,
         login,
         signup,
         socialLogin,

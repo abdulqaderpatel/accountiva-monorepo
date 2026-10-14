@@ -10,6 +10,7 @@ import {
   Check,
   ChevronDown,
   Settings,
+  ShieldAlert,
 } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
@@ -23,7 +24,7 @@ interface TopBarProps {
 
 export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
   const { isDark, toggleTheme } = useTheme();
-  const { currentOrganization, organizations, setCurrentOrganization, user } = useAuth();
+  const { currentOrganization, organizations, setCurrentOrganization, user, isAdmin } = useAuth();
   const { data: notifications = [] } = useNotifications();
   const [isOrgDropdownOpen, setIsOrgDropdownOpen] = useState(false);
 
@@ -159,6 +160,20 @@ export function TopBar({ organizationName, onOpenSearch }: TopBarProps) {
             )}
           </Button>
         </Link>
+
+        {/* Admin Panel Link */}
+        {isAdmin && (
+          <Link to="/admin">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-primary hover:bg-primary/10"
+              title="Admin Panel"
+            >
+              <ShieldAlert className="size-4" />
+            </Button>
+          </Link>
+        )}
 
         {/* User Avatar */}
         <Link to="/settings">

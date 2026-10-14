@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { Search, Plus, FileText } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -18,6 +19,7 @@ import { useInvoices } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { InvoiceDetailModal } from '../components/InvoiceDetailModal';
+import { CreateInvoiceScreen } from './CreateInvoiceScreen';
 
 interface InvoicesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -42,6 +44,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
   const [filter, setFilter] = useState<'all' | 'unpaid' | 'paid' | 'overdue'>('all');
   const [search, setSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices({
     search: search || undefined,
@@ -246,7 +249,22 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
         invoice={selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
         onRefresh={() => refetch()}
+        onEdit={(inv) => setEditingInvoice(inv)}
       />
+
+      {/* Invoice Edit Modal */}
+      {editingInvoice && (
+        <Modal visible={Boolean(editingInvoice)} animationType="slide">
+          <CreateInvoiceScreen
+            onNavigate={onNavigate}
+            initialInvoice={editingInvoice}
+            onDone={() => {
+              setEditingInvoice(null);
+              refetch();
+            }}
+          />
+        </Modal>
+      )}
     </View>
   );
 }

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { X, Trash2, Plus, Check, Search, Users, Package, Wrench, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
-import { useCreateInvoice, useCustomers, useItems } from '@accountiva/api';
+import { useCreateInvoice, useUpdateInvoice, useCustomers, useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
@@ -19,11 +19,14 @@ interface LineItem {
 
 interface CreateInvoiceScreenProps {
   onNavigate: (screen: ScreenType) => void;
+  initialInvoice?: any;
+  onDone?: () => void;
 }
 
-export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
+export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: CreateInvoiceScreenProps) {
   const { colors } = useTheme();
   const createInvoiceMutation = useCreateInvoice();
+  const updateInvoiceMutation = useUpdateInvoice();
 
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
@@ -40,7 +43,9 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
     ? apiItems.data
     : [];
 
-  const [customer, setCustomer] = useState('');
+  const [customer, setCustomer] = useState(
+    initialInvoice?.customer || initialInvoice?.customerName || ''
+  );
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -48,16 +53,27 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
   const [itemSearch, setItemSearch] = useState('');
 
   const [invoiceNumber, setInvoiceNumber] = useState(
-    `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+    initialInvoice?.number ||
+      initialInvoice?.invoiceNumber ||
+      `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
   );
   const [dueDate, setDueDate] = useState(() => {
+    if (initialInvoice?.dueDate) return initialInvoice.dueDate;
     const due = new Date();
     due.setDate(due.getDate() + 15);
     return due.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   });
-  const [items, setItems] = useState<LineItem[]>([
-    { id: '1', name: '', quantity: 1, rate: 0 },
-  ]);
+  const [items, setItems] = useState<LineItem[]>(() => {
+    if (Array.isArray(initialInvoice?.items) && initialInvoice.items.length > 0) {
+      return initialInvoice.items.map((i: any, idx: number) => ({
+        id: String(i.id || idx),
+        name: i.name || i.itemName || '',
+        quantity: Number(i.quantity) || 1,
+        rate: Number(i.rate) || 0,
+      }));
+    }
+    return [{ id: '1', name: '', quantity: 1, rate: 0 }];
+  });
 
   const subtotal = items.reduce((acc, item) => acc + item.quantity * item.rate, 0);
   const tax = subtotal * 0.18; // 18% GST
@@ -99,28 +115,47 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
       return;
     }
 
-    try {
-      await createInvoiceMutation.mutateAsync({
-        invoiceNumber,
-        customerName: customer,
-        dueDate,
-        amount: grandTotal,
-        subtotal,
-        taxAmount: tax,
-        status: 'Draft',
-        items: validItems.map((i) => ({
-          itemName: i.name,
-          quantity: i.quantity,
-          rate: i.rate,
-          amount: i.quantity * i.rate,
-        })),
-      });
+    const payload = {
+      invoiceNumber,
+      customerName: customer,
+      dueDate,
+      amount: grandTotal,
+      subtotal,
+      taxAmount: tax,
+      status: initialInvoice?.status || 'Draft',
+      items: validItems.map((i) => ({
+        itemName: i.name,
+        quantity: i.quantity,
+        rate: i.rate,
+        amount: i.quantity * i.rate,
+      })),
+    };
 
-      Alert.alert('Success', `Invoice ${invoiceNumber} created for ${customer}!`, [
-        { text: 'OK', onPress: () => onNavigate('invoices') },
-      ]);
+    try {
+      if (initialInvoice?.id) {
+        await updateInvoiceMutation.mutateAsync({
+          id: initialInvoice.id,
+          payload,
+        });
+        Alert.alert('Success', `Invoice ${invoiceNumber} updated!`, [
+          { text: 'OK', onPress: () => (onDone ? onDone() : onNavigate('invoices')) },
+        ]);
+      } else {
+        await createInvoiceMutation.mutateAsync(payload);
+        Alert.alert('Success', `Invoice ${invoiceNumber} created for ${customer}!`, [
+          { text: 'OK', onPress: () => (onDone ? onDone() : onNavigate('invoices')) },
+        ]);
+      }
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to save invoice');
+    }
+  };
+
+  const handleClose = () => {
+    if (onDone) {
+      onDone();
+    } else {
+      onNavigate('invoices');
     }
   };
 
@@ -129,19 +164,26 @@ export function CreateInvoiceScreen({ onNavigate }: CreateInvoiceScreenProps) {
       {/* Top Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity
-          onPress={() => onNavigate('invoices')}
+          onPress={handleClose}
           style={styles.closeBtn}
           activeOpacity={0.7}
         >
           <X size={20} color={colors.mutedForeground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Create Invoice</Text>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+          {initialInvoice ? 'Edit Invoice' : 'Create Invoice'}
+        </Text>
         <TouchableOpacity
           onPress={handleSave}
+          disabled={createInvoiceMutation.isPending || updateInvoiceMutation.isPending}
           style={[styles.saveBtn, { backgroundColor: colors.primary }]}
           activeOpacity={0.8}
         >
-          <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+          {createInvoiceMutation.isPending || updateInvoiceMutation.isPending ? (
+            <ActivityIndicator size="small" color={colors.primaryForeground} />
+          ) : (
+            <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+          )}
         </TouchableOpacity>
       </View>
 

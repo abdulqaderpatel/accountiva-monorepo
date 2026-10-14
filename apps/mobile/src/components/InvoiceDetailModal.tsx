@@ -8,13 +8,14 @@ import {
   ScrollView,
   Share,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { X, Share2, CheckCircle2, Users, FileText, Send } from 'lucide-react-native';
+import { X, Share2, CheckCircle2, Users, FileText, Send, Trash2, Edit3, Ban } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { formatCurrency, formatDate } from '@accountiva/shared';
-import { useUpdateInvoice } from '@accountiva/api';
+import { useUpdateInvoice, useDeleteInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface InvoiceDetailModalProps {
@@ -22,11 +23,13 @@ interface InvoiceDetailModalProps {
   invoice: any | null;
   onClose: () => void;
   onRefresh?: () => void;
+  onEdit?: (invoice: any) => void;
 }
 
-export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: InvoiceDetailModalProps) {
+export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdit }: InvoiceDetailModalProps) {
   const { colors } = useTheme();
   const updateInvoiceMutation = useUpdateInvoice();
+  const deleteInvoiceMutation = useDeleteInvoice();
 
   if (!invoice) return null;
 
@@ -37,7 +40,9 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
 
   const isPaid = status === 'PAID';
   const isOverdue = status === 'OVERDUE';
-  const variant = isPaid ? 'success' : isOverdue ? 'destructive' : 'warning';
+  const isVoid = status === 'VOID';
+  const isDraft = status === 'DRAFT';
+  const variant = isPaid ? 'success' : isOverdue ? 'destructive' : isVoid ? 'default' : 'warning';
 
   const handleShare = async () => {
     try {
@@ -50,7 +55,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
     }
   };
 
-  const handleStatusChange = async (newStatus: 'Paid' | 'Sent') => {
+  const handleStatusChange = async (newStatus: 'Paid' | 'Sent' | 'Void') => {
     try {
       await updateInvoiceMutation.mutateAsync({
         id: invoice.id,
@@ -62,6 +67,45 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
     } catch (err: any) {
       Alert.alert('Update Failed', err.message || 'Could not update status');
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Invoice',
+      `Are you sure you want to delete invoice ${invoice.number || invoice.invoiceNumber}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteInvoiceMutation.mutateAsync(invoice.id);
+              Alert.alert('Deleted', 'Invoice deleted successfully');
+              if (onRefresh) onRefresh();
+              onClose();
+            } catch (err: any) {
+              Alert.alert('Delete Failed', err.message || 'Could not delete invoice');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleVoid = () => {
+    Alert.alert(
+      'Void Invoice',
+      `Mark invoice ${invoice.number || invoice.invoiceNumber} as void?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Void Invoice',
+          style: 'destructive',
+          onPress: () => handleStatusChange('Void'),
+        },
+      ]
+    );
   };
 
   const lineItems: any[] = Array.isArray(invoice.items) && invoice.items.length > 0
@@ -91,6 +135,21 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
               </Text>
             </View>
             <View style={styles.headerRight}>
+              {isDraft && onEdit && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onEdit(invoice);
+                  }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.7}
+                >
+                  <Edit3 size={18} color={colors.foreground} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
+                <Trash2 size={18} color={colors.destructive} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
               </TouchableOpacity>
@@ -219,6 +278,20 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh }: Inv
                   <Send size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
                     Mark as Sent
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {!isPaid && !isVoid ? (
+                <TouchableOpacity
+                  onPress={handleVoid}
+                  disabled={updateInvoiceMutation.isPending}
+                  style={[styles.secondaryActionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+                  activeOpacity={0.7}
+                >
+                  <Ban size={15} color={colors.destructive} style={{ marginRight: 6 }} />
+                  <Text style={[styles.secondaryActionText, { color: colors.destructive }]}>
+                    Void
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -412,5 +485,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  secondaryActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 44,
+    paddingHorizontal: 16,
+  },
+  secondaryActionText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

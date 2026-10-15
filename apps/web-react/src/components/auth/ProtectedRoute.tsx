@@ -18,8 +18,7 @@ export function ProtectedRoute({ children }: { children?: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    const redirectUrl = `${location.pathname}${location.searchStr || ""}`;
-    return <Navigate to="/login" search={{ redirect: redirectUrl }} replace />;
+    return <Navigate to="/login" search={{ redirect: location.pathname }} replace />;
   }
 
   // Force onboarding if user has no organizations and is not on onboarding

@@ -68,8 +68,7 @@ api.interceptors.response.use(
       if (!isPublicPath) {
         localStorage.removeItem("accountiva_session");
         localStorage.removeItem("accountiva_org_id");
-        const redirect = `${window.location.pathname}${window.location.search}`;
-        window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`);
+        window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
       }
     }
     return Promise.reject(error);

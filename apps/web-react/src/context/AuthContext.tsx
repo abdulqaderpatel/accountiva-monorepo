@@ -113,7 +113,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initAuth() {
       try {
-        const session = await (authClient.getSession as any)();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Auth session check timed out")), 10000)
+        );
+        const sessionPromise = (authClient.getSession as any)();
+        const session = await Promise.race([sessionPromise, timeoutPromise]);
         if (session?.data?.user && mounted) {
           setUser(session.data.user as User);
           await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
@@ -121,7 +125,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("Session restore error:", err);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
@@ -176,7 +182,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const socialLogin = async (provider: "google") => {
     const params = new URLSearchParams(window.location.search);
-    const redirect = params.get("redirect") || "/";
+    let redirect = params.get("redirect") || "/dashboard";
+
+    if (redirect.includes("?")) {
+      const [path, query] = redirect.split("?");
+      const q = new URLSearchParams(query);
+      q.delete("code");
+      q.delete("state");
+      q.delete("scope");
+      q.delete("authuser");
+      q.delete("prompt");
+      const remaining = q.toString();
+      redirect = path + (remaining ? `?${remaining}` : "");
+    }
+
+    if (!redirect || redirect === "/" || redirect === "/login") {
+      redirect = "/dashboard";
+    }
+
     const callbackURL = window.location.origin + (redirect.startsWith("/") ? redirect : `/${redirect}`);
     const errorCallbackURL = window.location.origin + "/login";
 

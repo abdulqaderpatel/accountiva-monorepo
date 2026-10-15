@@ -33,7 +33,8 @@ export default function Login() {
   const [resendLoading, setResendLoading] = useState(false);
 
   useEffect(() => {
-    const errorParam = searchParams.get("error");
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
     if (errorParam) {
       const friendlyMsg =
         errorParam === "please_restart_the_process"
@@ -41,7 +42,7 @@ export default function Login() {
           : "Sign in failed. Please try again.";
       toast.error("Authentication Notice", { description: friendlyMsg });
     }
-  }, [searchParams]);
+  }, []);
 
   const handleResendVerification = async () => {
     if (!email) {

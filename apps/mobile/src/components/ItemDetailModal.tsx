@@ -6,8 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { X, Package, Wrench, Tag, Layers, FileText, Trash, Pencil } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
@@ -35,27 +35,23 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
   const stock = item.openingStock ?? item.stock ?? item.stockOnHand ?? null;
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Item',
-      `Are you sure you want to delete "${item.name}" from your catalog?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteItemMutation.mutateAsync(item.id);
-              Alert.alert('Deleted', 'Item deleted successfully');
-              if (onRefresh) onRefresh();
-              onClose();
-            } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete item');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Item',
+      message: `Are you sure you want to delete "${item.name}" from your catalog?`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteItemMutation.mutateAsync(item.id);
+          toast.success('Item Deleted', `"${item.name}" has been removed.`);
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err: any) {
+          toast.error('Error', err?.message || 'Failed to delete item');
+        }
+      },
+    });
   };
 
   return (

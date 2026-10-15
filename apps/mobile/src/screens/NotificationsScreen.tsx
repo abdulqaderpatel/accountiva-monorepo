@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import {
   ArrowLeft,
   Bell,
@@ -69,8 +69,9 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
   const handleMarkAllRead = async () => {
     try {
       await markAllReadMutation.mutateAsync();
+      toast.success('Marked as Read', 'All notifications marked as read.');
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to mark all as read');
+      toast.error('Error', err?.message || 'Failed to mark all as read');
     }
   };
 
@@ -78,25 +79,26 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
     try {
       await markReadMutation.mutateAsync({ id: item.id, isRead: !item.is_read });
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to update notification');
+      toast.error('Error', err?.message || 'Failed to update notification');
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Delete Notification', 'Remove this notification from your list?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteMutation.mutateAsync(id);
-          } catch (err: any) {
-            Alert.alert('Error', err?.message || 'Failed to delete notification');
-          }
-        },
+    confirm({
+      title: 'Delete Notification',
+      message: 'Remove this notification from your list?',
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteMutation.mutateAsync(id);
+          toast.success('Notification Deleted');
+        } catch (err: any) {
+          toast.error('Error', err?.message || 'Failed to delete notification');
+        }
       },
-    ]);
+    });
   };
 
   const getCategoryIcon = (category: string) => {

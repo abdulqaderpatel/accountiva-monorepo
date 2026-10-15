@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { toast } from '../context/FeedbackContext';
 import { Mail, ArrowRight, ArrowLeft, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -32,7 +32,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin, onNavigateToReset }: F
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      Alert.alert('Required', 'Please enter your email address');
+      toast.error('Required', 'Please enter your email address');
       return;
     }
 
@@ -40,8 +40,9 @@ export function ForgotPasswordScreen({ onNavigateToLogin, onNavigateToReset }: F
     try {
       await forgotPassword(email.trim());
       setSubmitted(true);
+      toast.success('Reset Link Sent', `Check ${email.trim()} for password reset instructions.`);
     } catch (err: any) {
-      Alert.alert(
+      toast.error(
         'Request Failed',
         err.response?.data?.message || err.message || 'Failed to send reset link.'
       );

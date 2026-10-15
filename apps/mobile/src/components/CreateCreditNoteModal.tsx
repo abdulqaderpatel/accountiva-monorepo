@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Alert,
   FlatList,
   ActivityIndicator,
 } from 'react-native';
+import { toast } from '../context/FeedbackContext';
 import { X, Users, Search, Check, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
@@ -49,7 +49,7 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
     setErrors({});
     if (!customer.trim()) {
       setErrors({ customer: 'Please select a customer' });
-      Alert.alert('Required', 'Please select a customer for this credit note.');
+      toast.error('Required', 'Please select a customer for this credit note.');
       return;
     }
 
@@ -68,11 +68,11 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
         status: 'Open',
       });
 
-      Alert.alert('Credit Note Created', `Credit Note ${creditNoteNumber} issued to ${customer}!`);
+      toast.success('Credit Note Created', `Credit Note ${creditNoteNumber} issued to ${customer}!`);
       onSuccess();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to save credit note');
+      toast.error('Error', err?.message || 'Failed to save credit note');
     }
   };
 

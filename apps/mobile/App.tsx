@@ -15,6 +15,7 @@ import {
 import { Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { FeedbackProvider } from './src/context/FeedbackContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BottomNav, ScreenType } from './src/components/BottomNav';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -282,9 +283,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <AppShell fontsReady={fontsReady} />
-          </AuthProvider>
+          <FeedbackProvider>
+            <AuthProvider>
+              <AppShell fontsReady={fontsReady} />
+            </AuthProvider>
+          </FeedbackProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>

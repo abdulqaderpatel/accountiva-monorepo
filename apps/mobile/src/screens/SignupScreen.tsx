@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,10 +41,11 @@ export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuc
     try {
       const res = await signInWithGoogle();
       if (res) {
+        toast.success('Welcome!', 'Signed up with Google successfully.');
         onSuccess();
       }
     } catch (err: any) {
-      Alert.alert('Google Sign Up Failed', err.response?.data?.message || err.message || 'Could not sign up with Google');
+      toast.error('Google Sign Up Failed', err.response?.data?.message || err.message || 'Could not sign up with Google');
     } finally {
       setSocialLoading(false);
     }
@@ -52,42 +53,40 @@ export function SignupScreen({ onNavigateToLogin, onNavigateToVerifyEmail, onSuc
 
   const handleSignup = async () => {
     if (!fullName.trim() || !email.trim() || !password) {
-      Alert.alert('Required', 'Please fill in all required fields');
+      toast.error('Required', 'Please fill in all required fields');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Weak Password', 'Password must be at least 8 characters long');
+      toast.error('Weak Password', 'Password must be at least 8 characters long');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Mismatch', 'Passwords do not match');
+      toast.error('Mismatch', 'Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
       await signup(fullName.trim(), email.trim(), password);
-      Alert.alert(
-        'Account Created',
-        'Your account has been registered! Please check your email to verify your account.',
-        [
-          {
-            text: 'Verify Email',
-            onPress: () => {
-              if (onNavigateToVerifyEmail) {
-                onNavigateToVerifyEmail(email.trim());
-              } else {
-                onNavigateToLogin();
-              }
-            },
-          },
-          { text: 'Sign In', onPress: onNavigateToLogin },
-        ]
-      );
+      confirm({
+        title: 'Account Created',
+        message: 'Your account has been registered! Please check your email to verify your account.',
+        confirmText: 'Verify Email',
+        cancelText: 'Sign In',
+        icon: 'check',
+        onConfirm: () => {
+          if (onNavigateToVerifyEmail) {
+            onNavigateToVerifyEmail(email.trim());
+          } else {
+            onNavigateToLogin();
+          }
+        },
+        onCancel: onNavigateToLogin,
+      });
     } catch (err: any) {
-      Alert.alert('Sign Up Failed', err.response?.data?.message || err.message || 'Could not register account.');
+      toast.error('Sign Up Failed', err.response?.data?.message || err.message || 'Could not register account.');
     } finally {
       setLoading(false);
     }

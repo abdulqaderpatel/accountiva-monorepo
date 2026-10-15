@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { CircleCheck, CircleX, ArrowRight, ArrowLeft, Mail, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -63,7 +63,7 @@ export function VerifyEmailScreen({
   const handleVerify = async (tokenToVerify?: string) => {
     const activeToken = extractToken(tokenToVerify || token);
     if (!activeToken) {
-      Alert.alert('Required', 'Please enter your verification token');
+      toast.error('Required', 'Please enter your verification token');
       return;
     }
 
@@ -72,29 +72,33 @@ export function VerifyEmailScreen({
     try {
       await verifyEmail(activeToken);
       setStatus('success');
-      Alert.alert('Email Verified', 'Your email has been confirmed! You can now sign in to your account.', [
-        { text: 'Sign In', onPress: onNavigateToLogin },
-      ]);
+      confirm({
+        title: 'Email Verified',
+        message: 'Your email has been confirmed! You can now sign in to your account.',
+        confirmText: 'Sign In',
+        icon: 'check',
+        onConfirm: onNavigateToLogin,
+      });
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Invalid or expired verification token.';
       setStatus('error');
       setErrorMessage(msg);
-      Alert.alert('Verification Failed', msg);
+      toast.error('Verification Failed', msg);
     }
   };
 
   const handleResend = async () => {
     if (!email.trim()) {
-      Alert.alert('Required', 'Please enter your email to resend the verification link');
+      toast.error('Required', 'Please enter your email to resend the verification link');
       return;
     }
 
     setResending(true);
     try {
       await resendVerification(email.trim());
-      Alert.alert('Verification Sent', `A new verification link has been sent to ${email.trim()}.`);
+      toast.success('Verification Sent', `A new verification link has been sent to ${email.trim()}.`);
     } catch (err: any) {
-      Alert.alert(
+      toast.error(
         'Failed to Resend',
         err.response?.data?.message || err.message || 'Could not send verification email.'
       );

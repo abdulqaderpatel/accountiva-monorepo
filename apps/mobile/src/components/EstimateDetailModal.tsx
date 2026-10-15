@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
-  Alert,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, Pencil } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
@@ -67,85 +67,83 @@ export function EstimateDetailModal({
         id: estimate.id,
         payload: { status: newStatus },
       });
-      Alert.alert('Status Updated', `Quote marked as ${newStatus}!`);
+      toast.success('Status Updated', `Quote marked as ${newStatus}!`);
       if (onRefresh) onRefresh();
       onClose();
     } catch (err: any) {
-      Alert.alert('Update Failed', err?.message || 'Could not update quote status');
+      toast.error('Update Failed', err?.message || 'Could not update quote status');
     }
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Quote',
-      `Delete quote ${estimate.number || estimate.estimateNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteEstimateMutation.mutateAsync(estimate.id);
-              Alert.alert('Deleted', 'Quote removed');
-              if (onRefresh) onRefresh();
-              onClose();
-            } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete quote');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Quote',
+      message: `Delete quote ${estimate.number || estimate.estimateNumber}?`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteEstimateMutation.mutateAsync(estimate.id);
+          toast.success('Quote Deleted', 'Quote removed successfully.');
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err: any) {
+          toast.error('Error', err?.message || 'Failed to delete quote');
+        }
+      },
+    });
   };
 
-  const handleConvert = async () => {
-    try {
-      await createInvoiceMutation.mutateAsync({
-        customerName: estimate.customer || estimate.customerName,
-        dueDate: 'Upon Receipt',
-        amount: rawAmount,
-        subtotal: rawSubtotal,
-        taxAmount: rawTax,
-        status: 'Draft',
-        items: Array.isArray(estimate.items) && estimate.items.length > 0
-          ? estimate.items.map((i: any) => ({
-              itemName: i.name || i.itemName,
-              quantity: i.quantity || 1,
-              rate: Number(i.rate) || 0,
-              amount: (i.quantity || 1) * (Number(i.rate) || 0),
-            }))
-          : [
-              {
-                itemName: `Converted from Quote ${estimate.number || ''}`,
-                quantity: 1,
-                rate: rawSubtotal,
-                amount: rawSubtotal,
-              },
-            ],
-      });
+  const handleConvert = () => {
+    confirm({
+      title: 'Convert to Invoice',
+      message: `Convert quote ${estimate.number || estimate.estimateNumber} into an Invoice Draft?`,
+      confirmText: 'Convert',
+      icon: 'check',
+      onConfirm: async () => {
+        try {
+          await createInvoiceMutation.mutateAsync({
+            customerName: estimate.customer || estimate.customerName,
+            dueDate: 'Upon Receipt',
+            amount: rawAmount,
+            subtotal: rawSubtotal,
+            taxAmount: rawTax,
+            status: 'Draft',
+            items: Array.isArray(estimate.items) && estimate.items.length > 0
+              ? estimate.items.map((i: any) => ({
+                  itemName: i.name || i.itemName,
+                  quantity: i.quantity || 1,
+                  rate: Number(i.rate) || 0,
+                  amount: (i.quantity || 1) * (Number(i.rate) || 0),
+                }))
+              : [
+                  {
+                    itemName: `Converted from Quote ${estimate.number || ''}`,
+                    quantity: 1,
+                    rate: rawSubtotal,
+                    amount: rawSubtotal,
+                  },
+                ],
+          });
 
-      // Update estimate to Accepted
-      try {
-        await updateEstimateMutation.mutateAsync({
-          id: estimate.id,
-          payload: { status: 'Accepted' },
-        });
-      } catch {}
+          // Update estimate to Accepted
+          try {
+            await updateEstimateMutation.mutateAsync({
+              id: estimate.id,
+              payload: { status: 'Accepted' },
+            });
+          } catch {}
 
-      Alert.alert('Invoice Created', 'Quote successfully converted to Invoice Draft!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onRefresh) onRefresh();
-            onClose();
-            if (onConvertToInvoice) onConvertToInvoice();
-          },
-        },
-      ]);
-    } catch (err: any) {
-      Alert.alert('Conversion Failed', err?.message || 'Failed to convert quote to invoice');
-    }
+          toast.success('Invoice Created', 'Quote successfully converted to Invoice Draft!');
+          if (onRefresh) onRefresh();
+          onClose();
+          if (onConvertToInvoice) onConvertToInvoice();
+        } catch (err: any) {
+          toast.error('Conversion Failed', err?.message || 'Failed to convert quote to invoice');
+        }
+      },
+    });
   };
 
   const lineItems: any[] = Array.isArray(estimate.items) && estimate.items.length > 0

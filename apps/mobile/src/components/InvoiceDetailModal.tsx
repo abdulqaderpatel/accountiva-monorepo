@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { X, Share2, CircleCheck, Users, FileText, Send, Trash, Pencil, Ban } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
@@ -61,51 +61,43 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
         id: invoice.id,
         payload: { status: newStatus },
       });
-      Alert.alert('Status Updated', `Invoice marked as ${newStatus}!`);
+      toast.success('Status Updated', `Invoice marked as ${newStatus}!`);
       if (onRefresh) onRefresh();
       onClose();
     } catch (err: any) {
-      Alert.alert('Update Failed', err.message || 'Could not update status');
+      toast.error('Update Failed', err.message || 'Could not update status');
     }
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Invoice',
-      `Are you sure you want to delete invoice ${invoice.number || invoice.invoiceNumber}? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteInvoiceMutation.mutateAsync(invoice.id);
-              Alert.alert('Deleted', 'Invoice deleted successfully');
-              if (onRefresh) onRefresh();
-              onClose();
-            } catch (err: any) {
-              Alert.alert('Delete Failed', err.message || 'Could not delete invoice');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Invoice',
+      message: `Are you sure you want to delete invoice ${invoice.number || invoice.invoiceNumber}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteInvoiceMutation.mutateAsync(invoice.id);
+          toast.success('Invoice Deleted', 'Invoice was deleted successfully.');
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err: any) {
+          toast.error('Delete Failed', err.message || 'Could not delete invoice');
+        }
+      },
+    });
   };
 
   const handleVoid = () => {
-    Alert.alert(
-      'Void Invoice',
-      `Mark invoice ${invoice.number || invoice.invoiceNumber} as void?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Void Invoice',
-          style: 'destructive',
-          onPress: () => handleStatusChange('Void'),
-        },
-      ]
-    );
+    confirm({
+      title: 'Void Invoice',
+      message: `Are you sure you want to mark invoice ${invoice.number || invoice.invoiceNumber} as void?`,
+      confirmText: 'Void Invoice',
+      destructive: true,
+      icon: 'alert',
+      onConfirm: () => handleStatusChange('Void'),
+    });
   };
 
   const lineItems: any[] = Array.isArray(invoice.items) && invoice.items.length > 0

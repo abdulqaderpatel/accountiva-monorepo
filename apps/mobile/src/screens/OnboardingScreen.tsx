@@ -9,9 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Building,
@@ -51,15 +51,16 @@ export function OnboardingScreen() {
 
   const handleCreateOrg = async () => {
     if (!orgName.trim()) {
-      Alert.alert('Required', 'Please enter an organization name.');
+      toast.error('Required', 'Please enter an organization name.');
       return;
     }
 
     setLoading(true);
     try {
       await createOrganization(orgName.trim(), currency);
+      toast.success('Welcome to Accountiva!', `${orgName.trim()} created successfully.`);
     } catch (err: any) {
-      Alert.alert(
+      toast.error(
         'Failed to Create Workspace',
         err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not create organization.'
       );
@@ -71,21 +72,22 @@ export function OnboardingScreen() {
   const handleJoinInvite = async () => {
     const rawInput = inviteTokenInput.trim();
     if (!rawInput) {
-      Alert.alert('Required', 'Please enter an invitation token or link.');
+      toast.error('Required', 'Please enter an invitation token or link.');
       return;
     }
 
     const token = rawInput.includes('/') ? rawInput.split('/').filter(Boolean).pop() : rawInput;
     if (!token) {
-      Alert.alert('Invalid Input', 'Could not parse invitation token.');
+      toast.error('Invalid Input', 'Could not parse invitation token.');
       return;
     }
 
     setLoading(true);
     try {
       await joinOrganization(token);
+      toast.success('Joined Workspace', 'You have successfully joined the organization.');
     } catch (err: any) {
-      Alert.alert(
+      toast.error(
         'Failed to Join',
         err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Invalid or expired invitation token.'
       );
@@ -95,10 +97,14 @@ export function OnboardingScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: async () => await logout() },
-    ]);
+    confirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      destructive: true,
+      icon: 'logout',
+      onConfirm: async () => await logout(),
+    });
   };
 
   return (
@@ -572,3 +578,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
+

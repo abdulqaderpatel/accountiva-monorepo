@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -45,10 +45,11 @@ export function LoginScreen({
     try {
       const res = await signInWithGoogle();
       if (res) {
+        toast.success('Welcome back!', 'Signed in successfully.');
         onSuccess();
       }
     } catch (err: any) {
-      Alert.alert('Google Sign In Failed', err.response?.data?.message || err.message || 'Could not sign in with Google');
+      toast.error('Google Sign In Failed', err.response?.data?.message || err.message || 'Could not sign in with Google');
     } finally {
       setSocialLoading(false);
     }
@@ -56,34 +57,31 @@ export function LoginScreen({
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Required', 'Please enter your email and password');
+      toast.error('Required', 'Please enter your email and password');
       return;
     }
 
     setLoading(true);
     try {
       await login(email.trim(), password);
+      toast.success('Welcome back!', 'Signed in successfully.');
       onSuccess();
     } catch (err: any) {
       const message = err.response?.data?.message || err.message || '';
       const code = err.response?.data?.code || err.code || '';
 
       if (code === 'EMAIL_NOT_VERIFIED' || message.includes('EMAIL_NOT_VERIFIED') || message.toLowerCase().includes('verify')) {
-        Alert.alert(
-          'Verification Required',
-          'Please verify your email address to continue.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Verify Email',
-              onPress: () => onNavigateToVerifyEmail(email.trim()),
-            },
-          ]
-        );
+        confirm({
+          title: 'Verification Required',
+          message: 'Please verify your email address to continue.',
+          confirmText: 'Verify Email',
+          icon: 'alert',
+          onConfirm: () => onNavigateToVerifyEmail(email.trim()),
+        });
         return;
       }
 
-      Alert.alert('Sign In Failed', message || 'Please check your credentials.');
+      toast.error('Sign In Failed', message || 'Please check your credentials.');
     } finally {
       setLoading(false);
     }

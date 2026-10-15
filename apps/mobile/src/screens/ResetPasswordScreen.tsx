@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Image,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { Lock, Eye, EyeOff, KeyRound, ArrowRight, ArrowLeft, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -52,22 +52,22 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
   const handleReset = async () => {
     const activeToken = extractToken(token);
     if (!activeToken) {
-      Alert.alert('Required', 'Please enter your reset token');
+      toast.error('Required', 'Please enter your reset token');
       return;
     }
 
     if (!password) {
-      Alert.alert('Required', 'Please enter a new password');
+      toast.error('Required', 'Please enter a new password');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Weak Password', 'Password must be at least 8 characters long');
+      toast.error('Weak Password', 'Password must be at least 8 characters long');
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Mismatch', 'Passwords do not match');
+      toast.error('Mismatch', 'Passwords do not match');
       return;
     }
 
@@ -75,13 +75,15 @@ export function ResetPasswordScreen({ initialToken = '', onNavigateToLogin }: Re
     try {
       await resetPassword(password, token.trim());
       setSuccess(true);
-      Alert.alert(
-        'Password Reset Successful',
-        'Your password has been updated. You can now sign in with your new password.',
-        [{ text: 'Sign In', onPress: onNavigateToLogin }]
-      );
+      confirm({
+        title: 'Password Reset Successful',
+        message: 'Your password has been updated. You can now sign in with your new password.',
+        confirmText: 'Sign In',
+        icon: 'check',
+        onConfirm: onNavigateToLogin,
+      });
     } catch (err: any) {
-      Alert.alert(
+      toast.error(
         'Reset Failed',
         err.response?.data?.message || err.message || 'The token is invalid or has expired.'
       );

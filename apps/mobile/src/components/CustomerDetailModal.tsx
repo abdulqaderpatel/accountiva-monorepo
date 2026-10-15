@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
-  Alert,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import {
   X,
   Users,
@@ -57,7 +57,7 @@ export function CustomerDetailModal({
   const handleCall = () => {
     if (customer.phone) {
       Linking.openURL(`tel:${customer.phone}`).catch(() => {
-        Alert.alert('Error', 'Unable to initiate phone call on this device.');
+        toast.error('Call Failed', 'Unable to initiate phone call on this device.');
       });
     }
   };
@@ -65,7 +65,7 @@ export function CustomerDetailModal({
   const handleEmail = () => {
     if (customer.email) {
       Linking.openURL(`mailto:${customer.email}`).catch(() => {
-        Alert.alert('Error', 'Unable to open mail client on this device.');
+        toast.error('Email Failed', 'Unable to open mail client on this device.');
       });
     }
   };
@@ -78,27 +78,23 @@ export function CustomerDetailModal({
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Customer',
-      `Are you sure you want to delete ${customer.name}? This will remove them from your customer list.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCustomerMutation.mutateAsync(customer.id);
-              Alert.alert('Customer Deleted', `${customer.name} has been removed.`);
-              if (onRefresh) onRefresh();
-              onClose();
-            } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete customer');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Customer',
+      message: `Are you sure you want to delete ${customer.name}? This will remove them from your customer list.`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteCustomerMutation.mutateAsync(customer.id);
+          toast.success('Customer Deleted', `${customer.name} has been removed.`);
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err: any) {
+          toast.error('Error', err?.message || 'Failed to delete customer');
+        }
+      },
+    });
   };
 
   const outstanding = Number(customer.outstanding) || 0;

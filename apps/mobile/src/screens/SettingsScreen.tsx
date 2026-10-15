@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Modal, ActivityIndicator } from 'react-native';
 import { Sun, Moon, Building, Globe, Trash, LogOut, User, ChevronRight, Check, X, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
+import { toast, confirm } from '../context/FeedbackContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { fonts } from '../theme/typography';
@@ -23,8 +24,9 @@ export function SettingsScreen() {
       setSwitching(true);
       await setCurrentOrg(org);
       setIsOrgModalOpen(false);
+      toast.success('Switched Workspace', `Now active in ${org.name}`);
     } catch {
-      Alert.alert('Error', 'Failed to switch organization');
+      toast.error('Error', 'Failed to switch organization');
     } finally {
       setSwitching(false);
     }
@@ -32,43 +34,40 @@ export function SettingsScreen() {
 
   const handleDeleteOrg = () => {
     if (!currentOrg) return;
-    Alert.alert(
-      'Delete Organization',
-      `Are you sure you want to permanently delete "${currentOrg.name}"? All associated invoices, customers, and data will be removed. This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setDeletingOrg(true);
-              await deleteOrganization(currentOrg.id);
-            } catch (err: any) {
-              Alert.alert(
-                'Delete Failed',
-                err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not delete organization.'
-              );
-            } finally {
-              setDeletingOrg(false);
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Organization',
+      message: `Are you sure you want to permanently delete "${currentOrg.name}"? All associated invoices, customers, and data will be removed. This action cannot be undone.`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          setDeletingOrg(true);
+          await deleteOrganization(currentOrg.id);
+          toast.success('Organization Deleted', `${currentOrg.name} has been removed.`);
+        } catch (err: any) {
+          toast.error(
+            'Delete Failed',
+            err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not delete organization.'
+          );
+        } finally {
+          setDeletingOrg(false);
+        }
+      },
+    });
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-        },
+    confirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out of your account?',
+      confirmText: 'Sign Out',
+      destructive: true,
+      icon: 'logout',
+      onConfirm: async () => {
+        await logout();
       },
-    ]);
+    });
   };
 
   return (

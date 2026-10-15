@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { toast, confirm } from '../context/FeedbackContext';
 import { X, Share2, Users, FileMinus, FileText, Trash, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
@@ -54,27 +54,23 @@ export function CreditNoteDetailModal({
   };
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Credit Note',
-      `Delete credit note ${creditNote.number || creditNote.creditNoteNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCreditNoteMutation.mutateAsync(creditNote.id);
-              Alert.alert('Deleted', 'Credit note removed');
-              if (onRefresh) onRefresh();
-              onClose();
-            } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete credit note');
-            }
-          },
-        },
-      ]
-    );
+    confirm({
+      title: 'Delete Credit Note',
+      message: `Delete credit note ${creditNote.number || creditNote.creditNoteNumber}?`,
+      confirmText: 'Delete',
+      destructive: true,
+      icon: 'trash',
+      onConfirm: async () => {
+        try {
+          await deleteCreditNoteMutation.mutateAsync(creditNote.id);
+          toast.success('Credit Note Deleted', 'Credit note removed successfully.');
+          if (onRefresh) onRefresh();
+          onClose();
+        } catch (err: any) {
+          toast.error('Error', err?.message || 'Failed to delete credit note');
+        }
+      },
+    });
   };
 
   const handleCloseCredit = async () => {
@@ -83,11 +79,11 @@ export function CreditNoteDetailModal({
         id: creditNote.id,
         payload: { status: 'Closed' },
       });
-      Alert.alert('Success', 'Credit note marked as settled / closed');
+      toast.success('Success', 'Credit note marked as settled / closed');
       if (onRefresh) onRefresh();
       onClose();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to update credit note');
+      toast.error('Error', err?.message || 'Failed to update credit note');
     }
   };
 

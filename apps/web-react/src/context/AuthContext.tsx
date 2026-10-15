@@ -57,25 +57,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCurrentOrganization = useCallback((org: Organization | null) => {
-    const prevId = currentOrganization?.id;
-    if (prevId === org?.id) {
-      setCurrentOrganizationState(org);
-      if (org) {
-        localStorage.setItem("accountiva_org_currency", org.currency || "INR");
+    setCurrentOrganizationState((prev) => {
+      const prevId = prev?.id;
+      if (prevId === org?.id) {
+        if (org) {
+          localStorage.setItem("accountiva_org_currency", org.currency || "INR");
+        }
+        return org;
       }
-      return;
-    }
 
-    cancelOrganizationRequests(prevId);
-    setCurrentOrganizationState(org);
-    if (org) {
-      localStorage.setItem("accountiva_org_id", org.id);
-      localStorage.setItem("accountiva_org_currency", org.currency || "INR");
-    } else {
-      localStorage.removeItem("accountiva_org_id");
-      localStorage.removeItem("accountiva_org_currency");
-    }
-  }, [currentOrganization]);
+      cancelOrganizationRequests(prevId);
+      if (org) {
+        localStorage.setItem("accountiva_org_id", org.id);
+        localStorage.setItem("accountiva_org_currency", org.currency || "INR");
+      } else {
+        localStorage.removeItem("accountiva_org_id");
+        localStorage.removeItem("accountiva_org_currency");
+      }
+      return org;
+    });
+  }, []);
 
   const fetchOrganizations = useCallback(async () => {
     try {
@@ -115,12 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const session = await (authClient.getSession as any)();
         if (session?.data?.user && mounted) {
           setUser(session.data.user as User);
-          await Promise.all([fetchOrganizations(), fetchAdminAccess()]);
+          await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
         }
       } catch (err) {
         console.error("Session restore error:", err);
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
     }
 
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [fetchOrganizations, fetchAdminAccess]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     const result = await authClient.signIn.email({

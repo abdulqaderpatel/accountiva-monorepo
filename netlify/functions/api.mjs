@@ -66,6 +66,16 @@ export default async (request) => {
     responseHeaders.delete("content-encoding");
     responseHeaders.delete("content-length");
 
+    if (typeof upstreamResponse.headers.getSetCookie === "function") {
+      const setCookies = upstreamResponse.headers.getSetCookie();
+      if (setCookies?.length) {
+        responseHeaders.delete("set-cookie");
+        for (const cookie of setCookies) {
+          responseHeaders.append("set-cookie", cookie);
+        }
+      }
+    }
+
     const location = responseHeaders.get("location");
     if (location?.startsWith(apiOrigin)) {
       responseHeaders.set(

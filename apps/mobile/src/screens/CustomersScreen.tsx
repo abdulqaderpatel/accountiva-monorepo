@@ -19,7 +19,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 
 import { AddCustomerModal } from '../components/AddCustomerModal';
-import { CustomerDetailModal } from '../components/CustomerDetailModal';
+import { CustomerDetailModal, formatAddress } from '../components/CustomerDetailModal';
 
 interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -57,17 +57,17 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     : [];
 
   const customers: CustomerRecord[] = rawList.map((c: any) => ({
-    id: c.id,
-    name: c.name || 'Unnamed Customer',
-    company: c.company || '',
-    email: c.email || '',
-    phone: c.phone || '',
-    gstNumber: c.gstNumber || c.gstin || '',
-    pan: c.pan || '',
-    billingAddress: c.billingAddress || c.address || '',
-    status: c.gstTreatment === 'Registered' ? 'GST Registered' : (c.gstTreatment || 'Regular'),
-    outstanding: Number(c.outstanding) || Number(c.opening_balance) || 0,
-    variant: c.gstTreatment === 'Registered' ? 'warning' : 'default',
+    id: String(c.id || ''),
+    name: String(c.name || 'Unnamed Customer'),
+    company: typeof c.company === 'string' ? c.company : '',
+    email: typeof c.email === 'string' ? c.email : '',
+    phone: typeof c.phone === 'string' ? c.phone : '',
+    gstNumber: typeof c.gstNumber === 'string' ? c.gstNumber : typeof c.gstin === 'string' ? c.gstin : typeof c.gst_number === 'string' ? c.gst_number : '',
+    pan: typeof c.pan === 'string' ? c.pan : '',
+    billingAddress: formatAddress(c.billingAddress || c.billing_address || c.address),
+    status: c.gstTreatment === 'Registered' || c.gst_treatment === 'Registered' ? 'GST Registered' : String(c.gstTreatment || c.gst_treatment || 'Regular'),
+    outstanding: Number(c.outstanding) || Number(c.outstandingBalance) || Number(c.opening_balance) || 0,
+    variant: c.gstTreatment === 'Registered' || c.gst_treatment === 'Registered' ? 'warning' : 'default',
   }));
 
   const filteredCustomers = customers.filter(

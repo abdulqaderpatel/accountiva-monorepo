@@ -44,7 +44,20 @@ export function EstimateDetailModal({
   const rawAmount = Number(estimate.amount) || 0;
   const rawSubtotal = Number(estimate.subtotal) || rawAmount * 0.847;
   const rawTax = Number(estimate.taxAmount) || rawAmount - rawSubtotal;
-  const status = (estimate.status || 'Draft').toUpperCase();
+  const status = String(estimate.status || 'Draft').toUpperCase();
+
+  const clientName = typeof estimate.customer === 'string'
+    ? estimate.customer
+    : typeof estimate.customer?.name === 'string'
+    ? estimate.customer.name
+    : typeof estimate.customerName === 'string'
+    ? estimate.customerName
+    : typeof estimate.customers?.name === 'string'
+    ? estimate.customers.name
+    : 'Client Entity';
+
+  const estimateNum = String(estimate.number || estimate.estimateNumber || 'EST-000');
+  const estimateDate = String(estimate.date || 'Recent');
 
   const isAccepted = status === 'ACCEPTED';
   const isDeclined = status === 'DECLINED';
@@ -165,10 +178,10 @@ export function EstimateDetailModal({
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.foreground }]}>
-                {estimate.number || estimate.estimateNumber || 'EST-000'}
+                {estimateNum}
               </Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                Quote Date: {estimate.date || 'Recent'}
+                Quote Date: {estimateDate}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -219,7 +232,7 @@ export function EstimateDetailModal({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.clientName, { color: colors.foreground }]}>
-                    {estimate.customer || estimate.customerName || 'Client Entity'}
+                    {clientName}
                   </Text>
                 </View>
               </View>

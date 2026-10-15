@@ -28,8 +28,9 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
   const { colors } = useTheme();
   const deleteItemMutation = useDeleteItem();
 
-  if (!item) return null;
+  if (!visible || !item) return null;
 
+  const itemName = String(item.name || 'Unnamed Item');
   const isProduct = item.type !== 'Service';
   const price = Number(item.sellingPrice) || Number(item.rate) || Number(item.price) || 0;
   const stock = item.openingStock ?? item.stock ?? item.stockOnHand ?? null;
@@ -37,14 +38,14 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
   const handleDelete = () => {
     confirm({
       title: 'Delete Item',
-      message: `Are you sure you want to delete "${item.name}" from your catalog?`,
+      message: `Are you sure you want to delete "${itemName}" from your catalog?`,
       confirmText: 'Delete',
       destructive: true,
       icon: 'trash',
       onConfirm: async () => {
         try {
           await deleteItemMutation.mutateAsync(item.id);
-          toast.success('Item Deleted', `"${item.name}" has been removed.`);
+          toast.success('Item Deleted', `"${itemName}" has been removed.`);
           if (onRefresh) onRefresh();
           onClose();
         } catch (err: any) {
@@ -100,7 +101,7 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
                   )}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
+                  <Text style={[styles.itemName, { color: colors.foreground }]}>{itemName}</Text>
                   {item.sku ? (
                     <Text style={[styles.skuText, { color: colors.mutedForeground }]}>
                       SKU: {item.sku}

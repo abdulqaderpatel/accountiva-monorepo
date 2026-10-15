@@ -35,10 +35,24 @@ export function CreditNoteDetailModal({
   const updateCreditNoteMutation = useUpdateCreditNote();
   const deleteCreditNoteMutation = useDeleteCreditNote();
 
-  if (!creditNote) return null;
+  if (!visible || !creditNote) return null;
 
   const rawAmount = Number(creditNote.amount) || 0;
-  const status = (creditNote.status || 'Open').toUpperCase();
+  const status = String(creditNote.status || 'Open').toUpperCase();
+
+  const clientName = typeof creditNote.customer === 'string'
+    ? creditNote.customer
+    : typeof creditNote.customer?.name === 'string'
+    ? creditNote.customer.name
+    : typeof creditNote.customerName === 'string'
+    ? creditNote.customerName
+    : typeof creditNote.customers?.name === 'string'
+    ? creditNote.customers.name
+    : 'Client Entity';
+
+  const noteNum = String(creditNote.number || creditNote.creditNoteNumber || 'CN-000');
+  const noteDate = String(creditNote.date || 'Recent');
+
   const isClosed = status === 'CLOSED' || status === 'APPLIED';
   const variant = isClosed ? 'success' : 'warning';
 
@@ -95,10 +109,10 @@ export function CreditNoteDetailModal({
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.foreground }]}>
-                {creditNote.number || creditNote.creditNoteNumber || 'CN-000'}
+                {noteNum}
               </Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                Issued on {creditNote.date || 'Recent'}
+                Issued on {noteDate}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -137,7 +151,7 @@ export function CreditNoteDetailModal({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.clientName, { color: colors.foreground }]}>
-                    {creditNote.customer || creditNote.customerName || 'Client Entity'}
+                    {clientName}
                   </Text>
                 </View>
               </View>

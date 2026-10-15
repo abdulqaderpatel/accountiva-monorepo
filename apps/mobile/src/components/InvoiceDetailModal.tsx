@@ -36,7 +36,21 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
   const rawAmount = Number(invoice.amount) || 0;
   const rawSubtotal = Number(invoice.subtotal) || rawAmount * 0.847;
   const rawTax = Number(invoice.taxAmount) || Number(invoice.tax_amount) || rawAmount - rawSubtotal;
-  const status = (invoice.status || 'Draft').toUpperCase();
+  const status = String(invoice.status || 'Draft').toUpperCase();
+
+  const clientName = typeof invoice.customer === 'string'
+    ? invoice.customer
+    : typeof invoice.customer?.name === 'string'
+    ? invoice.customer.name
+    : typeof invoice.customerName === 'string'
+    ? invoice.customerName
+    : typeof invoice.customers?.name === 'string'
+    ? invoice.customers.name
+    : 'Client Entity';
+
+  const invoiceNum = String(invoice.number || invoice.invoiceNumber || 'INV-000');
+  const invoiceDate = String(invoice.date || 'Recent');
+  const invoiceDueDate = String(invoice.dueDate || 'Upon Receipt');
 
   const isPaid = status === 'PAID';
   const isOverdue = status === 'OVERDUE';
@@ -120,10 +134,10 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
               <Text style={[styles.title, { color: colors.foreground }]}>
-                {invoice.number || invoice.invoiceNumber || 'INV-000'}
+                {invoiceNum}
               </Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                Created on {invoice.date || 'Recent'}
+                Created on {invoiceDate}
               </Text>
             </View>
             <View style={styles.headerRight}>
@@ -170,7 +184,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 <View>
                   <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>Due Date</Text>
                   <Text style={[styles.metaValue, { color: colors.foreground }]}>
-                    {invoice.dueDate || 'Upon Receipt'}
+                    {invoiceDueDate}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
@@ -189,10 +203,10 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.clientName, { color: colors.foreground }]}>
-                    {invoice.customer || invoice.customerName || 'Client Entity'}
+                    {clientName}
                   </Text>
                   <Text style={[styles.clientSub, { color: colors.mutedForeground }]}>
-                    {invoice.email || 'accounts@client.in'}
+                    {typeof invoice.email === 'string' ? invoice.email : 'accounts@client.in'}
                   </Text>
                 </View>
               </View>

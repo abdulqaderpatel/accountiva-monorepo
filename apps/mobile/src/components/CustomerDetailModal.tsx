@@ -39,6 +39,34 @@ interface CustomerDetailModalProps {
   onViewInvoice?: (invoice: any) => void;
 }
 
+export function formatAddress(addr: any): string {
+  if (!addr) return '';
+  if (typeof addr === 'string') {
+    const trimmed = addr.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return formatAddress(parsed);
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }
+  if (typeof addr === 'object') {
+    const parts = [
+      addr.street || addr.address || addr.addressLine1 || addr.address_line1 || addr.line1,
+      addr.addressLine2 || addr.address_line2 || addr.line2,
+      addr.city,
+      addr.state,
+      addr.postalCode || addr.postal_code || addr.zip || addr.zipCode,
+      addr.country,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : '';
+  }
+  return String(addr);
+}
+
 export function CustomerDetailModal({
   visible,
   customer,
@@ -52,19 +80,86 @@ export function CustomerDetailModal({
   const deleteCustomerMutation = useDeleteCustomer();
   const { data: apiInvoices } = useInvoices();
 
-  if (!customer) return null;
+  const safeName = typeof customer?.name === 'string' ? customer.name : String(customer?.name || 'Unnamed Customer');
+  const safeCompany = typeof customer?.company === 'string' ? customer.company : '';
+  const safeEmail = typeof customer?.email === 'string' ? customer.email : '';
+  const safePhone = typeof customer?.phone === 'string' ? customer.phone : '';
+  const safeStatus = typeof customer?.status === 'string' ? customer.status : 'Active';
+  const safeGst = typeof customer?.gstNumber === 'string' ? customer.gstNumber : String(customer?.gstNumber || customer?.gstin || '');
+  const safePan = typeof customer?.pan === 'string' ? customer.pan : String(customer?.pan || '');
+  const safeGstTreatment = typeof customer?.gstTreatment === 'string' ? customer.gstTreatment : '';
+  const safeBillingAddress = formatAddress(customer?.billingAddress || customer?.address);
+  const outstanding = Number(customer?.outstanding) || 0;
+
+  // Filter invoices for this customer (Unconditionally called on every render to obey Rules of Hooks)
+  const customerInvoices = useMemo(() => {
+    if (!customer) return [];
+
+    const rawList: any[] = Array.isArray(apiInvoices)
+      ? apiInvoices
+      : Array.isArray(apiInvoices?.data)
+      ? apiInvoices.data
+      : [];
+
+    const custName = safeName.toLowerCase();
+    const custId = customer.id ? String(customer.id) : '';
+
+    return rawList
+      .filter((inv) => {
+        if (!inv || typeof inv !== 'object') return false;
+
+        const invCust = (
+          typeof inv.customer === 'string'
+            ? inv.customer
+            : typeof inv.customer?.name === 'string'
+            ? inv.customer.name
+            : typeof inv.customerName === 'string'
+            ? inv.customerName
+            : typeof inv.customers?.name === 'string'
+            ? inv.customers.name
+            : ''
+        ).toLowerCase();
+
+        const invCustId = String(
+          inv.customerId || inv.customer_id || inv.customer?.id || inv.customers?.id || ''
+        );
+
+        return (custName && invCust.includes(custName)) || (custId && invCustId === custId);
+      })
+      .map((inv) => ({
+        id: String(inv.id || Math.random()),
+        number: String(inv.number || inv.invoiceNumber || inv.invoice_number || 'INV-000'),
+        date: String(inv.date || inv.issueDate || inv.issue_date || 'Recent'),
+        dueDate: inv.dueDate || inv.due_date,
+        amount: Number(inv.amount) || Number(inv.total) || 0,
+        status: String(inv.status || 'Draft').toUpperCase(),
+        customer:
+          typeof inv.customer === 'string'
+            ? inv.customer
+            : typeof inv.customer?.name === 'string'
+            ? inv.customer.name
+            : typeof inv.customerName === 'string'
+            ? inv.customerName
+            : typeof inv.customers?.name === 'string'
+            ? inv.customers.name
+            : safeName,
+        raw: inv,
+      }));
+  }, [apiInvoices, customer, safeName]);
+
+  if (!visible || !customer) return null;
 
   const handleCall = () => {
-    if (customer.phone) {
-      Linking.openURL(`tel:${customer.phone}`).catch(() => {
+    if (safePhone) {
+      Linking.openURL(`tel:${safePhone}`).catch(() => {
         toast.error('Call Failed', 'Unable to initiate phone call on this device.');
       });
     }
   };
 
   const handleEmail = () => {
-    if (customer.email) {
-      Linking.openURL(`mailto:${customer.email}`).catch(() => {
+    if (safeEmail) {
+      Linking.openURL(`mailto:${safeEmail}`).catch(() => {
         toast.error('Email Failed', 'Unable to open mail client on this device.');
       });
     }
@@ -73,21 +168,21 @@ export function CustomerDetailModal({
   const handleCreateInvoice = () => {
     onClose();
     if (onCreateInvoice) {
-      onCreateInvoice(customer.name);
+      onCreateInvoice(safeName);
     }
   };
 
   const handleDelete = () => {
     confirm({
       title: 'Delete Customer',
-      message: `Are you sure you want to delete ${customer.name}? This will remove them from your customer list.`,
+      message: `Are you sure you want to delete ${safeName}? This will remove them from your customer list.`,
       confirmText: 'Delete',
       destructive: true,
       icon: 'trash',
       onConfirm: async () => {
         try {
           await deleteCustomerMutation.mutateAsync(customer.id);
-          toast.success('Customer Deleted', `${customer.name} has been removed.`);
+          toast.success('Customer Deleted', `${safeName} has been removed.`);
           if (onRefresh) onRefresh();
           onClose();
         } catch (err: any) {
@@ -96,44 +191,6 @@ export function CustomerDetailModal({
       },
     });
   };
-
-  const outstanding = Number(customer.outstanding) || 0;
-
-  // Filter invoices for this customer
-  const customerInvoices = useMemo(() => {
-    const rawList: any[] = Array.isArray(apiInvoices)
-      ? apiInvoices
-      : Array.isArray(apiInvoices?.data)
-      ? apiInvoices.data
-      : [];
-
-    const custName = String(customer.name || '').toLowerCase();
-    const custId = customer.id;
-
-    return rawList
-      .filter((inv) => {
-        const invCust = (
-          typeof inv.customer === 'string'
-            ? inv.customer
-            : inv.customer?.name || inv.customerName || inv.customers?.name || ''
-        ).toLowerCase();
-        const invCustId = inv.customerId || inv.customer_id || inv.customer?.id || inv.customers?.id;
-        return (custName && invCust.includes(custName)) || (custId && invCustId === custId);
-      })
-      .map((inv) => ({
-        id: inv.id,
-        number: inv.number || inv.invoiceNumber || inv.invoice_number || 'INV-000',
-        date: inv.date || inv.issueDate || inv.issue_date || 'Recent',
-        dueDate: inv.dueDate || inv.due_date,
-        amount: Number(inv.amount) || Number(inv.total) || 0,
-        status: (inv.status || 'Draft').toUpperCase(),
-        customer:
-          typeof inv.customer === 'string'
-            ? inv.customer
-            : inv.customer?.name || inv.customerName || inv.customers?.name || customer.name,
-        raw: inv,
-      }));
-  }, [apiInvoices, customer]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -178,16 +235,16 @@ export function CustomerDetailModal({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.customerName, { color: colors.foreground }]}>
-                    {customer.name}
+                    {safeName}
                   </Text>
-                  {customer.company ? (
+                  {safeCompany ? (
                     <Text style={[styles.companyName, { color: colors.mutedForeground }]}>
-                      {customer.company}
+                      {safeCompany}
                     </Text>
                   ) : null}
                   <View style={{ marginTop: 6, alignSelf: 'flex-start' }}>
-                    <Badge variant={customer.status === 'Active' ? 'success' : 'outline'}>
-                      {customer.status || 'Active'}
+                    <Badge variant={safeStatus === 'Active' || safeStatus === 'GST Registered' ? 'success' : 'outline'}>
+                      {safeStatus}
                     </Badge>
                   </View>
                 </View>
@@ -195,7 +252,7 @@ export function CustomerDetailModal({
 
               {/* Quick Actions */}
               <View style={styles.actionRow}>
-                {customer.phone ? (
+                {safePhone ? (
                   <TouchableOpacity
                     style={[styles.quickActionBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
                     onPress={handleCall}
@@ -206,7 +263,7 @@ export function CustomerDetailModal({
                   </TouchableOpacity>
                 ) : null}
 
-                {customer.email ? (
+                {safeEmail ? (
                   <TouchableOpacity
                     style={[styles.quickActionBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
                     onPress={handleEmail}
@@ -310,7 +367,7 @@ export function CustomerDetailModal({
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>GSTIN</Text>
                 <Text style={[styles.dataValue, { color: colors.foreground, fontFamily: fonts.semiBold }]}>
-                  {customer.gstNumber || customer.gstin || 'Unregistered'}
+                  {safeGst || 'Unregistered'}
                 </Text>
               </View>
 
@@ -319,7 +376,7 @@ export function CustomerDetailModal({
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>PAN</Text>
                 <Text style={[styles.dataValue, { color: colors.foreground }]}>
-                  {customer.pan || 'N/A'}
+                  {safePan || 'N/A'}
                 </Text>
               </View>
 
@@ -328,13 +385,13 @@ export function CustomerDetailModal({
               <View style={styles.dataRow}>
                 <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>GST Treatment</Text>
                 <Text style={[styles.dataValue, { color: colors.foreground }]}>
-                  {customer.gstTreatment || 'Consumer / B2C'}
+                  {safeGstTreatment || 'Consumer / B2C'}
                 </Text>
               </View>
             </Card>
 
             {/* Address */}
-            {customer.billingAddress || customer.address ? (
+            {safeBillingAddress ? (
               <>
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
                   Billing Address
@@ -343,7 +400,7 @@ export function CustomerDetailModal({
                   <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
                     <MapPin size={16} color={colors.mutedForeground} style={{ marginTop: 2 }} />
                     <Text style={[styles.addressText, { color: colors.foreground }]}>
-                      {customer.billingAddress || customer.address}
+                      {safeBillingAddress}
                     </Text>
                   </View>
                 </Card>

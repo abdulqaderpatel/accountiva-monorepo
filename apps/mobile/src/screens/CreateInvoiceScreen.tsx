@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import {
   X,
-  Trash2,
+  Trash,
   Plus,
   Check,
   Search,
@@ -20,7 +20,7 @@ import {
   Package,
   Wrench,
   ChevronDown,
-  AlertCircle,
+  CircleAlert,
   Calendar,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -333,7 +333,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         {/* API Error Banner */}
         {apiError ? (
           <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
-            <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+            <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
             <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
           </View>
         ) : null}
@@ -553,7 +553,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                     )}
                   </View>
                   <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7} style={styles.deleteBtn}>
-                    <Trash2 size={16} color={colors.destructive} />
+                    <Trash size={16} color={colors.destructive} />
                   </TouchableOpacity>
                 </View>
 

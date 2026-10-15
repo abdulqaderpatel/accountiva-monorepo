@@ -16,9 +16,9 @@ import {
   Phone,
   MapPin,
   FileText,
-  Building2,
-  Trash2,
-  Edit3,
+  Building,
+  Trash,
+  Pencil,
   Plus,
   ChevronRight,
 } from 'lucide-react-native';
@@ -111,23 +111,30 @@ export function CustomerDetailModal({
       ? apiInvoices.data
       : [];
 
-    const custName = (customer.name || '').toLowerCase();
+    const custName = String(customer.name || '').toLowerCase();
     const custId = customer.id;
 
     return rawList
       .filter((inv) => {
-        const invCust = (inv.customer || inv.customerName || inv.customers?.name || '').toLowerCase();
-        const invCustId = inv.customerId || inv.customer_id;
+        const invCust = (
+          typeof inv.customer === 'string'
+            ? inv.customer
+            : inv.customer?.name || inv.customerName || inv.customers?.name || ''
+        ).toLowerCase();
+        const invCustId = inv.customerId || inv.customer_id || inv.customer?.id || inv.customers?.id;
         return (custName && invCust.includes(custName)) || (custId && invCustId === custId);
       })
       .map((inv) => ({
         id: inv.id,
-        number: inv.number || inv.invoiceNumber || 'INV-000',
-        date: inv.date || inv.issueDate || 'Recent',
-        dueDate: inv.dueDate,
-        amount: Number(inv.amount) || 0,
+        number: inv.number || inv.invoiceNumber || inv.invoice_number || 'INV-000',
+        date: inv.date || inv.issueDate || inv.issue_date || 'Recent',
+        dueDate: inv.dueDate || inv.due_date,
+        amount: Number(inv.amount) || Number(inv.total) || 0,
         status: (inv.status || 'Draft').toUpperCase(),
-        customer: inv.customer || inv.customerName || customer.name,
+        customer:
+          typeof inv.customer === 'string'
+            ? inv.customer
+            : inv.customer?.name || inv.customerName || inv.customers?.name || customer.name,
         raw: inv,
       }));
   }, [apiInvoices, customer]);
@@ -149,11 +156,11 @@ export function CustomerDetailModal({
                   style={styles.iconBtn}
                   activeOpacity={0.7}
                 >
-                  <Edit3 size={18} color={colors.foreground} />
+                  <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
-                <Trash2 size={18} color={colors.destructive} />
+                <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
                 <X size={20} color={colors.mutedForeground} />

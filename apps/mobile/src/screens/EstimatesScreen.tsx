@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Search, Plus, Calculator, ArrowRight, CheckCircle2 } from 'lucide-react-native';
+import { Search, Plus, Calculator, ArrowRight, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -75,7 +75,10 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
 
   const estimates: EstimateRecord[] = rawList.map((item: any) => ({
     id: item.id,
-    customer: item.customer || item.customerName || item.customers?.name || 'Customer',
+    customer:
+      typeof item.customer === 'string'
+        ? item.customer
+        : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
     number: item.estimateNumber || item.number || 'EST-000',
     date: item.date || item.estimateDate || 'Recent',
     amount: Number(item.amount) || 0,

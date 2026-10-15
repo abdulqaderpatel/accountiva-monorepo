@@ -8,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { X, Package, Wrench, Tag, Layers, FileText, Trash2, Edit3 } from 'lucide-react-native';
+import { X, Package, Wrench, Tag, Layers, FileText, Trash, Pencil } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -75,11 +75,11 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
                   style={styles.iconBtn}
                   activeOpacity={0.7}
                 >
-                  <Edit3 size={18} color={colors.foreground} />
+                  <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
-                <Trash2 size={18} color={colors.destructive} />
+                <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
               <TouchableOpacity onPress={onClose} style={styles.iconBtn} activeOpacity={0.7}>
                 <X size={20} color={colors.mutedForeground} />

@@ -13,14 +13,14 @@ import {
 import {
   X,
   Plus,
-  Trash2,
+  Trash,
   Users,
   Package,
   Wrench,
   Search,
   Check,
   ChevronDown,
-  AlertCircle,
+  CircleAlert,
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -352,7 +352,7 @@ export function CreateEstimateModal({
           {/* API Error Banner */}
           {apiError ? (
             <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
-              <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+              <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
               <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
             </View>
           ) : null}
@@ -569,7 +569,7 @@ export function CreateEstimateModal({
                       )}
                     </View>
                     <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7} style={styles.deleteBtn}>
-                      <Trash2 size={16} color={colors.destructive} />
+                      <Trash size={16} color={colors.destructive} />
                     </TouchableOpacity>
                   </View>
 

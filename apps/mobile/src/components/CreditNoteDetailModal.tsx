@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { X, Share2, Users, FileMinus, FileText, Trash2, CheckCircle2 } from 'lucide-react-native';
+import { X, Share2, Users, FileMinus, FileText, Trash, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -107,7 +107,7 @@ export function CreditNoteDetailModal({
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
-                <Trash2 size={18} color={colors.destructive} />
+                <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
@@ -175,7 +175,7 @@ export function CreditNoteDetailModal({
                   style={[styles.primaryActionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
-                  <CheckCircle2 size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  <CircleCheck size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
                     Mark as Settled / Closed
                   </Text>

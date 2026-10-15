@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Check, Building2, Plus, ChevronRight } from 'lucide-react-native';
+import { X, Check, Building, Plus, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
@@ -70,7 +70,7 @@ export function OrganizationSwitcherModal({ visible, onClose }: OrganizationSwit
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View style={styles.headerLeft}>
               <View style={[styles.headerIconCircle, { backgroundColor: colors.primary + '18' }]}>
-                <Building2 size={18} color={colors.primary} />
+                <Building size={18} color={colors.primary} />
               </View>
               <View>
                 <Text style={[styles.headerTitle, { color: colors.foreground }]}>Switch Workspace</Text>

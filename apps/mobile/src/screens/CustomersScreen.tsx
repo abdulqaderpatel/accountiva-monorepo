@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { Search, Plus, Mail, Phone, Users, Building2 } from 'lucide-react-native';
+import { Search, Plus, Mail, Phone, Users } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';

@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Search, Plus, FileMinus, ArrowRight, CheckCircle2 } from 'lucide-react-native';
+import { Search, Plus, FileMinus, ArrowRight, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -69,7 +69,10 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
 
   const notes: CreditNoteRecord[] = rawList.map((item: any) => ({
     id: item.id,
-    customer: item.customer || item.customerName || item.customers?.name || 'Customer',
+    customer:
+      typeof item.customer === 'string'
+        ? item.customer
+        : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
     number: item.creditNoteNumber || item.number || 'CN-000',
     date: item.date || item.createdAt || 'Recent',
     amount: Number(item.amount) || 0,

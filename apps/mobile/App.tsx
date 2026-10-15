@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Platform, ActivityIndicator, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import {
   useFonts,
@@ -31,6 +31,7 @@ import { VerifyEmailScreen } from './src/screens/VerifyEmailScreen';
 import { EstimatesScreen } from './src/screens/EstimatesScreen';
 import { CreditNotesScreen } from './src/screens/CreditNotesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { setupMobileApi } from './src/config/api';
 
 // Prevent native splash screen from hiding prematurely before fonts and auth are ready
@@ -52,11 +53,23 @@ type AuthViewType = 'login' | 'signup' | 'forgot_password' | 'reset_password' | 
 
 function AppShell({ fontsReady }: { fontsReady: boolean }) {
   const { colors, isDark } = useTheme();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, currentOrg, organizations } = useAuth();
+  const queryClient = useQueryClient();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('dashboard');
   const [authView, setAuthView] = useState<AuthViewType>('login');
   const [pendingEmail, setPendingEmail] = useState('');
   const [pendingToken, setPendingToken] = useState('');
+
+  // Clear and invalidate query cache when switching organizations to ensure strict workspace data isolation
+  const prevOrgIdRef = React.useRef<string | null | undefined>(currentOrg?.id);
+  useEffect(() => {
+    if (prevOrgIdRef.current !== undefined && prevOrgIdRef.current !== currentOrg?.id) {
+      queryClient.clear();
+      queryClient.invalidateQueries();
+      setCurrentScreen('dashboard');
+    }
+    prevOrgIdRef.current = currentOrg?.id;
+  }, [currentOrg?.id, queryClient]);
 
   useEffect(() => {
     const handleUrl = (urlStr: string | null) => {
@@ -204,6 +217,16 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
             }}
           />
         )}
+      </SafeAreaView>
+    );
+  }
+
+  // Onboarding Gate: If user is authenticated but has no active workspace (or all workspaces deleted)
+  if (!currentOrg || organizations.length === 0) {
+    return (
+      <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <OnboardingScreen />
       </SafeAreaView>
     );
   }

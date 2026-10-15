@@ -13,13 +13,13 @@ import {
   ArrowLeft,
   Bell,
   CheckCheck,
-  Trash2,
+  Trash,
   FileText,
   Users,
   Mail,
   Info,
-  AlertCircle,
-  CheckCircle2,
+  CircleAlert,
+  CircleCheck,
   Package,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -287,7 +287,7 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
                     style={styles.iconBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Trash2 size={16} color={colors.mutedForeground} />
+                    <Trash size={16} color={colors.mutedForeground} />
                   </TouchableOpacity>
                 </View>
               </View>

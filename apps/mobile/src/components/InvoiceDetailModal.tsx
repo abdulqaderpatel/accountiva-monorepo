@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { X, Share2, CheckCircle2, Users, FileText, Send, Trash2, Edit3, Ban } from 'lucide-react-native';
+import { X, Share2, CircleCheck, Users, FileText, Send, Trash, Pencil, Ban } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -144,11 +144,11 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                   style={styles.iconBtn}
                   activeOpacity={0.7}
                 >
-                  <Edit3 size={18} color={colors.foreground} />
+                  <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
-                <Trash2 size={18} color={colors.destructive} />
+                <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
@@ -263,7 +263,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                   style={[styles.primaryActionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
-                  <CheckCircle2 size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  <CircleCheck size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>Mark as Paid</Text>
                 </TouchableOpacity>
               ) : null}

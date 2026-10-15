@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { X, Sparkles, AlertCircle } from 'lucide-react-native';
+import { X, Sparkles, CircleAlert } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import api, { useCreateCustomer, useUpdateCustomer } from '@accountiva/api';
@@ -184,7 +184,7 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
           {/* API Error Banner */}
           {apiError ? (
             <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
-              <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+              <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
               <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
             </View>
           ) : null}

@@ -12,7 +12,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { CheckCircle2, XCircle, ArrowRight, ArrowLeft, Mail, RefreshCw } from 'lucide-react-native';
+import { CircleCheck, CircleX, ArrowRight, ArrowLeft, Mail, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
@@ -140,7 +140,7 @@ export function VerifyEmailScreen({
           ) : status === 'success' ? (
             <View style={styles.statusBox}>
               <View style={[styles.iconCircle, { backgroundColor: colors.successBg }]}>
-                <CheckCircle2 size={36} color={colors.success} />
+                <CircleCheck size={36} color={colors.success} />
               </View>
               <Text style={[styles.successTitle, { color: colors.foreground }]}>Verification Complete</Text>
               <Text style={[styles.successBody, { color: colors.mutedForeground }]}>

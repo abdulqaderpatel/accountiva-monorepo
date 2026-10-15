@@ -12,7 +12,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { Mail, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react-native';
+import { Mail, ArrowRight, ArrowLeft, CircleCheck } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
@@ -114,7 +114,7 @@ export function ForgotPasswordScreen({ onNavigateToLogin, onNavigateToReset }: F
           ) : (
             <View style={styles.successContainer}>
               <View style={[styles.successIconCircle, { backgroundColor: colors.successBg }]}>
-                <CheckCircle2 size={36} color={colors.success} />
+                <CircleCheck size={36} color={colors.success} />
               </View>
               <Text style={[styles.successTitle, { color: colors.foreground }]}>Reset Link Sent</Text>
               <Text style={[styles.successBody, { color: colors.mutedForeground }]}>

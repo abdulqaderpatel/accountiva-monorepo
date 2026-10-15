@@ -9,7 +9,7 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { X, Share2, CheckCircle2, XCircle, Users, Calculator, ArrowRight, Trash2, Edit3 } from 'lucide-react-native';
+import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, Pencil } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -183,11 +183,11 @@ export function EstimateDetailModal({
                   style={styles.iconBtn}
                   activeOpacity={0.7}
                 >
-                  <Edit3 size={18} color={colors.foreground} />
+                  <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
-                <Trash2 size={18} color={colors.destructive} />
+                <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
@@ -284,7 +284,7 @@ export function EstimateDetailModal({
                   style={[styles.actionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
-                  <CheckCircle2 size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  <CircleCheck size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>Accept</Text>
                 </TouchableOpacity>
               )}
@@ -296,7 +296,7 @@ export function EstimateDetailModal({
                   style={[styles.actionBtn, { backgroundColor: colors.destructive }]}
                   activeOpacity={0.8}
                 >
-                  <XCircle size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  <CircleX size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>Decline</Text>
                 </TouchableOpacity>
               )}

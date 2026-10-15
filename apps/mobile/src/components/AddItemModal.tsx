@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { X, Check, Package, Wrench, AlertCircle } from 'lucide-react-native';
+import { X, Check, Package, Wrench, CircleAlert } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useCreateItem, useUpdateItem } from '@accountiva/api';
 import { itemSchema } from '@accountiva/shared';
@@ -138,7 +138,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
             {/* API Error Banner */}
             {apiError ? (
               <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
-                <AlertCircle size={16} color={colors.destructive} style={{ marginTop: 2 }} />
+                <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
                 <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
               </View>
             ) : null}

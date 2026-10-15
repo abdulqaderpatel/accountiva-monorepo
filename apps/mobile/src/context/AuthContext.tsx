@@ -33,6 +33,8 @@ interface AuthContextType {
   setCurrentOrg: (org: MobileOrganization | null) => Promise<void>;
   refreshOrganizations: () => Promise<void>;
   createOrganization: (name: string, currency?: string) => Promise<any>;
+  deleteOrganization: (orgId: string) => Promise<void>;
+  joinOrganization: (token: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,17 +50,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: orgs } = await api.get('/organizations');
       const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+      setOrganizations(list);
+      await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
       if (list.length > 0) {
-        setOrganizations(list);
-        await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
         setCurrentOrgState((prev) => {
           if (!prev) return list[0];
           const matched = list.find((o: any) => o.id === prev.id);
           return matched || list[0];
         });
+      } else {
+        setCurrentOrgState(null);
+        await AsyncStorage.removeItem('accountiva_org_id');
+        await AsyncStorage.removeItem('accountiva_current_org');
       }
+      return list;
     } catch {
-      // Offline fallback
+      return [];
     }
   }, []);
 
@@ -128,16 +135,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data: orgs } = await api.get('/organizations');
         const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+        setOrganizations(list);
+        await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
         if (list.length > 0) {
-          setOrganizations(list);
-          await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
           await setCurrentOrg(list[0]);
+        } else {
+          await setCurrentOrg(null);
         }
       } catch {
-        // Fallback default org if backend has none
-        const fallback = { id: 'org-demo', name: 'Primary Organization', currency: 'INR' };
-        setOrganizations([fallback]);
-        await setCurrentOrg(fallback);
+        setOrganizations([]);
+        await setCurrentOrg(null);
       }
 
       return data;
@@ -198,15 +205,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const { data: orgs } = await api.get('/organizations');
           const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
+          setOrganizations(list);
+          await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
           if (list.length > 0) {
-            setOrganizations(list);
-            await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
             await setCurrentOrg(list[0]);
+          } else {
+            await setCurrentOrg(null);
           }
         } catch {
-          const fallback = { id: 'org-demo', name: 'Primary Organization', currency: 'INR' };
-          setOrganizations([fallback]);
-          await setCurrentOrg(fallback);
+          setOrganizations([]);
+          await setCurrentOrg(null);
         }
 
         return data;
@@ -259,16 +267,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createOrganization = async (name: string, currency = 'INR') => {
+    const isIndia = currency.trim().toUpperCase() === 'INR';
     const { data } = await api.post('/organizations', {
       name: name.trim(),
       currency: currency.trim().toUpperCase(),
+      country: isIndia ? 'India' : 'Other',
+      region: isIndia ? 'India' : 'Other',
     });
     const newOrg = data?.organization || data?.data || data;
-    await refreshOrganizations();
+    const list = await refreshOrganizations();
     if (newOrg?.id) {
       await setCurrentOrg(newOrg);
+    } else if (list.length > 0) {
+      await setCurrentOrg(list[0]);
     }
     return newOrg;
+  };
+
+  const deleteOrganization = async (orgId: string) => {
+    await api.delete(`/organizations/${orgId}`);
+    const list = await refreshOrganizations();
+    if (!list || list.length === 0) {
+      await setCurrentOrg(null);
+    } else {
+      await setCurrentOrg(list[0]);
+    }
+  };
+
+  const joinOrganization = async (token: string) => {
+    const cleanToken = token.trim();
+    const { data } = await api.post(`/organizations/invitations/${encodeURIComponent(cleanToken)}/accept`);
+    const list = await refreshOrganizations();
+    if (list.length > 0) {
+      await setCurrentOrg(list[0]);
+    }
+    return data;
   };
 
   const logout = async () => {
@@ -304,6 +337,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentOrg,
         refreshOrganizations,
         createOrganization,
+        deleteOrganization,
+        joinOrganization,
       }}
     >
       {children}

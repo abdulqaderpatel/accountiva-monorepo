@@ -74,7 +74,10 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
 
   const invoices: InvoiceRecord[] = rawList.map((item: any) => ({
     id: item.id,
-    customer: item.customer || item.customerName || item.customers?.name || 'Customer',
+    customer:
+      typeof item.customer === 'string'
+        ? item.customer
+        : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
     number: item.number || item.invoiceNumber || 'INV-000',
     date: item.date || item.dueDate || 'Recent',
     dueDate: item.dueDate || item.date || 'Upon Receipt',

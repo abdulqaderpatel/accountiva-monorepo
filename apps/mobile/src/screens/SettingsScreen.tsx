@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Modal, ActivityIndicator } from 'react-native';
-import { Sun, Moon, Building2, Globe, ShieldCheck, LogOut, User, ChevronRight, Check, X, RefreshCw } from 'lucide-react-native';
+import { Sun, Moon, Building, Globe, Trash, LogOut, User, ChevronRight, Check, X, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
@@ -9,9 +9,10 @@ import { fonts } from '../theme/typography';
 
 export function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { user, currentOrg, organizations, setCurrentOrg, refreshOrganizations, logout } = useAuth();
+  const { user, currentOrg, organizations, setCurrentOrg, refreshOrganizations, deleteOrganization, logout } = useAuth();
   const [isOrgModalOpen, setIsOrgModalOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [deletingOrg, setDeletingOrg] = useState(false);
 
   useEffect(() => {
     refreshOrganizations();
@@ -27,6 +28,34 @@ export function SettingsScreen() {
     } finally {
       setSwitching(false);
     }
+  };
+
+  const handleDeleteOrg = () => {
+    if (!currentOrg) return;
+    Alert.alert(
+      'Delete Organization',
+      `Are you sure you want to permanently delete "${currentOrg.name}"? All associated invoices, customers, and data will be removed. This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingOrg(true);
+              await deleteOrganization(currentOrg.id);
+            } catch (err: any) {
+              Alert.alert(
+                'Delete Failed',
+                err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Could not delete organization.'
+              );
+            } finally {
+              setDeletingOrg(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -95,8 +124,8 @@ export function SettingsScreen() {
             <Switch
               value={isDark}
               onValueChange={toggleTheme}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={isDark ? colors.primaryForeground : '#ffffff'}
+              trackColor={{ false: isDark ? '#3f3f46' : '#e4e4e7', true: '#2563eb' }}
+              thumbColor="#ffffff"
             />
           </View>
         </Card>
@@ -109,18 +138,18 @@ export function SettingsScreen() {
             onPress={() => setIsOrgModalOpen(true)}
             activeOpacity={0.7}
           >
-            <View style={styles.rowLeft}>
-              <Building2 size={18} color={colors.foreground} />
-              <View>
-                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+            <View style={[styles.rowLeft, { flex: 1, marginRight: 12 }]}>
+              <Building size={18} color={colors.foreground} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]} numberOfLines={1}>
                   {currentOrg?.name || 'Primary Organization'}
                 </Text>
-                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]} numberOfLines={1}>
                   ID: {currentOrg?.id || 'org-active'} • Tap to switch
                 </Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 }}>
               <Badge variant="outline">Switch</Badge>
               <ChevronRight size={16} color={colors.mutedForeground} />
             </View>
@@ -139,27 +168,32 @@ export function SettingsScreen() {
               </View>
             </View>
           </View>
-        </Card>
 
-        {/* Feature Release Guard (Invoice-Only MVP) */}
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-          System Architecture
-        </Text>
-        <Card style={styles.card}>
-          <View style={styles.featureRow}>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <TouchableOpacity
+            style={styles.row}
+            onPress={handleDeleteOrg}
+            disabled={deletingOrg || !currentOrg}
+            activeOpacity={0.7}
+          >
             <View style={styles.rowLeft}>
-              <ShieldCheck size={18} color={colors.success} />
-              <Text style={[styles.rowLabel, { color: colors.foreground }]}>Invoicing Platform</Text>
+              <Trash size={18} color={colors.destructive} />
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.destructive }]}>
+                  {deletingOrg ? 'Deleting Workspace...' : 'Delete Organization'}
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  Permanently remove this workspace
+                </Text>
+              </View>
             </View>
-            <Badge variant="success">Active (MVP)</Badge>
-          </View>
-
-          <View style={styles.featureRow}>
-            <Text style={[styles.featureSub, { color: colors.mutedForeground }]}>
-              Banking & Expenses
-            </Text>
-            <Badge variant="outline">Staged</Badge>
-          </View>
+            {deletingOrg ? (
+              <ActivityIndicator size="small" color={colors.destructive} />
+            ) : (
+              <ChevronRight size={16} color={colors.destructive} />
+            )}
+          </TouchableOpacity>
         </Card>
 
         {/* Logout */}
@@ -230,7 +264,7 @@ export function SettingsScreen() {
                             },
                           ]}
                         >
-                          <Building2
+                          <Building
                             size={18}
                             color={isSelected ? colors.primaryForeground : colors.foreground}
                           />
@@ -319,16 +353,6 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: 4,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  featureSub: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
   },
   avatar: {
     width: 36,

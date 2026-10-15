@@ -1,7 +1,13 @@
-# Root Netlify configuration for Accountiva monorepo
 [build]
   command = "pnpm --filter web-react build"
   publish = "apps/web-react/dist"
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

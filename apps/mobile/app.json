@@ -24,7 +24,7 @@
       "package": "com.accountiva.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#09090b",
+        "backgroundColor": "#ffffff",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -34,6 +34,20 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#09090b",
+          "image": "./assets/splash-icon.png",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#09090b"
+          },
+          "imageWidth": 200
+        }
+      ]
+    ]
   }
 }

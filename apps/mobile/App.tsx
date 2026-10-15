@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform, ActivityIndicator, Linking } from 'react-na
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as SplashScreen from 'expo-splash-screen';
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -32,6 +33,9 @@ import { CreditNotesScreen } from './src/screens/CreditNotesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { setupMobileApi } from './src/config/api';
 
+// Prevent native splash screen from hiding prematurely before fonts and auth are ready
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 // Initialize shared api client
 setupMobileApi();
 
@@ -46,7 +50,7 @@ const queryClient = new QueryClient({
 
 type AuthViewType = 'login' | 'signup' | 'forgot_password' | 'reset_password' | 'verify_email';
 
-function AppShell() {
+function AppShell({ fontsReady }: { fontsReady: boolean }) {
   const { colors, isDark } = useTheme();
   const { isAuthenticated, loading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('dashboard');
@@ -126,12 +130,24 @@ function AppShell() {
     }
   }, []);
 
-  if (loading) {
-    return (
-      <View style={[styles.centered, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+  const isAppReady = fontsReady && !loading;
+
+  useEffect(() => {
+    if (isAppReady) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [isAppReady]);
+
+  // Safety fallback: ensure splash screen hides even if an unexpected network delay occurs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isAppReady) {
+    return <View style={{ flex: 1, backgroundColor: '#09090b' }} />;
   }
 
   // Authentication Gate
@@ -227,7 +243,7 @@ function AppShell() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
     PlusJakartaSans_600SemiBold,
@@ -237,20 +253,14 @@ export default function App() {
     Outfit_700Bold,
   });
 
-  if (!fontsLoaded && Platform.OS !== 'web') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#09090b' }}>
-        <ActivityIndicator size="large" color="#ffffff" />
-      </View>
-    );
-  }
+  const fontsReady = fontsLoaded || !!fontError || Platform.OS === 'web';
 
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <AppShell />
+            <AppShell fontsReady={fontsReady} />
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

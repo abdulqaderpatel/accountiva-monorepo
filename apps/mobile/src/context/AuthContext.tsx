@@ -13,6 +13,7 @@ export interface MobileOrganization {
   id: string;
   name: string;
   currency?: string;
+  role?: string;
 }
 
 interface AuthContextType {

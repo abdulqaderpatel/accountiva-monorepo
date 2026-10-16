@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Check, Building, Plus, ChevronRight } from 'lucide-react-native';
+import { X, Check, Building, Plus, ChevronRight, Settings as SettingsIcon } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
@@ -18,9 +18,10 @@ import { fonts } from '../theme/typography';
 interface OrganizationSwitcherModalProps {
   visible: boolean;
   onClose: () => void;
+  onOpenOrgSettings?: (org: MobileOrganization) => void;
 }
 
-export function OrganizationSwitcherModal({ visible, onClose }: OrganizationSwitcherModalProps) {
+export function OrganizationSwitcherModal({ visible, onClose, onOpenOrgSettings }: OrganizationSwitcherModalProps) {
   const { colors } = useTheme();
   const { currentOrg, organizations, setCurrentOrg, createOrganization } = useAuth();
 
@@ -130,11 +131,29 @@ export function OrganizationSwitcherModal({ visible, onClose }: OrganizationSwit
                       </View>
                     </View>
 
-                    {isSelected && (
-                      <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
-                        <Check size={14} color={colors.primaryForeground} strokeWidth={3} />
-                      </View>
-                    )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {isSelected && (
+                        <View style={[styles.checkCircle, { backgroundColor: colors.primary }]}>
+                          <Check size={14} color={colors.primaryForeground} strokeWidth={3} />
+                        </View>
+                      )}
+
+                      {onOpenOrgSettings && (
+                        <TouchableOpacity
+                          style={[styles.settingsBtn, { backgroundColor: colors.surfaceSubtle }]}
+                          onPress={async () => {
+                            if (!isSelected) {
+                              await setCurrentOrg(org);
+                            }
+                            onClose();
+                            onOpenOrgSettings(org);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <SettingsIcon size={14} color={colors.foreground} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -423,6 +442,13 @@ const styles = StyleSheet.create({
   errorBannerText: {
     fontSize: 12,
     fontFamily: fonts.medium,
+  },
+  settingsBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

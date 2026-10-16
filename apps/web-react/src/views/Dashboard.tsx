@@ -283,7 +283,7 @@ export function Dashboard() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    {metricsLoading && !metricsData ? (
+                    {(metricsLoading && !metricsData) || (invoicesLoading && rawInvoices.length === 0) ? (
                       <Skeleton className="h-8 w-28" />
                     ) : (
                       <h3 className="text-2xl font-bold font-mono text-foreground tracking-tight">
@@ -332,35 +332,43 @@ export function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-6 md:p-8">
-                <div className="h-64 flex items-end gap-2 md:gap-3 relative px-2">
-                  <div className="absolute inset-0 flex flex-col justify-between py-1 pointer-events-none opacity-10">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="w-full h-px bg-foreground" />
+                {metricsLoading && !metricsData ? (
+                  <div className="h-64 flex items-end gap-3 px-2">
+                    {[35, 60, 45, 80, 50, 75, 90, 40].map((val, idx) => (
+                      <div key={idx} className="flex-1 bg-muted/40 rounded-t animate-pulse" style={{ height: `${val}%` }} />
                     ))}
                   </div>
-                  {cashFlowData.map((bar) => (
-                    <div
-                      key={bar.id}
-                      className="flex-1 flex items-end gap-1 h-full group relative"
-                      title={`${bar.date} — Income: ${formatCurrency(bar.income, currency)}${isFeatureEnabled("expenses") ? ` | Expense: ${formatCurrency(bar.expense, currency)}` : ""}`}
-                    >
+                ) : (
+                  <div className="h-64 flex items-end gap-2 md:gap-3 relative px-2">
+                    <div className="absolute inset-0 flex flex-col justify-between py-1 pointer-events-none opacity-10">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="w-full h-px bg-foreground" />
+                      ))}
+                    </div>
+                    {cashFlowData.map((bar) => (
                       <div
-                        className="flex-1 bg-emerald-500/40 group-hover:bg-emerald-500 transition-all rounded-t-sm"
-                        style={{
-                          height: `${Math.max(4, (bar.income / maxCashFlow) * 100)}%`,
-                        }}
-                      />
-                      {isFeatureEnabled("expenses") && (
+                        key={bar.id}
+                        className="flex-1 flex items-end gap-1 h-full group relative"
+                        title={`${bar.date} — Income: ${formatCurrency(bar.income, currency)}${isFeatureEnabled("expenses") ? ` | Expense: ${formatCurrency(bar.expense, currency)}` : ""}`}
+                      >
                         <div
-                          className="flex-1 bg-primary/40 group-hover:bg-primary transition-all rounded-t-sm"
+                          className="flex-1 bg-emerald-500/40 group-hover:bg-emerald-500 transition-all rounded-t-sm"
                           style={{
-                            height: `${Math.max(4, (bar.expense / maxCashFlow) * 100)}%`,
+                            height: `${Math.max(4, (bar.income / maxCashFlow) * 100)}%`,
                           }}
                         />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        {isFeatureEnabled("expenses") && (
+                          <div
+                            className="flex-1 bg-primary/40 group-hover:bg-primary transition-all rounded-t-sm"
+                            style={{
+                              height: `${Math.max(4, (bar.expense / maxCashFlow) * 100)}%`,
+                            }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -389,10 +397,17 @@ export function Dashboard() {
               </CardHeader>
               <CardContent className="p-0">
                 {invoicesLoading && recentActivity.length === 0 ? (
-                  <div className="p-6 space-y-4">
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
+                  <div className="divide-y divide-border/50">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="py-4 px-6 flex items-center justify-between animate-pulse">
+                        <div className="space-y-1.5 flex-1">
+                          <Skeleton className="h-3 w-16" />
+                          <Skeleton className="h-4 w-44" />
+                        </div>
+                        <Skeleton className="h-5 w-16 rounded-md mr-6" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    ))}
                   </div>
                 ) : recentActivity.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground text-xs">

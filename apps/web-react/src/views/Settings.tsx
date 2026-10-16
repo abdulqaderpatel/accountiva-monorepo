@@ -31,7 +31,7 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type SettingsTab = "profile" | "organization" | "appearance" | "invoices" | "notifications";
+type SettingsTab = "profile" | "appearance" | "invoices" | "notifications";
 
 export function Settings() {
   const { theme, accentColor, setTheme, setAccentColor } = useTheme();
@@ -40,12 +40,15 @@ export function Settings() {
   const getInitialTab = (): SettingsTab => {
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab")?.toLowerCase();
+      if (tab === "organization") {
+        window.location.replace("/organization-settings");
+        return "profile";
+      }
       if (tab === "profile" || tab === "account") return "profile";
-      if (tab === "organization") return "organization";
       if (tab === "invoices") return "invoices";
       if (tab === "notifications") return "notifications";
     }
-    return "appearance";
+    return "profile";
   };
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(getInitialTab);
@@ -54,13 +57,6 @@ export function Settings() {
   const [fullName, setFullName] = useState(user?.name || "");
   const [email] = useState(user?.email || "");
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  // Organization Form
-  const [orgName, setOrgName] = useState(currentOrganization?.name || "");
-  const [currency, setCurrency] = useState(currentOrganization?.currency || "INR");
-  const [gstin, setGstin] = useState("");
-  const [pan, setPan] = useState("");
-  const [isSavingOrg, setIsSavingOrg] = useState(false);
 
   // Notification Preferences
   const [weeklyReport, setWeeklyReport] = useState(true);
@@ -138,19 +134,7 @@ export function Settings() {
     if (user?.name) {
       setFullName(user.name);
     }
-    if (currentOrganization) {
-      setOrgName(currentOrganization.name);
-      setCurrency(currentOrganization.currency || "INR");
-      api.get(`/organizations/${currentOrganization.id}`).then(({ data }) => {
-        if (data) {
-          setOrgName(data.name || currentOrganization.name);
-          setCurrency(data.currency || "INR");
-          setGstin(data.gstin || "");
-          setPan(data.pan || "");
-        }
-      }).catch(() => {});
-    }
-  }, [user, currentOrganization]);
+  }, [user]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,30 +155,9 @@ export function Settings() {
     }
   };
 
-  const handleSaveOrg = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentOrganization) return;
-    setIsSavingOrg(true);
-    try {
-      await api.put(`/organizations/${currentOrganization.id}`, {
-        name: orgName,
-        currency,
-        gstin,
-        pan,
-      });
-      await fetchOrganizations();
-      toast.success("Organization settings saved!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update organization");
-    } finally {
-      setIsSavingOrg(false);
-    }
-  };
-
   const tabs = [
-    { id: "appearance" as SettingsTab, label: "Appearance", icon: Palette },
     { id: "profile" as SettingsTab, label: "Account Profile", icon: User },
-    { id: "organization" as SettingsTab, label: "Organization Details", icon: Building2 },
+    { id: "appearance" as SettingsTab, label: "Appearance & Theme", icon: Palette },
     { id: "invoices" as SettingsTab, label: "Numbering & Invoices", icon: FileText },
     { id: "notifications" as SettingsTab, label: "Notifications", icon: Bell },
   ];
@@ -232,6 +195,32 @@ export function Settings() {
 
         {/* Content Area */}
         <div className="md:col-span-3 space-y-6">
+          {/* Organization Settings Quick Access Banner */}
+          {currentOrganization && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border border-primary/20 bg-primary/5 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold shrink-0">
+                  <Building2 className="size-5" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-foreground flex items-center gap-2">
+                    <span>Active Workspace: {currentOrganization.name}</span>
+                    <Badge variant="outline" className="text-[9px] uppercase tracking-wider py-0 px-1.5">{currentOrganization.role}</Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    Looking for organization settings? Manage your company identity, tax info, team members, and custom fields.
+                  </div>
+                </div>
+              </div>
+              <Link to="/organization-settings" className="shrink-0">
+                <Button size="sm" className="gap-1.5 font-semibold text-xs shadow-xs">
+                  <span>Organization Settings</span>
+                  <ArrowRight className="size-3" />
+                </Button>
+              </Link>
+            </div>
+          )}
+
           {/* Appearance Section */}
           {activeTab === "appearance" && (
             <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
@@ -347,91 +336,6 @@ export function Settings() {
             </Card>
           )}
 
-          {/* Organization Details Section */}
-          {activeTab === "organization" && (
-            <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-base">Organization Profile</CardTitle>
-                <CardDescription className="text-xs">
-                  Legal company identity, tax compliance codes, and base billing currency.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Building2 className="size-4 text-primary shrink-0" />
-                    <p className="text-xs text-foreground font-medium">
-                      Manage team members, branding logo, document theme, and trash recovery.
-                    </p>
-                  </div>
-                  <Link to="/organization-settings">
-                    <Button variant="outline" size="sm" className="gap-1.5 text-xs shrink-0 self-start sm:self-auto">
-                      <span>Full Organization Settings</span>
-                      <ArrowRight className="size-3" />
-                    </Button>
-                  </Link>
-                </div>
-
-                <form onSubmit={handleSaveOrg} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <Label htmlFor="orgName">Organization Name *</Label>
-                      <Input
-                        id="orgName"
-                        value={orgName}
-                        onChange={(e) => setOrgName(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="currency">Base Currency</Label>
-                      <Select
-                        value={currency}
-                        onChange={setCurrency}
-                        options={[
-                          { id: "INR", name: "INR (₹ - Indian Rupee)" },
-                          { id: "USD", name: "USD ($ - US Dollar)" },
-                          { id: "EUR", name: "EUR (€ - Euro)" },
-                          { id: "GBP", name: "GBP (£ - British Pound)" },
-                          { id: "AED", name: "AED (د.إ - UAE Dirham)" },
-                        ]}
-                        className="text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="gstin">GSTIN</Label>
-                      <Input
-                        id="gstin"
-                        value={gstin}
-                        onChange={(e) => setGstin(e.target.value.toUpperCase())}
-                        maxLength={15}
-                        className="font-mono uppercase text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="pan">PAN</Label>
-                      <Input
-                        id="pan"
-                        value={pan}
-                        onChange={(e) => setPan(e.target.value.toUpperCase())}
-                        maxLength={10}
-                        className="font-mono uppercase text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <Button type="submit" disabled={isSavingOrg}>
-                      {isSavingOrg ? "Saving..." : "Save Organization"}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Invoices & Numbering Presets Section */}
           {activeTab === "invoices" && (

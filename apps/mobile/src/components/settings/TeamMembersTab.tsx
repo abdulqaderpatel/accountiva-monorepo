@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { Users, Plus, Mail, Shield, Trash2, X, Check } from 'lucide-react-native';
+import { Users, Plus, Mail, Shield, Trash2, X, Check, Search } from 'lucide-react-native';
 import api from '@accountiva/api';
 import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -45,6 +45,8 @@ export function TeamMembersTab() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'accountant'>('member');
   const [sendingInvite, setSendingInvite] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('all');
 
   const fetchMembers = useCallback(async () => {
     if (!currentOrg?.id) return;
@@ -73,6 +75,34 @@ export function TeamMembersTab() {
   useEffect(() => {
     fetchMembers();
   }, [fetchMembers]);
+
+  const roleCounts = useMemo(() => ({
+    all: members.length,
+    owner: members.filter((m) => m.role === 'owner').length,
+    admin: members.filter((m) => m.role === 'admin').length,
+    member: members.filter((m) => m.role === 'member' || (m.role as any) === 'staff').length,
+    accountant: members.filter((m) => m.role === 'accountant').length,
+  }), [members]);
+
+  const filteredMembers = useMemo(() => {
+    return members.filter((m) => {
+      if (selectedRole !== 'all') {
+        if (selectedRole === 'member') {
+          if (m.role !== 'member' && (m.role as any) !== 'staff') return false;
+        } else if (m.role !== selectedRole) {
+          return false;
+        }
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const nameMatch = (m.name || '').toLowerCase().includes(q);
+        const emailMatch = (m.email || '').toLowerCase().includes(q);
+        const roleMatch = (m.role || '').toLowerCase().includes(q);
+        return nameMatch || emailMatch || roleMatch;
+      }
+      return true;
+    });
+  }, [members, selectedRole, searchQuery]);
 
   const handleSendInvite = async () => {
     if (!currentOrg?.id || !inviteEmail.trim()) {
@@ -149,6 +179,65 @@ export function TeamMembersTab() {
         </TouchableOpacity>
       </View>
 
+      {/* Search & Role Filter Pills */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 10, gap: 10 }}>
+        {/* Search Input */}
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Search size={15} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.foreground }]}
+            placeholder="Search members by name or email..."
+            placeholderTextColor={colors.mutedForeground}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <X size={14} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Role Pills */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+          {[
+            { id: 'all', label: `All (${roleCounts.all})` },
+            { id: 'owner', label: `Owner (${roleCounts.owner})` },
+            { id: 'admin', label: `Admin (${roleCounts.admin})` },
+            { id: 'member', label: `Member (${roleCounts.member})` },
+            { id: 'accountant', label: `Accountant (${roleCounts.accountant})` },
+          ].map((pill) => {
+            const active = selectedRole === pill.id;
+            return (
+              <TouchableOpacity
+                key={pill.id}
+                onPress={() => setSelectedRole(pill.id)}
+                style={[
+                  styles.filterPill,
+                  {
+                    backgroundColor: active ? colors.primary : colors.card,
+                    borderColor: active ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    {
+                      color: active ? colors.primaryForeground : colors.foreground,
+                      fontWeight: active ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {pill.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* Members List */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {loading && members.length === 0 ? (
@@ -164,8 +253,25 @@ export function TeamMembersTab() {
             actionLabel="Invite Member"
             onAction={() => setIsInviteModalOpen(true)}
           />
+        ) : filteredMembers.length === 0 ? (
+          <View style={{ paddingVertical: 36, alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.mutedForeground }}>
+              No members matching "{searchQuery || selectedRole}"
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setSelectedRole('all');
+              }}
+              style={{ paddingVertical: 6, paddingHorizontal: 12 }}
+            >
+              <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.primary }}>
+                Reset Filters
+              </Text>
+            </TouchableOpacity>
+          </View>
         ) : (
-          members.map((m) => {
+          filteredMembers.map((m) => {
             const isOwner = m.role === 'owner';
             const initial = (m.name || m.email || 'U')[0].toUpperCase();
 
@@ -485,5 +591,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     fontFamily: fonts.bold,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 38,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    paddingVertical: 0,
+  },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
   },
 });

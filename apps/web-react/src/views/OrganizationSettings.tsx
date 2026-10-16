@@ -17,6 +17,7 @@ import {
   Clock,
   Sparkles,
   SlidersHorizontal,
+  Search,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth, Organization } from "@/context/AuthContext";
@@ -96,6 +97,8 @@ export function OrganizationSettings() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "accountant">("member");
   const [isInviting, setIsInviting] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
 
   // Trash State
   const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
@@ -439,62 +442,151 @@ export function OrganizationSettings() {
           )}
 
           {/* 3. Team & Members */}
-          {activeTab === "members" && (
-            <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-base">Workspace Members</CardTitle>
-                  <CardDescription className="text-xs">
-                    Manage team access, invite accountants, and assign operational roles.
-                  </CardDescription>
-                </div>
-                <Button size="sm" onClick={() => setIsInviteOpen(true)} className="gap-1.5 font-semibold shadow-xs">
-                  <Plus className="size-3.5" />
-                  <span>Invite Member</span>
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {isMembersLoading ? (
-                  <div className="py-12 flex justify-center">
-                    <Spinner size="md" />
-                  </div>
-                ) : members.length === 0 ? (
-                  <EmptyState
-                    icon={Users}
-                    title="No teammates yet"
-                    description="Invite collaborators, project managers, or your chartered accountant."
-                    actionLabel="Invite Member"
-                    onAction={() => setIsInviteOpen(true)}
-                  />
-                ) : (
-                  <div className="divide-y divide-border/40 text-xs">
-                    {members.map((m) => (
-                      <div key={m.id} className="py-3 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary">
-                            {(m.name || m.email).charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-foreground">{m.name || m.email}</div>
-                            <div className="text-[11px] text-muted-foreground">{m.email}</div>
-                          </div>
-                        </div>
+          {activeTab === "members" && (() => {
+            const roleCounts = {
+              all: members.length,
+              owner: members.filter((m) => m.role === "owner").length,
+              admin: members.filter((m) => m.role === "admin").length,
+              member: members.filter((m) => m.role === "member" || (m.role as any) === "staff").length,
+              accountant: members.filter((m) => m.role === "accountant").length,
+            };
 
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={m.role === "owner" ? "default" : "secondary"}
-                            className="capitalize text-[10px]"
-                          >
-                            {m.role}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+            const filteredMembers = members.filter((m) => {
+              if (selectedRoleFilter !== "all") {
+                if (selectedRoleFilter === "member") {
+                  if (m.role !== "member" && (m.role as any) !== "staff") return false;
+                } else if (m.role !== selectedRoleFilter) {
+                  return false;
+                }
+              }
+              if (memberSearch.trim()) {
+                const q = memberSearch.trim().toLowerCase();
+                const nameMatch = (m.name || "").toLowerCase().includes(q);
+                const emailMatch = (m.email || "").toLowerCase().includes(q);
+                const roleMatch = (m.role || "").toLowerCase().includes(q);
+                return nameMatch || emailMatch || roleMatch;
+              }
+              return true;
+            });
+
+            const rolesList: Array<{ id: string; label: string }> = [
+              { id: "all", label: `All (${roleCounts.all})` },
+              { id: "owner", label: `Owner (${roleCounts.owner})` },
+              { id: "admin", label: `Admin (${roleCounts.admin})` },
+              { id: "member", label: `Member (${roleCounts.member})` },
+              { id: "accountant", label: `Accountant (${roleCounts.accountant})` },
+            ];
+
+            return (
+              <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-base">Workspace Members</CardTitle>
+                    <CardDescription className="text-xs">
+                      Manage team access, invite accountants, and assign operational roles.
+                    </CardDescription>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  <Button size="sm" onClick={() => setIsInviteOpen(true)} className="gap-1.5 font-semibold shadow-xs">
+                    <Plus className="size-3.5" />
+                    <span>Invite Member</span>
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Filters & Search Toolbar */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                    {/* Role Filter Pills */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {rolesList.map((rf) => {
+                        const active = selectedRoleFilter === rf.id;
+                        return (
+                          <button
+                            key={rf.id}
+                            type="button"
+                            onClick={() => setSelectedRoleFilter(rf.id)}
+                            className={cn(
+                              "px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border",
+                              active
+                                ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                                : "bg-card/70 border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+                            )}
+                          >
+                            {rf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-64">
+                      <Search className="size-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Input
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
+                        placeholder="Search members..."
+                        className="h-8 pl-8 text-xs bg-card/60"
+                      />
+                    </div>
+                  </div>
+
+                  {isMembersLoading ? (
+                    <div className="py-12 flex justify-center">
+                      <Spinner size="md" />
+                    </div>
+                  ) : members.length === 0 ? (
+                    <EmptyState
+                      icon={Users}
+                      title="No teammates yet"
+                      description="Invite collaborators, project managers, or your chartered accountant."
+                      actionLabel="Invite Member"
+                      onAction={() => setIsInviteOpen(true)}
+                    />
+                  ) : filteredMembers.length === 0 ? (
+                    <div className="py-10 text-center space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        No members found matching "{memberSearch || selectedRoleFilter}".
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setMemberSearch("");
+                          setSelectedRoleFilter("all");
+                        }}
+                        className="text-xs text-primary"
+                      >
+                        Reset Filters
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border/40 text-xs">
+                      {filteredMembers.map((m) => (
+                        <div key={m.id} className="py-3 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary">
+                              {(m.name || m.email).charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-foreground">{m.name || m.email}</div>
+                              <div className="text-[11px] text-muted-foreground">{m.email}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={m.role === "owner" ? "default" : "secondary"}
+                              className="capitalize text-[10px]"
+                            >
+                              {m.role}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* 4. Custom Fields */}
           {activeTab === "custom-fields" && <CustomFieldsManagement />}

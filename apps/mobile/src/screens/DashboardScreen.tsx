@@ -25,6 +25,7 @@ import { useInvoices, useEstimates, useNotifications } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { OrganizationSwitcherModal } from '../components/OrganizationSwitcherModal';
+import { OrganizationSettingsModal } from '../components/OrganizationSettingsModal';
 
 interface DashboardScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -34,6 +35,7 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
   const [orgModalOpen, setOrgModalOpen] = useState(false);
+  const [orgSettingsOpen, setOrgSettingsOpen] = useState(false);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices();
   const { data: apiEstimates } = useEstimates();
@@ -170,40 +172,67 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
       >
         {/* Total Receivables Hero Card */}
         <Card style={styles.heroCard}>
-          <View style={styles.cardHeaderRow}>
-            <View>
-              <Text style={[styles.kpiLabel, { color: colors.mutedForeground }]}>
-                Total Receivables
-              </Text>
-              <Text style={[styles.kpiValue, { color: colors.foreground }]}>
-                {formatCurrency(totalReceivables, currency)}
-              </Text>
-            </View>
-            <View style={[styles.trendIconContainer, { backgroundColor: colors.successBg }]}>
-              <TrendingUp size={16} color={colors.success} />
-            </View>
-          </View>
+          {isLoading && rawInvoices.length === 0 ? (
+            <View style={{ gap: 12 }}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ gap: 6 }}>
+                  <View style={[styles.skeletonBlock, { width: 120, height: 12, backgroundColor: colors.surfaceSubtle }]} />
+                  <View style={[styles.skeletonBlock, { width: 180, height: 26, backgroundColor: colors.surfaceSubtle }]} />
+                </View>
+                <View style={[styles.trendIconContainer, { backgroundColor: colors.surfaceSubtle }]} />
+              </View>
 
-          <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
+              <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
 
-          <View style={styles.cardFooterGrid}>
-            <View>
-              <Text style={[styles.subKpiLabel, { color: colors.mutedForeground }]}>
-                Paid This Month
-              </Text>
-              <Text style={[styles.subKpiValue, { color: colors.foreground }]}>
-                {formatCurrency(paidThisMonth, currency)}
-              </Text>
+              <View style={styles.cardFooterGrid}>
+                <View style={{ gap: 5 }}>
+                  <View style={[styles.skeletonBlock, { width: 90, height: 10, backgroundColor: colors.surfaceSubtle }]} />
+                  <View style={[styles.skeletonBlock, { width: 110, height: 16, backgroundColor: colors.surfaceSubtle }]} />
+                </View>
+                <View style={{ gap: 5 }}>
+                  <View style={[styles.skeletonBlock, { width: 60, height: 10, backgroundColor: colors.surfaceSubtle }]} />
+                  <View style={[styles.skeletonBlock, { width: 85, height: 16, backgroundColor: colors.surfaceSubtle }]} />
+                </View>
+              </View>
             </View>
-            <View>
-              <Text style={[styles.subKpiLabel, { color: colors.mutedForeground }]}>
-                Overdue
-              </Text>
-              <Text style={[styles.subKpiValue, { color: colors.destructive }]}>
-                {formatCurrency(overdueTotal, currency)}
-              </Text>
-            </View>
-          </View>
+          ) : (
+            <>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text style={[styles.kpiLabel, { color: colors.mutedForeground }]}>
+                    Total Receivables
+                  </Text>
+                  <Text style={[styles.kpiValue, { color: colors.foreground }]}>
+                    {formatCurrency(totalReceivables, currency)}
+                  </Text>
+                </View>
+                <View style={[styles.trendIconContainer, { backgroundColor: colors.successBg }]}>
+                  <TrendingUp size={16} color={colors.success} />
+                </View>
+              </View>
+
+              <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
+
+              <View style={styles.cardFooterGrid}>
+                <View>
+                  <Text style={[styles.subKpiLabel, { color: colors.mutedForeground }]}>
+                    Paid This Month
+                  </Text>
+                  <Text style={[styles.subKpiValue, { color: colors.foreground }]}>
+                    {formatCurrency(paidThisMonth, currency)}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.subKpiLabel, { color: colors.mutedForeground }]}>
+                    Overdue
+                  </Text>
+                  <Text style={[styles.subKpiValue, { color: colors.destructive }]}>
+                    {formatCurrency(overdueTotal, currency)}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </Card>
 
         {/* Quick Action Buttons */}
@@ -311,7 +340,31 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         </View>
 
         <View style={styles.invoicesList}>
-          {recentInvoices.length === 0 ? (
+          {isLoading && rawInvoices.length === 0 ? (
+            <View style={{ gap: 8 }}>
+              {[1, 2, 3].map((i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.invoiceItem,
+                    { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.7 },
+                  ]}
+                >
+                  <View style={styles.invoiceLeft}>
+                    <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
+                    <View style={{ gap: 6 }}>
+                      <View style={[styles.skeletonBlock, { width: 130, height: 14, backgroundColor: colors.surfaceSubtle }]} />
+                      <View style={[styles.skeletonBlock, { width: 90, height: 11, backgroundColor: colors.surfaceSubtle }]} />
+                    </View>
+                  </View>
+                  <View style={[styles.invoiceRight, { gap: 6, alignItems: 'flex-end' }]}>
+                    <View style={[styles.skeletonBlock, { width: 70, height: 14, backgroundColor: colors.surfaceSubtle }]} />
+                    <View style={[styles.skeletonBlock, { width: 50, height: 18, borderRadius: 6, backgroundColor: colors.surfaceSubtle }]} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : recentInvoices.length === 0 ? (
             <Card style={styles.emptyRecentCard}>
               <EmptyState
                 icon={FileText}
@@ -372,6 +425,15 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
       <OrganizationSwitcherModal
         visible={orgModalOpen}
         onClose={() => setOrgModalOpen(false)}
+        onOpenOrgSettings={() => {
+          setOrgModalOpen(false);
+          setOrgSettingsOpen(true);
+        }}
+      />
+
+      <OrganizationSettingsModal
+        visible={orgSettingsOpen}
+        onClose={() => setOrgSettingsOpen(false)}
       />
     </View>
   );
@@ -619,6 +681,9 @@ const styles = StyleSheet.create({
   pipelineValue: {
     fontSize: 18,
     fontFamily: fonts.bold,
+  },
+  skeletonBlock: {
+    borderRadius: 6,
   },
 });
 

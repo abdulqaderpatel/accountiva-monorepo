@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@accountiva/shared";
 import { useCreateEstimate, useCustomers, useItems } from "@accountiva/api";
@@ -54,6 +56,7 @@ export function CreateEstimateModal({
   );
   const [notes, setNotes] = useState("");
   const [taxRate, setTaxRate] = useState(18); // Default 18% GST
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
   const [items, setItems] = useState<LineItem[]>([
     {
@@ -143,6 +146,7 @@ export function CreateEstimateModal({
         taxAmount,
         notes,
         status: "Draft",
+        customFields,
         items: items.map((i) => ({
           itemName: i.name,
           description: i.description,
@@ -206,23 +210,17 @@ export function CreateEstimateModal({
 
           <div className="space-y-2">
             <Label htmlFor="estimateDate">Estimate Date</Label>
-            <Input
-              id="estimateDate"
-              type="date"
+            <DatePicker
               value={estimateDate}
-              onChange={(e) => setEstimateDate(e.target.value)}
-              required
+              onChange={setEstimateDate}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="expiryDate">Expiry Date</Label>
-            <Input
-              id="expiryDate"
-              type="date"
+            <DatePicker
               value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              required
+              onChange={setExpiryDate}
             />
           </div>
         </div>
@@ -360,6 +358,13 @@ export function CreateEstimateModal({
             </div>
           </div>
         </div>
+
+        {/* Custom Fields */}
+        <CustomFieldRenderer
+          entity="estimate"
+          value={customFields}
+          onChange={setCustomFields}
+        />
 
         {/* Notes */}
         <div className="space-y-2">

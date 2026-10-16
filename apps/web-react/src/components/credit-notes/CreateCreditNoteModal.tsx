@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { Select } from "@/components/ui/Select";
+import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { formatCurrency } from "@accountiva/shared";
 import { useCreateCreditNote, useCustomers, useInvoices } from "@accountiva/api";
 import { toast } from "sonner";
@@ -53,6 +56,7 @@ export function CreateCreditNoteModal({
   const [reason, setReason] = useState(CREDIT_REASONS[0]);
   const [amount, setAmount] = useState("");
   const [notes, setNotes] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +87,7 @@ export function CreateCreditNoteModal({
         reason,
         notes,
         status: "Open",
+        customFields,
       });
 
       toast.success("Credit note created successfully!", {
@@ -136,12 +141,9 @@ export function CreateCreditNoteModal({
 
           <div className="space-y-1.5">
             <Label htmlFor="cnDate">Issue Date</Label>
-            <Input
-              id="cnDate"
-              type="date"
+            <DatePicker
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
+              onChange={setDate}
             />
           </div>
 
@@ -181,18 +183,12 @@ export function CreateCreditNoteModal({
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="cnReason">Adjustment Reason</Label>
-            <select
-              id="cnReason"
+            <Select
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {CREDIT_REASONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
+              onChange={setReason}
+              options={CREDIT_REASONS.map((r) => ({ id: r, name: r }))}
+              className="text-xs"
+            />
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
@@ -203,6 +199,15 @@ export function CreateCreditNoteModal({
               placeholder="Reason for concession, authorization details..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
+
+          {/* Custom Fields */}
+          <div className="sm:col-span-2">
+            <CustomFieldRenderer
+              entity="credit_note"
+              value={customFields}
+              onChange={setCustomFields}
             />
           </div>
         </div>

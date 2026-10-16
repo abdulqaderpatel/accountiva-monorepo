@@ -9,12 +9,17 @@ import {
   FileMinus,
   Settings,
   Building2,
-  ChevronLeft,
   ChevronRight,
+  ShieldCheck,
+  Landmark,
+  ArrowLeftRight,
+  BookOpen,
+  BarChart3,
+  Receipt,
 } from "lucide-react";
 import { isFeatureEnabled, FeatureFlags } from "@accountiva/shared";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -47,7 +52,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
     {
       title: "Inventory",
       items: [
-        { name: "Items", icon: Package, route: "/products-and-services/items", shortcut: "G P", feature: "items" },
+        { name: "Items", icon: Package, route: "/items", shortcut: "G P", feature: "items" },
       ],
     },
     {
@@ -63,7 +68,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       title: "Settings",
       items: [
         { name: "Organization", icon: Building2, route: "/organization-settings", shortcut: "G O" },
-        { name: "Settings", icon: Settings, route: "/settings", shortcut: "G S" },
+        { name: "Preferences", icon: Settings, route: "/settings", shortcut: "G S" },
       ],
     },
   ];
@@ -79,49 +84,40 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
 
   return (
     <aside
+      id="sidebar"
       className={cn(
-        "h-screen sticky top-0 border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-200 flex flex-col z-30 select-none",
-        isCollapsed ? "w-16" : "w-64"
+        "relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 select-none h-full",
+        isCollapsed ? "w-20" : "w-56"
       )}
     >
-      {/* Brand Header */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border">
-        {!isCollapsed && (
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-sm shadow-xs">
-              A
-            </div>
-            <span className="font-display font-bold text-base tracking-tight text-foreground truncate">
-              Accountiva
-            </span>
-          </div>
+      {/* Collapse Toggle */}
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className={cn(
+          "absolute -right-3 top-5 w-6 h-6 bg-sidebar border border-sidebar-border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground z-50 transition-transform duration-300 shadow-2xs cursor-pointer",
+          isCollapsed && "rotate-180"
         )}
+        title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+      >
+        <ChevronRight className="size-3.5" />
+      </button>
 
-        {isCollapsed && (
-          <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-sm mx-auto shadow-xs">
-            A
-          </div>
-        )}
-
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onToggleCollapse}
-          className={cn("text-muted-foreground hover:text-foreground", isCollapsed && "hidden")}
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          <ChevronLeft className="size-4" />
-        </Button>
+      {/* Organization Switcher at the top of Sidebar */}
+      <div className="py-2.5 px-2 border-b border-sidebar-border/80 transition-all duration-300 shrink-0">
+        <OrganizationSwitcher isCollapsed={isCollapsed} />
       </div>
 
-      {/* Nav List */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      {/* Navigation List */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5 custom-scrollbar">
         {visibleSections.map((section) => (
           <div key={section.title} className="space-y-1">
-            {!isCollapsed && (
-              <h4 className="px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-2">
+            {!isCollapsed ? (
+              <h4 className="px-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mb-2 transition-opacity duration-200">
                 {section.title}
               </h4>
+            ) : (
+              <div className="h-px bg-sidebar-border/80 mx-2 my-3" />
             )}
 
             {section.items.map((item) => {
@@ -135,43 +131,41 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                   key={item.name}
                   to={item.route}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors group",
+                    "w-full flex items-center rounded-xl group text-left transition-all duration-200 border cursor-pointer",
+                    isCollapsed ? "justify-center px-0 py-2.5" : "gap-3 px-2.5 py-2",
                     isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
-                    isCollapsed && "justify-center px-0"
+                      ? "bg-primary/12 text-primary border-primary/25 font-semibold shadow-2xs"
+                      : "border-transparent text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                   )}
                   title={isCollapsed ? `${item.name}${item.shortcut ? ` (${item.shortcut})` : ""}` : undefined}
                 >
-                  <Icon className="size-4.5 shrink-0" />
-                  {!isCollapsed && <span className="truncate">{item.name}</span>}
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0 transition-colors",
+                      isActive
+                        ? "text-primary"
+                        : "text-sidebar-foreground/70 group-hover:text-sidebar-foreground"
+                    )}
+                  />
+                  {!isCollapsed && (
+                    <span className="text-xs font-medium truncate transition-opacity duration-200">
+                      {item.name}
+                    </span>
+                  )}
                   {item.shortcut && !isCollapsed && !isActive && (
                     <span className="hidden group-hover:inline-flex ml-auto text-[9px] font-mono text-muted-foreground/80 bg-muted/80 px-1 py-0.5 rounded border border-border/50 transition-all select-none">
                       {item.shortcut}
                     </span>
+                  )}
+                  {isActive && !isCollapsed && (
+                    <ChevronRight className="size-3.5 ml-auto text-primary/70 shrink-0" />
                   )}
                 </Link>
               );
             })}
           </div>
         ))}
-      </div>
-
-      {/* Footer Toggle (if collapsed) */}
-      {isCollapsed && (
-        <div className="p-3 border-t border-sidebar-border flex justify-center">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onToggleCollapse}
-            className="text-muted-foreground hover:text-foreground"
-            title="Expand Sidebar"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      )}
+      </nav>
     </aside>
   );
 }
-

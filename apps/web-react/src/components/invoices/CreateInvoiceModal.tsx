@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@accountiva/shared";
 import { useCreateInvoice, useCustomers, useItems } from "@accountiva/api";
@@ -53,6 +55,7 @@ export function CreateInvoiceModal({
   );
   const [notes, setNotes] = useState("");
   const [taxRate, setTaxRate] = useState(18); // Default 18% GST
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
   const [items, setItems] = useState<LineItem[]>([
     {
@@ -142,6 +145,7 @@ export function CreateInvoiceModal({
         taxAmount,
         notes,
         status: "Draft",
+        customFields,
         items: items.map((i) => ({
           itemName: i.name,
           description: i.description,
@@ -205,23 +209,17 @@ export function CreateInvoiceModal({
 
           <div className="space-y-2">
             <Label htmlFor="invoiceDate">Invoice Date</Label>
-            <Input
-              id="invoiceDate"
-              type="date"
+            <DatePicker
               value={invoiceDate}
-              onChange={(e) => setInvoiceDate(e.target.value)}
-              required
+              onChange={setInvoiceDate}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="dueDate">Due Date</Label>
-            <Input
-              id="dueDate"
-              type="date"
+            <DatePicker
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              required
+              onChange={setDueDate}
             />
           </div>
         </div>
@@ -359,6 +357,13 @@ export function CreateInvoiceModal({
             </div>
           </div>
         </div>
+
+        {/* Custom Fields */}
+        <CustomFieldRenderer
+          entity="invoice"
+          value={customFields}
+          onChange={setCustomFields}
+        />
 
         {/* Notes */}
         <div className="space-y-2">

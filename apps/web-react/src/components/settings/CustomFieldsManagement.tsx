@@ -16,13 +16,32 @@ import {
   Package,
   Calculator,
   Sparkles,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Modal } from "@/components/ui/modal";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { isFeatureEnabled } from "@accountiva/shared";
@@ -50,6 +69,19 @@ const ALL_ENTITY_OPTIONS = [
   { id: "item", label: "Items / Catalog", feature: "items", icon: Package },
 ];
 
+const DATA_TYPE_OPTIONS: Array<{
+  id: CustomFieldRecord["dataType"];
+  label: string;
+  description: string;
+  icon: any;
+}> = [
+  { id: "text", label: "Text", description: "Single line text, notes", icon: Type },
+  { id: "number", label: "Number", description: "Numeric values, counters", icon: Hash },
+  { id: "date", label: "Date", description: "Calendar date picker", icon: Calendar },
+  { id: "dropdown", label: "Dropdown", description: "List of options", icon: ListFilter },
+  { id: "checkbox", label: "Checkbox", description: "Yes / No binary toggle", icon: CheckSquare2 },
+];
+
 export function CustomFieldsManagement() {
   const [fields, setFields] = useState<CustomFieldRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +95,8 @@ export function CustomFieldsManagement() {
   // Form State
   const [formName, setFormName] = useState("");
   const [formDataType, setFormDataType] = useState<CustomFieldRecord["dataType"]>("text");
-  const [formOptions, setFormOptions] = useState("");
+  const [dropdownOptionsList, setDropdownOptionsList] = useState<string[]>([]);
+  const [newOptionInput, setNewOptionInput] = useState("");
   const [formEntities, setFormEntities] = useState<string[]>(["invoice"]);
   const [formIsRequired, setFormIsRequired] = useState(false);
   const [formPrintOnDoc, setFormPrintOnDoc] = useState(true);
@@ -95,7 +128,8 @@ export function CustomFieldsManagement() {
     setEditingField(null);
     setFormName("");
     setFormDataType("text");
-    setFormOptions("");
+    setDropdownOptionsList([]);
+    setNewOptionInput("");
     setFormEntities([activeEntityOptions[0]?.id || "invoice"]);
     setFormIsRequired(false);
     setFormPrintOnDoc(true);
@@ -108,13 +142,29 @@ export function CustomFieldsManagement() {
     setEditingField(f);
     setFormName(f.name);
     setFormDataType(f.dataType);
-    setFormOptions(Array.isArray(f.options) ? f.options.join(", ") : "");
+    setDropdownOptionsList(Array.isArray(f.options) ? f.options : []);
+    setNewOptionInput("");
     setFormEntities(f.entities || []);
     setFormIsRequired(f.isRequired);
     setFormPrintOnDoc(f.printOnDocument);
     setFormIsActive(f.isActive);
     setFormPlaceholder(f.placeholder || "");
     setIsModalOpen(true);
+  };
+
+  const addDropdownOption = () => {
+    const trimmed = newOptionInput.trim();
+    if (!trimmed) return;
+    if (dropdownOptionsList.includes(trimmed)) {
+      toast.error("Option already exists");
+      return;
+    }
+    setDropdownOptionsList([...dropdownOptionsList, trimmed]);
+    setNewOptionInput("");
+  };
+
+  const removeDropdownOption = (index: number) => {
+    setDropdownOptionsList(dropdownOptionsList.filter((_, i) => i !== index));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -139,14 +189,11 @@ export function CustomFieldsManagement() {
     };
 
     if (formDataType === "dropdown") {
-      payload.options = formOptions
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (payload.options.length === 0) {
-        toast.error("Please provide comma-separated options for dropdown");
+      if (dropdownOptionsList.length === 0) {
+        toast.error("Please add at least one dropdown option");
         return;
       }
+      payload.options = dropdownOptionsList;
     }
 
     try {
@@ -274,36 +321,41 @@ export function CustomFieldsManagement() {
             onAction={openCreateModal}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20">
-                  <th className="py-2.5 px-3">Field Label</th>
-                  <th className="py-2.5 px-3">Data Type</th>
-                  <th className="py-2.5 px-3">Applies To</th>
-                  <th className="py-2.5 px-3 text-center">Settings</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
+          <div className="overflow-x-auto rounded-xl border border-border/60">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/20 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <TableHead className="py-2.5 px-3">Field Label</TableHead>
+                  <TableHead className="py-2.5 px-3">Data Type</TableHead>
+                  <TableHead className="py-2.5 px-3">Applies To</TableHead>
+                  <TableHead className="py-2.5 px-3 text-center">Settings</TableHead>
+                  <TableHead className="py-2.5 px-3 text-center">Status</TableHead>
+                  <TableHead className="py-2.5 px-3 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredFields.map((field) => (
-                  <tr key={field.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3 px-3 font-semibold text-foreground">
+                  <TableRow key={field.id} className="hover:bg-muted/30 transition-colors">
+                    <TableCell className="py-3 px-3 font-semibold text-foreground">
                       {field.name}
                       {field.placeholder && (
                         <div className="text-[10px] font-normal text-muted-foreground">
                           Hint: {field.placeholder}
                         </div>
                       )}
-                    </td>
-                    <td className="py-3 px-3">
+                    </TableCell>
+                    <TableCell className="py-3 px-3">
                       <div className="flex items-center gap-1.5 capitalize font-medium text-foreground">
                         {getDataTypeIcon(field.dataType)}
                         <span>{field.dataType}</span>
+                        {field.dataType === "dropdown" && field.options?.length ? (
+                          <span className="text-[11px] text-muted-foreground font-mono">
+                            ({field.options.length})
+                          </span>
+                        ) : null}
                       </div>
-                    </td>
-                    <td className="py-3 px-3">
+                    </TableCell>
+                    <TableCell className="py-3 px-3">
                       <div className="flex flex-wrap gap-1">
                         {field.entities.map((ent) => (
                           <Badge key={ent} variant="secondary" className="text-[10px] capitalize">
@@ -311,8 +363,8 @@ export function CustomFieldsManagement() {
                           </Badge>
                         ))}
                       </div>
-                    </td>
-                    <td className="py-3 px-3 text-center">
+                    </TableCell>
+                    <TableCell className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1.5">
                         {field.isRequired && (
                           <Badge variant="destructive" className="text-[9px]">
@@ -325,13 +377,13 @@ export function CustomFieldsManagement() {
                           </Badge>
                         )}
                       </div>
-                    </td>
-                    <td className="py-3 px-3 text-center">
+                    </TableCell>
+                    <TableCell className="py-3 px-3 text-center">
                       <Badge variant={field.isActive ? "success" : "secondary"} className="text-[10px]">
                         {field.isActive ? "Active" : "Inactive"}
                       </Badge>
-                    </td>
-                    <td className="py-3 px-3 text-right">
+                    </TableCell>
+                    <TableCell className="py-3 px-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
@@ -352,168 +404,250 @@ export function CustomFieldsManagement() {
                           <Trash2 className="size-3.5" />
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
 
-      {/* Create / Edit Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingField ? "Edit Custom Field" : "Create Custom Field"}
-        description="Add a personalized field to capture specific business data across records."
-        maxWidth="lg"
-      >
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="customFieldName">Field Label *</Label>
-            <Input
-              id="customFieldName"
-              placeholder="e.g. Purchase Order #, Vehicle No, Project Code"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              required
-              className="text-xs"
-            />
-          </div>
+      {/* Create / Edit Dialog */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingField ? "Edit Custom Field" : "Create Custom Field"}
+            </DialogTitle>
+            <DialogDescription>
+              Add a personalized field to capture specific business data across records.
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="customFieldDataType">Data Type</Label>
-              <select
-                id="customFieldDataType"
-                value={formDataType}
-                onChange={(e) => setFormDataType(e.target.value as any)}
-                className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="text">Text (Single Line)</option>
-                <option value="number">Numeric (Digits / Quantities)</option>
-                <option value="date">Date (Picker)</option>
-                <option value="dropdown">Dropdown (Selection)</option>
-                <option value="checkbox">Checkbox (Yes / No)</option>
-              </select>
-            </div>
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="customFieldName">
+                  Field Label <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="customFieldName"
+                  placeholder="e.g. Purchase Order #"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  required
+                  className="text-xs"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="customFieldPlaceholder">Placeholder / Hint</Label>
-              <Input
-                id="customFieldPlaceholder"
-                placeholder="Optional input prompt..."
-                value={formPlaceholder}
-                onChange={(e) => setFormPlaceholder(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-          </div>
-
-          {formDataType === "dropdown" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="customFieldOptions">Dropdown Options (Comma separated) *</Label>
-              <Input
-                id="customFieldOptions"
-                placeholder="Option 1, Option 2, Option 3"
-                value={formOptions}
-                onChange={(e) => setFormOptions(e.target.value)}
-                className="text-xs"
-                required
-              />
-            </div>
-          )}
-
-          {/* Applicable Modules Multi-select */}
-          <div className="space-y-2 pt-2 border-t border-border/60">
-            <Label>Applicable Modules *</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {activeEntityOptions.map((e) => {
-                const checked = formEntities.includes(e.id);
-                return (
-                  <label
-                    key={e.id}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
-                      checked
-                        ? "border-primary bg-primary/5 text-foreground font-semibold"
-                        : "border-border/60 hover:bg-muted/40 text-muted-foreground"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => {
-                        if (checked) {
-                          setFormEntities(formEntities.filter((x) => x !== e.id));
-                        } else {
-                          setFormEntities([...formEntities, e.id]);
-                        }
-                      }}
-                      className="rounded accent-primary"
-                    />
-                    <span>{e.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Options Toggles */}
-          <div className="space-y-2 pt-2 border-t border-border/60">
-            <label className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formIsRequired}
-                onChange={(e) => setFormIsRequired(e.target.checked)}
-                className="rounded accent-primary"
-              />
-              <span>Mark as Mandatory (Required field)</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formPrintOnDoc}
-                onChange={(e) => setFormPrintOnDoc(e.target.checked)}
-                className="rounded accent-primary"
-              />
-              <span>Display on Generated PDF / Invoices</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 text-xs text-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formIsActive}
-                onChange={(e) => setFormIsActive(e.target.checked)}
-                className="rounded accent-primary"
-              />
-              <span>Field is Active</span>
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-border/60">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsModalOpen(false)}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving} className="font-bold">
-              {isSaving ? (
-                <>
-                  <Spinner size="sm" className="mr-2" />
-                  Saving...
-                </>
-              ) : (
-                "Save Field"
+              {formDataType !== "checkbox" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="customFieldPlaceholder">
+                    Hint / Placeholder <span className="text-[10px] text-muted-foreground">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="customFieldPlaceholder"
+                    placeholder="e.g. Enter PO number..."
+                    value={formPlaceholder}
+                    onChange={(e) => setFormPlaceholder(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
               )}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            </div>
+
+            {/* Data Type Selection Grid */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-foreground">
+                Data Type <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {DATA_TYPE_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = formDataType === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setFormDataType(opt.id)}
+                      className={`p-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center gap-1 group ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary font-medium ring-1 ring-primary/30 shadow-2xs"
+                          : "border-border/70 bg-card hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-4 h-4 ${
+                          isSelected ? "text-primary" : "text-muted-foreground"
+                        }`}
+                      />
+                      <span className="text-[11px] font-semibold block leading-tight">
+                        {opt.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Dropdown Options Builder */}
+            {formDataType === "dropdown" && (
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <ListFilter className="w-3.5 h-3.5 text-primary" />
+                    <span>Dropdown Options</span>
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">Press Enter or click Add</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    value={newOptionInput}
+                    onChange={(e) => setNewOptionInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addDropdownOption();
+                      }
+                    }}
+                    placeholder="Type option name..."
+                    className="h-8 text-xs bg-background"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addDropdownOption}
+                    className="h-8 px-3 text-xs gap-1 shrink-0 cursor-pointer"
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {dropdownOptionsList.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {dropdownOptionsList.map((opt, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-background border border-border text-xs text-foreground"
+                      >
+                        {opt}
+                        <button
+                          type="button"
+                          onClick={() => removeDropdownOption(idx)}
+                          className="hover:text-destructive cursor-pointer"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Applicable Modules */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <Label className="text-xs">
+                Applicable Modules <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {activeEntityOptions.map((e) => {
+                  const checked = formEntities.includes(e.id);
+                  return (
+                    <label
+                      key={e.id}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                        checked
+                          ? "border-primary bg-primary/5 text-foreground font-semibold"
+                          : "border-border/60 hover:bg-muted/40 text-muted-foreground"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(val) => {
+                          if (val) {
+                            setFormEntities([...formEntities, e.id]);
+                          } else {
+                            setFormEntities(formEntities.filter((x) => x !== e.id));
+                          }
+                        }}
+                      />
+                      <span>{e.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Field Options Switches */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-semibold cursor-pointer">Required Field</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Must be populated before record can be saved
+                  </p>
+                </div>
+                <Switch
+                  checked={formIsRequired}
+                  onCheckedChange={setFormIsRequired}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-semibold cursor-pointer">Print on Documents</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Show this custom attribute on generated invoice / quote PDFs
+                  </p>
+                </div>
+                <Switch
+                  checked={formPrintOnDoc}
+                  onCheckedChange={setFormPrintOnDoc}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-xs font-semibold cursor-pointer">Active</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Inactive fields are hidden from create / edit forms
+                  </p>
+                </div>
+                <Switch
+                  checked={formIsActive}
+                  onCheckedChange={setFormIsActive}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-border/60">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSaving}
+                className="gap-1.5 cursor-pointer"
+              >
+                {isSaving && <Loader2 className="size-3.5 animate-spin" />}
+                <span>{editingField ? "Save Changes" : "Create Field"}</span>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

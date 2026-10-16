@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -385,18 +386,18 @@ export function Settings() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="currency">Base Currency</Label>
-                      <select
-                        id="currency"
+                      <Select
                         value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <option value="INR">INR (₹ - Indian Rupee)</option>
-                        <option value="USD">USD ($ - US Dollar)</option>
-                        <option value="EUR">EUR (€ - Euro)</option>
-                        <option value="GBP">GBP (£ - British Pound)</option>
-                        <option value="AED">AED (د.إ - UAE Dirham)</option>
-                      </select>
+                        onChange={setCurrency}
+                        options={[
+                          { id: "INR", name: "INR (₹ - Indian Rupee)" },
+                          { id: "USD", name: "USD ($ - US Dollar)" },
+                          { id: "EUR", name: "EUR (€ - Euro)" },
+                          { id: "GBP", name: "GBP (£ - British Pound)" },
+                          { id: "AED", name: "AED (د.إ - UAE Dirham)" },
+                        ]}
+                        className="text-xs"
+                      />
                     </div>
 
                     <div className="space-y-1.5">
@@ -450,12 +451,17 @@ export function Settings() {
                     </div>
                     <div className="space-y-1.5">
                       <Label>Default Payment Terms</Label>
-                      <select className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
-                        <option>Due on Receipt</option>
-                        <option>Net 15 Days</option>
-                        <option>Net 30 Days</option>
-                        <option>Net 60 Days</option>
-                      </select>
+                      <Select
+                        value="Due on Receipt"
+                        onChange={() => {}}
+                        options={[
+                          { id: "Due on Receipt", name: "Due on Receipt" },
+                          { id: "Net 15 Days", name: "Net 15 Days" },
+                          { id: "Net 30 Days", name: "Net 30 Days" },
+                          { id: "Net 60 Days", name: "Net 60 Days" },
+                        ]}
+                        className="text-xs"
+                      />
                     </div>
                   </div>
 

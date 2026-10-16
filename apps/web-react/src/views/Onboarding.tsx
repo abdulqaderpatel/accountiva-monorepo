@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select } from "@/components/ui/Select";
+import { CountrySelect } from "@/components/ui/CountrySelect";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
@@ -217,35 +219,31 @@ export function Onboarding() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="orgCurrency">Base Billing Currency</Label>
-                <select
-                  id="orgCurrency"
+                <Select
                   value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="INR">INR (₹ - Indian Rupee)</option>
-                  <option value="USD">USD ($ - US Dollar)</option>
-                  <option value="EUR">EUR (€ - Euro)</option>
-                  <option value="GBP">GBP (£ - British Pound)</option>
-                  <option value="AED">AED (د.إ - UAE Dirham)</option>
-                </select>
+                  onChange={setCurrency}
+                  options={[
+                    { id: "INR", name: "INR (₹ - Indian Rupee)" },
+                    { id: "USD", name: "USD ($ - US Dollar)" },
+                    { id: "EUR", name: "EUR (€ - Euro)" },
+                    { id: "GBP", name: "GBP (£ - British Pound)" },
+                    { id: "AED", name: "AED (د.إ - UAE Dirham)" },
+                  ]}
+                  className="text-xs"
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="orgCountry">Country / Region</Label>
-                <select
-                  id="orgCountry"
+                <CountrySelect
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                  className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="India">India</option>
-                  <option value="United States">United States</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="United Arab Emirates">United Arab Emirates</option>
-                  <option value="Singapore">Singapore</option>
-                  <option value="Other">Other</option>
-                </select>
+                  onChange={setCountry}
+                  onSelect={(c) => {
+                    setCountry(c.name);
+                    setCurrency(c.currency);
+                  }}
+                  className="text-xs"
+                />
               </div>
 
               <div className="space-y-1.5">

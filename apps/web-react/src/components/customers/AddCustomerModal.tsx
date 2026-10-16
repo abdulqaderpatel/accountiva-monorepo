@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
+import { GstTreatmentSelect } from "@/components/ui/GstTreatmentSelect";
+import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Search, Building2, Check } from "lucide-react";
 import { customerSchema } from "@accountiva/shared";
 import { useCreateCustomer, useUpdateCustomer } from "@accountiva/api";
@@ -40,6 +43,7 @@ export function AddCustomerModal({
   const [sameAsBilling, setSameAsBilling] = useState(true);
   const [notes, setNotes] = useState("");
   const [openingBalance, setOpeningBalance] = useState("0");
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFetchingGst, setIsFetchingGst] = useState(false);
 
@@ -60,6 +64,7 @@ export function AddCustomerModal({
       );
       setNotes(customer.notes || "");
       setOpeningBalance(String(customer.opening_balance ?? customer.openingBalance ?? 0));
+      setCustomFields(customer.customFields || customer.custom_fields || {});
       setErrors({});
     } else if (isOpen) {
       setName("");
@@ -75,6 +80,7 @@ export function AddCustomerModal({
       setSameAsBilling(true);
       setNotes("");
       setOpeningBalance("0");
+      setCustomFields({});
       setErrors({});
     }
   }, [customer, isOpen]);
@@ -138,6 +144,7 @@ export function AddCustomerModal({
       shippingAddress: sameAsBilling ? billingAddress.trim() : shippingAddress.trim(),
       notes: notes.trim(),
       opening_balance: Number(openingBalance) || 0,
+      customFields,
     };
 
     const result = customerSchema.safeParse(formData);
@@ -248,17 +255,11 @@ export function AddCustomerModal({
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-4 space-y-1.5">
               <Label htmlFor="custGstTreatment">GST Registration</Label>
-              <select
-                id="custGstTreatment"
+              <GstTreatmentSelect
                 value={gstTreatment}
-                onChange={(e) => setGstTreatment(e.target.value)}
-                className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="Consumer">Consumer (Unregistered)</option>
-                <option value="Registered">Registered Business (Regular)</option>
-                <option value="Composition">Composition Scheme</option>
-                <option value="Overseas">Overseas (Export/SEZ)</option>
-              </select>
+                onChange={setGstTreatment}
+                error={errors.gstTreatment}
+              />
             </div>
 
             <div className="sm:col-span-5 space-y-1.5">
@@ -319,12 +320,10 @@ export function AddCustomerModal({
           </div>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-              <input
-                type="checkbox"
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+              <Checkbox
                 checked={sameAsBilling}
-                onChange={(e) => setSameAsBilling(e.target.checked)}
-                className="rounded accent-primary"
+                onCheckedChange={(c) => setSameAsBilling(Boolean(c))}
               />
               <span>Shipping address is same as billing address</span>
             </label>
@@ -353,6 +352,13 @@ export function AddCustomerModal({
               className="text-xs"
             />
           </div>
+
+          {/* Custom Fields */}
+          <CustomFieldRenderer
+            entity="customer"
+            value={customFields}
+            onChange={setCustomFields}
+          />
         </div>
 
         {/* Footer Actions */}

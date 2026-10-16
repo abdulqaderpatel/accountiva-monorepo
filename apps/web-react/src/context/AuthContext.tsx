@@ -18,10 +18,19 @@ export interface Organization {
   role?: string;
   currency?: string;
   logo?: string;
+  logo_url?: string;
+  small_logo_url?: string;
+}
+
+export interface UserProfileData {
+  full_name?: string;
+  profile_picture?: string;
+  email?: string;
 }
 
 interface AuthContextType {
   user: User | null;
+  profile: UserProfileData | null;
   organizations: Organization[];
   currentOrganization: Organization | null;
   loading: boolean;
@@ -33,6 +42,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (password: string, token: string) => Promise<any>;
   logout: () => Promise<void>;
+  signOut: () => Promise<void>;
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
   createOrganization: (formData: any) => Promise<any>;
@@ -255,11 +265,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isAuthenticated = Boolean(user);
+  const profile = user ? {
+    full_name: user.name,
+    profile_picture: user.image,
+    email: user.email,
+  } : null;
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        profile,
         organizations,
         currentOrganization,
         loading,
@@ -271,6 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         forgotPassword,
         resetPassword,
         logout,
+        signOut: logout,
         setCurrentOrganization,
         fetchOrganizations,
         createOrganization,

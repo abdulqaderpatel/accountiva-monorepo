@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { Select } from "@/components/ui/Select";
+import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { itemSchema } from "@accountiva/shared";
 import { useCreateItem, useUpdateItem } from "@accountiva/api";
 import { toast } from "sonner";
@@ -34,6 +36,7 @@ export function AddItemModal({
   const [salesTaxRate, setSalesTaxRate] = useState(18);
   const [openingStock, setOpeningStock] = useState("0");
   const [description, setDescription] = useState("");
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -47,6 +50,7 @@ export function AddItemModal({
       setSalesTaxRate(Number(itemToEdit.salesTaxRate) || 18);
       setOpeningStock(String(itemToEdit.openingStock ?? itemToEdit.stockOnHand ?? 0));
       setDescription(itemToEdit.description || "");
+      setCustomFields(itemToEdit.customFields || itemToEdit.custom_fields || {});
       setErrors({});
     } else if (isOpen) {
       setName("");
@@ -58,6 +62,7 @@ export function AddItemModal({
       setSalesTaxRate(18);
       setOpeningStock("0");
       setDescription("");
+      setCustomFields({});
       setErrors({});
     }
   }, [itemToEdit, isOpen]);
@@ -79,6 +84,7 @@ export function AddItemModal({
       description: description.trim(),
       isSellable: true,
       isPurchasable: true,
+      customFields,
     };
 
     const result = itemSchema.safeParse(formData);
@@ -214,32 +220,32 @@ export function AddItemModal({
 
           <div className="space-y-1.5">
             <Label htmlFor="salesTaxRate">Applicable GST Tax Rate (%)</Label>
-            <select
-              id="salesTaxRate"
+            <Select
               value={salesTaxRate}
-              onChange={(e) => setSalesTaxRate(Number(e.target.value))}
-              className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring font-mono"
-            >
-              <option value="0">0% (Exempt)</option>
-              <option value="5">5% GST</option>
-              <option value="12">12% GST</option>
-              <option value="18">18% GST (Standard)</option>
-              <option value="28">28% GST</option>
-            </select>
+              onChange={(val) => setSalesTaxRate(Number(val))}
+              options={[
+                { id: 0, name: "0% (Exempt)" },
+                { id: 5, name: "5% GST" },
+                { id: 12, name: "12% GST" },
+                { id: 18, name: "18% GST (Standard)" },
+                { id: 28, name: "28% GST" },
+              ]}
+              className="font-mono text-xs"
+            />
           </div>
 
           {type === "Product" && (
             <div className="space-y-1.5">
               <Label htmlFor="productType">Inventory Tracking</Label>
-              <select
-                id="productType"
+              <Select
                 value={productType}
-                onChange={(e) => setProductType(e.target.value as any)}
-                className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="Inventory">Inventory (Track stock on hand)</option>
-                <option value="Non-Inventory">Non-Inventory (Consumables)</option>
-              </select>
+                onChange={(val) => setProductType(val as any)}
+                options={[
+                  { id: "Inventory", name: "Inventory (Track stock on hand)" },
+                  { id: "Non-Inventory", name: "Non-Inventory (Consumables)" },
+                ]}
+                className="text-xs"
+              />
             </div>
           )}
 
@@ -269,6 +275,13 @@ export function AddItemModal({
             className="h-18 text-xs resize-none"
           />
         </div>
+
+        {/* Custom Fields */}
+        <CustomFieldRenderer
+          entity="item"
+          value={customFields}
+          onChange={setCustomFields}
+        />
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-border/60">

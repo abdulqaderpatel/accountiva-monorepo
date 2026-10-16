@@ -29,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Select } from "@/components/ui/Select";
 import { CustomFieldsManagement } from "@/components/settings/CustomFieldsManagement";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -311,18 +312,18 @@ export function OrganizationSettings() {
 
                     <div className="space-y-1.5">
                       <Label htmlFor="orgAdminCurrency">Base Currency</Label>
-                      <select
-                        id="orgAdminCurrency"
+                      <Select
                         value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <option value="INR">INR (₹ - Indian Rupee)</option>
-                        <option value="USD">USD ($ - US Dollar)</option>
-                        <option value="EUR">EUR (€ - Euro)</option>
-                        <option value="GBP">GBP (£ - British Pound)</option>
-                        <option value="AED">AED (د.إ - UAE Dirham)</option>
-                      </select>
+                        onChange={setCurrency}
+                        options={[
+                          { id: "INR", name: "INR (₹ - Indian Rupee)" },
+                          { id: "USD", name: "USD ($ - US Dollar)" },
+                          { id: "EUR", name: "EUR (€ - Euro)" },
+                          { id: "GBP", name: "GBP (£ - British Pound)" },
+                          { id: "AED", name: "AED (د.إ - UAE Dirham)" },
+                        ]}
+                        className="text-xs"
+                      />
                     </div>
 
                     <div className="space-y-1.5">
@@ -615,16 +616,16 @@ export function OrganizationSettings() {
 
           <div className="space-y-1.5">
             <Label htmlFor="inviteRole">Workspace Role</Label>
-            <select
-              id="inviteRole"
+            <Select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as any)}
-              className="w-full rounded-xl border border-input bg-background/50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="member">Member (Create and manage invoices)</option>
-              <option value="accountant">Accountant (Read-only financials and exports)</option>
-              <option value="admin">Admin (Full operational control)</option>
-            </select>
+              onChange={(val) => setInviteRole(val as any)}
+              options={[
+                { id: "member", name: "Member (Create and manage invoices)" },
+                { id: "accountant", name: "Accountant (Read-only financials and exports)" },
+                { id: "admin", name: "Admin (Full operational control)" },
+              ]}
+              className="text-xs"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/60">

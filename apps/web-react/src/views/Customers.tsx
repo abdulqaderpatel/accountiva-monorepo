@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Plus, Search, Mail, Phone, Building2, Eye, MoreVertical, Trash2, Download } from "lucide-react";
+import { Plus, Search, Mail, Phone, Building2, Eye, Edit2, MoreVertical, Trash2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -28,6 +28,7 @@ export function Customers() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
 
   React.useEffect(() => {
     if (quickCreate.consume("customer")) {
@@ -118,7 +119,14 @@ export function Customers() {
             <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
+          <Button
+            size="sm"
+            className="gap-2 cursor-pointer font-bold"
+            onClick={() => {
+              setEditingCustomer(null);
+              setIsAddOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4" />
             Add Customer
           </Button>
@@ -250,16 +258,36 @@ export function Customers() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                          title="Edit Customer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCustomer(c);
+                            setIsAddOpen(true);
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
                           title="View Details"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate({ to: `/customers/${c.id}` as any });
+                          }}
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(c.id, c.name)}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(c.id, c.name);
+                          }}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                           title="Delete Customer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -274,10 +302,14 @@ export function Customers() {
         </div>
       </Card>
 
-      {/* Add Customer Modal */}
+      {/* Add / Edit Customer Modal */}
       <AddCustomerModal
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
+        customer={editingCustomer}
+        onClose={() => {
+          setIsAddOpen(false);
+          setEditingCustomer(null);
+        }}
         onSuccess={() => refetch()}
       />
     </div>

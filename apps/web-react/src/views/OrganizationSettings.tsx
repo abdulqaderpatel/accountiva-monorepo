@@ -16,6 +16,7 @@ import {
   Shield,
   Clock,
   Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth, Organization } from "@/context/AuthContext";
@@ -28,10 +29,11 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { CustomFieldsManagement } from "@/components/settings/CustomFieldsManagement";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-type OrgTab = "general" | "branding" | "members" | "trash" | "audit";
+type OrgTab = "general" | "branding" | "members" | "custom-fields" | "trash" | "audit";
 
 interface Member {
   id: string;
@@ -66,8 +68,9 @@ export function OrganizationSettings() {
       const p = new URLSearchParams(window.location.search).get("tab");
       if (p === "members") return "members";
       if (p === "branding") return "branding";
+      if (p === "custom-fields" || p === "custom_fields") return "custom-fields";
       if (p === "trash" || p === "recently-deleted") return "trash";
-      if (p === "audit") return "audit";
+      if (p === "audit" || p === "audit-logs") return "audit";
     }
     return "general";
   };
@@ -240,6 +243,7 @@ export function OrganizationSettings() {
     { id: "general" as OrgTab, label: "Organization Details", icon: Building2 },
     { id: "branding" as OrgTab, label: "Branding & Logos", icon: Palette },
     { id: "members" as OrgTab, label: "Team & Invites", icon: Users },
+    { id: "custom-fields" as OrgTab, label: "Custom Fields", icon: SlidersHorizontal },
     { id: "trash" as OrgTab, label: "Recently Deleted", icon: Trash2 },
     { id: "audit" as OrgTab, label: "Audit Trail", icon: ShieldCheck },
   ];
@@ -491,7 +495,10 @@ export function OrganizationSettings() {
             </Card>
           )}
 
-          {/* 4. Recently Deleted / Trash */}
+          {/* 4. Custom Fields */}
+          {activeTab === "custom-fields" && <CustomFieldsManagement />}
+
+          {/* 5. Recently Deleted / Trash */}
           {activeTab === "trash" && (
             <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
               <CardHeader>

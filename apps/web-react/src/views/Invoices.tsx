@@ -18,7 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
-import { useInvoices } from "@accountiva/api";
+import { useInvoices, useDeleteInvoice } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -59,6 +59,19 @@ export function Invoices() {
     search: search || undefined,
     status: statusFilter === "ALL" ? undefined : statusFilter,
   });
+
+  const deleteInvoiceMutation = useDeleteInvoice();
+
+  const handleDeleteInvoice = async (id: string, num: string) => {
+    if (!window.confirm(`Are you sure you want to delete invoice ${num}?`)) return;
+    try {
+      await deleteInvoiceMutation.mutateAsync(id);
+      toast.success(`Invoice ${num} deleted`);
+      refetch();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "Failed to delete invoice");
+    }
+  };
 
   const invoiceList: InvoiceRecord[] = Array.isArray(apiInvoices)
     ? apiInvoices
@@ -265,7 +278,7 @@ export function Invoices() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
                           title="View Details"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -277,11 +290,14 @@ export function Invoices() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                          title="Options"
-                          onClick={(e) => e.stopPropagation()}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                          title="Delete Invoice"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteInvoice(inv.id, inv.invoiceNumber);
+                          }}
                         >
-                          <MoreVertical className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </td>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Search, Package, Wrench, MoreVertical, Trash2, Eye, Boxes, Download } from "lucide-react";
+import { Plus, Search, Package, Wrench, MoreVertical, Trash2, Eye, Edit2, Boxes, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -31,6 +31,7 @@ export function Items() {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<any | null>(null);
 
   React.useEffect(() => {
     if (quickCreate.consume("item")) {
@@ -128,7 +129,14 @@ export function Items() {
             <Download className="h-4 w-4" />
             Export
           </Button>
-          <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
+          <Button
+            size="sm"
+            className="gap-2 cursor-pointer font-bold"
+            onClick={() => {
+              setItemToEdit(null);
+              setIsAddOpen(true);
+            }}
+          >
             <Plus className="h-4 w-4" />
             Add Item
           </Button>
@@ -277,16 +285,24 @@ export function Items() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                          title="View Item"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                          title="Edit Item"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setItemToEdit(item);
+                            setIsAddOpen(true);
+                          }}
                         >
-                          <Eye className="h-3.5 w-3.5" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(item.id, item.name)}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(item.id, item.name);
+                          }}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
                           title="Delete Item"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -301,10 +317,14 @@ export function Items() {
         </div>
       </Card>
 
-      {/* Add Item Modal */}
+      {/* Add / Edit Item Modal */}
       <AddItemModal
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
+        itemToEdit={itemToEdit}
+        onClose={() => {
+          setIsAddOpen(false);
+          setItemToEdit(null);
+        }}
         onSuccess={() => refetch()}
       />
     </div>

@@ -114,20 +114,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function initAuth() {
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth session check timed out")), 10000)
+          setTimeout(() => reject(new Error("Auth session check timed out")), 8000)
         );
         const sessionPromise = (authClient.getSession as any)();
         const session = await Promise.race([sessionPromise, timeoutPromise]);
-        if (session?.data?.user && mounted) {
+        if (session?.data?.user) {
           setUser(session.data.user as User);
-          await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
+          try {
+            await Promise.race([
+              Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Org fetch timed out")), 4000)),
+            ]);
+          } catch (orgErr) {
+            console.warn("Organization/admin access fetch timed out:", orgErr);
+          }
         }
       } catch (err) {
         console.error("Session restore error:", err);
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 

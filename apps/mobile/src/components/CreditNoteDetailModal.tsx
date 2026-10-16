@@ -177,6 +177,26 @@ export function CreditNoteDetailModal({
               </View>
             </Card>
 
+            {/* Custom Fields */}
+            {creditNote.customFields && typeof creditNote.customFields === 'object' && Object.keys(creditNote.customFields).length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Custom Fields</Text>
+                <Card style={{ padding: 12, gap: 8 }}>
+                  {Object.entries(creditNote.customFields).map(([k, v], idx, arr) => (
+                    <View key={k}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+                        <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>{k}</Text>
+                        <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{String(v)}</Text>
+                      </View>
+                      {idx < arr.length - 1 ? (
+                        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+                      ) : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
+
             {!isClosed && (
               <View style={styles.actionRow}>
                 <TouchableOpacity

@@ -271,12 +271,39 @@ export function EstimateDetailModal({
                 </Text>
               </View>
 
+              {estimate.discountAmount || estimate.discountValue ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
+                  <Text style={[styles.summaryValue, { color: colors.success }]}>
+                    -{formatCurrency(Number(estimate.discountAmount || estimate.discountValue) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
                   {formatCurrency(rawTax, 'INR')}
                 </Text>
               </View>
+
+              {estimate.shippingCharges ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping</Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(Number(estimate.shippingCharges) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
+
+              {estimate.adjustment ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(Number(estimate.adjustment) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.summaryRow}>
                 <Text style={[styles.grandLabel, { color: colors.foreground }]}>Total</Text>
@@ -324,6 +351,49 @@ export function EstimateDetailModal({
                 <ArrowRight size={15} color={colors.primaryForeground} style={{ marginLeft: 6 }} />
               </TouchableOpacity>
             </View>
+
+            {/* Notes & Terms */}
+            {estimate.notes ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Notes</Text>
+                <Card style={{ padding: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: colors.foreground, lineHeight: 18 }}>
+                    {estimate.notes}
+                  </Text>
+                </Card>
+              </>
+            ) : null}
+
+            {estimate.termsConditions || estimate.terms ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Terms & Conditions</Text>
+                <Card style={{ padding: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: colors.foreground, lineHeight: 18 }}>
+                    {estimate.termsConditions || estimate.terms}
+                  </Text>
+                </Card>
+              </>
+            ) : null}
+
+            {/* Custom Fields */}
+            {estimate.customFields && typeof estimate.customFields === 'object' && Object.keys(estimate.customFields).length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Custom Fields</Text>
+                <Card style={{ padding: 12, gap: 8 }}>
+                  {Object.entries(estimate.customFields).map(([k, v], idx, arr) => (
+                    <View key={k}>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>{k}</Text>
+                        <Text style={[styles.summaryValue, { color: colors.foreground }]}>{String(v)}</Text>
+                      </View>
+                      {idx < arr.length - 1 ? (
+                        <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
+                      ) : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>

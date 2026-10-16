@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 import { fonts } from '../../theme/typography';
 
@@ -8,9 +8,10 @@ export type BadgeVariant = 'success' | 'warning' | 'destructive' | 'default' | '
 interface BadgeProps {
   children: React.ReactNode;
   variant?: BadgeVariant;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function Badge({ children, variant = 'default' }: BadgeProps) {
+export function Badge({ children, variant = 'default', style }: BadgeProps) {
   const { colors } = useTheme();
 
   let bg = colors.surfaceSubtle;
@@ -41,7 +42,7 @@ export function Badge({ children, variant = 'default' }: BadgeProps) {
   }
 
   return (
-    <View style={[styles.badge, { backgroundColor: bg, borderColor: border }]}>
+    <View style={[styles.badge, { backgroundColor: bg, borderColor: border }, style]}>
       <Text style={[styles.text, { color: text }]}>{children}</Text>
     </View>
   );

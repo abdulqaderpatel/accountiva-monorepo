@@ -16,6 +16,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { useCreateCreditNote, useCustomers } from '@accountiva/api';
 import { fonts } from '../theme/typography';
+import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 
 interface CreateCreditNoteModalProps {
   visible: boolean;
@@ -35,14 +36,17 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
     : [];
 
   const [customer, setCustomer] = useState('');
+  const [customerId, setCustomerId] = useState('');
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
   const [creditNoteNumber, setCreditNoteNumber] = useState(
     `CN-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
   );
+  const [referenceInvoiceId, setReferenceInvoiceId] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('Goods returned / pricing adjustment');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSave = async () => {
@@ -62,9 +66,12 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
     try {
       await createCreditNoteMutation.mutateAsync({
         creditNoteNumber,
+        customerId: customerId || undefined,
         customerName: customer,
+        referenceInvoiceId: referenceInvoiceId.trim() || undefined,
         amount: numAmount,
         reason: reason.trim(),
+        customFields,
         status: 'Open',
       });
 
@@ -176,6 +183,28 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
                 ]}
               />
             </View>
+
+            {/* Reference Invoice # */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Original Invoice # (Optional)</Text>
+              <TextInput
+                placeholder="e.g. INV-2026-001"
+                placeholderTextColor={colors.mutedForeground}
+                value={referenceInvoiceId}
+                onChangeText={setReferenceInvoiceId}
+                style={[
+                  styles.input,
+                  { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+                ]}
+              />
+            </View>
+
+            {/* Custom Fields */}
+            <CustomFieldRenderer
+              entity="credit_note"
+              values={customFields}
+              onChange={setCustomFields}
+            />
           </ScrollView>
 
           {/* Customer Selection Modal */}
@@ -210,6 +239,7 @@ export function CreateCreditNoteModal({ visible, onClose, onSuccess }: CreateCre
                     <TouchableOpacity
                       onPress={() => {
                         setCustomer(item.name);
+                        setCustomerId(item.id || '');
                         setCustomerModalOpen(false);
                       }}
                       style={[styles.modalItemRow, { borderBottomColor: colors.border }]}

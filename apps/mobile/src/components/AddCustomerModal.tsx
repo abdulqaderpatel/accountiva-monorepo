@@ -15,6 +15,7 @@ import { useTheme } from '../theme/ThemeContext';
 import api, { useCreateCustomer, useUpdateCustomer } from '@accountiva/api';
 import { customerSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
+import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 
 interface AddCustomerModalProps {
   visible: boolean;
@@ -29,13 +30,19 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
   const updateCustomerMutation = useUpdateCustomer();
 
   const [name, setName] = useState('');
+  const [customerCode, setCustomerCode] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [company, setCompany] = useState('');
+  const [website, setWebsite] = useState('');
   const [gstTreatment, setGstTreatment] = useState('Consumer');
   const [gstNumber, setGstNumber] = useState('');
   const [pan, setPan] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [notes, setNotes] = useState('');
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [gstNotice, setGstNotice] = useState<string | null>(null);
@@ -44,22 +51,40 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
   React.useEffect(() => {
     if (initialCustomer) {
       setName(initialCustomer.name || '');
+      setCustomerCode(initialCustomer.customerCode || initialCustomer.code || '');
       setEmail(initialCustomer.email || '');
       setPhone(initialCustomer.phone || '');
       setCompany(initialCustomer.company || '');
+      setWebsite(initialCustomer.website || '');
       setGstTreatment(initialCustomer.gstTreatment || 'Consumer');
       setGstNumber(initialCustomer.gstNumber || initialCustomer.gstin || '');
       setPan(initialCustomer.pan || '');
       setBillingAddress(initialCustomer.billingAddress || initialCustomer.address || '');
+      setShippingAddress(initialCustomer.shippingAddress || '');
+      setNotes(initialCustomer.notes || '');
+      setOpeningBalance(
+        initialCustomer.opening_balance != null
+          ? String(initialCustomer.opening_balance)
+          : initialCustomer.openingBalance != null
+          ? String(initialCustomer.openingBalance)
+          : ''
+      );
+      setCustomFields(initialCustomer.customFields || initialCustomer.custom_fields || {});
     } else {
       setName('');
+      setCustomerCode('');
       setEmail('');
       setPhone('');
       setCompany('');
+      setWebsite('');
       setGstTreatment('Consumer');
       setGstNumber('');
       setPan('');
       setBillingAddress('');
+      setShippingAddress('');
+      setNotes('');
+      setOpeningBalance('');
+      setCustomFields({});
     }
     setErrors({});
     setApiError(null);
@@ -114,13 +139,18 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
 
     const formData = {
       name: name.trim(),
+      customerCode: customerCode.trim() || undefined,
       email: email.trim(),
       phone: phone.trim(),
       company: company.trim(),
+      website: website.trim() || undefined,
       gstTreatment,
       gstNumber: gstNumber.trim(),
       pan: pan.trim().toUpperCase(),
       billingAddress: billingAddress.trim(),
+      shippingAddress: shippingAddress.trim() || undefined,
+      notes: notes.trim() || undefined,
+      opening_balance: openingBalance.trim() ? parseFloat(openingBalance.trim()) : undefined,
     };
 
     const parsed = customerSchema.safeParse(formData);
@@ -134,14 +164,19 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
       return;
     }
 
+    const payload = {
+      ...formData,
+      customFields,
+    };
+
     try {
       if (initialCustomer?.id) {
         await updateCustomerMutation.mutateAsync({
           id: initialCustomer.id,
-          payload: formData,
+          payload,
         });
       } else {
-        await createCustomerMutation.mutateAsync(formData);
+        await createCustomerMutation.mutateAsync(payload);
       }
       onSuccess();
       onClose();
@@ -222,6 +257,33 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
               onChangeText={setCompany}
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
             />
+          </View>
+
+          {/* Customer Code & Website */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={[styles.fieldGroup, { flex: 1 }]}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Customer Code</Text>
+              <TextInput
+                placeholder="e.g. CUST-001"
+                placeholderTextColor={colors.mutedForeground}
+                value={customerCode}
+                onChangeText={setCustomerCode}
+                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+              />
+            </View>
+
+            <View style={[styles.fieldGroup, { flex: 1 }]}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Website</Text>
+              <TextInput
+                placeholder="https://..."
+                placeholderTextColor={colors.mutedForeground}
+                value={website}
+                onChangeText={setWebsite}
+                autoCapitalize="none"
+                keyboardType="url"
+                style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+              />
+            </View>
           </View>
 
           {/* Email */}
@@ -366,6 +428,66 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
               style={[styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
             />
           </View>
+
+          {/* Shipping Address */}
+          <View style={styles.fieldGroup}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.label, { color: colors.mutedForeground }]}>Shipping Address</Text>
+              {billingAddress.trim() ? (
+                <TouchableOpacity
+                  onPress={() => setShippingAddress(billingAddress)}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600' }}>
+                    Same as Billing
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <TextInput
+              placeholder="Delivery destination address"
+              placeholderTextColor={colors.mutedForeground}
+              value={shippingAddress}
+              onChangeText={setShippingAddress}
+              multiline
+              numberOfLines={3}
+              style={[styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
+
+          {/* Opening Balance */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Opening Balance (₹)</Text>
+            <TextInput
+              placeholder="0.00"
+              placeholderTextColor={colors.mutedForeground}
+              value={openingBalance}
+              onChangeText={setOpeningBalance}
+              keyboardType="numeric"
+              style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
+
+          {/* Notes */}
+          <View style={styles.fieldGroup}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Notes / Remarks</Text>
+            <TextInput
+              placeholder="Internal customer notes or special payment instructions"
+              placeholderTextColor={colors.mutedForeground}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={2}
+              style={[styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.card }]}
+            />
+          </View>
+
+          {/* Custom Fields */}
+          <CustomFieldRenderer
+            entity="customer"
+            values={customFields}
+            onChange={setCustomFields}
+          />
         </ScrollView>
       </SafeAreaView>
     </Modal>

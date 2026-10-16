@@ -30,6 +30,7 @@ import { formatCurrency } from '@accountiva/shared';
 import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { AddCustomerModal } from './AddCustomerModal';
+import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 
 export interface EstimateLineItem {
   id: string;
@@ -97,6 +98,13 @@ export function CreateEstimateModal({
   });
 
   const [items, setItems] = useState<EstimateLineItem[]>([]);
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [shippingCharges, setShippingCharges] = useState('');
+  const [adjustment, setAdjustment] = useState('');
+  const [notes, setNotes] = useState('');
+  const [termsConditions, setTermsConditions] = useState('');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -107,6 +115,13 @@ export function CreateEstimateModal({
       setCustomer(initialEstimate.customer || initialEstimate.customerName || initialEstimate.customers?.name || '');
       setCustomerId(initialEstimate.customerId || initialEstimate.customer_id || '');
       setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
+      setDiscountValue(initialEstimate.discountValue != null ? String(initialEstimate.discountValue) : '');
+      setDiscountType(initialEstimate.discountType === 'fixed' ? 'fixed' : 'percentage');
+      setShippingCharges(initialEstimate.shippingCharges != null ? String(initialEstimate.shippingCharges) : '');
+      setAdjustment(initialEstimate.adjustment != null ? String(initialEstimate.adjustment) : '');
+      setNotes(initialEstimate.notes || '');
+      setTermsConditions(initialEstimate.termsConditions || initialEstimate.terms || '');
+      setCustomFields(initialEstimate.customFields || initialEstimate.custom_fields || {});
 
       if (initialEstimate.date) {
         try {
@@ -154,6 +169,13 @@ export function CreateEstimateModal({
       const d = new Date();
       d.setDate(d.getDate() + 30);
       setExpiryDate(formatDateToISO(d));
+      setDiscountValue('');
+      setDiscountType('percentage');
+      setShippingCharges('');
+      setAdjustment('');
+      setNotes('');
+      setTermsConditions('');
+      setCustomFields({});
       setItems([]);
     }
 
@@ -166,8 +188,20 @@ export function CreateEstimateModal({
     return items.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
   }, [items]);
 
-  const tax = subtotal * 0.18;
-  const grandTotal = subtotal + tax;
+  const discountAmount = useMemo(() => {
+    const val = Number(discountValue) || 0;
+    if (val <= 0) return 0;
+    if (discountType === 'percentage') {
+      return (subtotal * val) / 100;
+    }
+    return val;
+  }, [subtotal, discountValue, discountType]);
+
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const tax = taxableAmount * 0.18;
+  const shipping = Number(shippingCharges) || 0;
+  const adj = Number(adjustment) || 0;
+  const grandTotal = Math.max(0, taxableAmount + tax + shipping + adj);
 
   const applyValidityDays = (days: number) => {
     const d = new Date(date || new Date());
@@ -291,6 +325,14 @@ export function CreateEstimateModal({
       subtotal,
       taxAmount: tax,
       taxPercent: 18,
+      discountType,
+      discountValue: Number(discountValue) || undefined,
+      discountAmount,
+      shippingCharges: shipping || undefined,
+      adjustment: adj || undefined,
+      notes: notes.trim() || undefined,
+      termsConditions: termsConditions.trim() || undefined,
+      customFields,
       status: initialEstimate?.status || 'Draft',
       items: items.map((i) => ({
         itemId: i.itemId || undefined,
@@ -634,13 +676,108 @@ export function CreateEstimateModal({
                 {formatCurrency(subtotal, currency)}
               </Text>
             </View>
+
+            {/* Discount Row */}
+            <View style={styles.summaryInputRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
+                <View style={[styles.discountToggle, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    onPress={() => setDiscountType('percentage')}
+                    style={[
+                      styles.discountToggleBtn,
+                      discountType === 'percentage' && { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.discountToggleText,
+                        { color: discountType === 'percentage' ? colors.primaryForeground : colors.mutedForeground },
+                      ]}
+                    >
+                      %
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setDiscountType('fixed')}
+                    style={[
+                      styles.discountToggleBtn,
+                      discountType === 'fixed' && { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.discountToggleText,
+                        { color: discountType === 'fixed' ? colors.primaryForeground : colors.mutedForeground },
+                      ]}
+                    >
+                      ₹
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TextInput
+                  value={discountValue}
+                  onChangeText={setDiscountValue}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[
+                    styles.summarySmallInput,
+                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                  ]}
+                />
+                {discountAmount > 0 ? (
+                  <Text style={[styles.summaryDiscountSub, { color: colors.success }]}>
+                    -{formatCurrency(discountAmount, currency)}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>
                 {formatCurrency(tax, currency)}
               </Text>
             </View>
+
+            {/* Shipping Charges */}
+            <View style={styles.summaryInputRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping Charges</Text>
+              <TextInput
+                value={shippingCharges}
+                onChangeText={setShippingCharges}
+                keyboardType="numeric"
+                placeholder="0.00"
+                placeholderTextColor={colors.mutedForeground}
+                style={[
+                  styles.summarySmallInput,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                ]}
+              />
+            </View>
+
+            {/* Adjustment */}
+            <View style={styles.summaryInputRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment (+/-)</Text>
+              <TextInput
+                value={adjustment}
+                onChangeText={setAdjustment}
+                keyboardType="numeric"
+                placeholder="0.00"
+                placeholderTextColor={colors.mutedForeground}
+                style={[
+                  styles.summarySmallInput,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                ]}
+              />
+            </View>
+
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+
             <View style={styles.summaryRow}>
               <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Estimated Total</Text>
               <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
@@ -648,6 +785,48 @@ export function CreateEstimateModal({
               </Text>
             </View>
           </Card>
+
+          {/* Notes & Terms */}
+          <Card style={styles.notesCard}>
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Notes / Remarks</Text>
+              <TextInput
+                placeholder="Estimate remarks or special instructions..."
+                placeholderTextColor={colors.mutedForeground}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={2}
+                style={[
+                  styles.textArea,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                ]}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Terms & Conditions</Text>
+              <TextInput
+                placeholder="Estimate valid for 30 days..."
+                placeholderTextColor={colors.mutedForeground}
+                value={termsConditions}
+                onChangeText={setTermsConditions}
+                multiline
+                numberOfLines={2}
+                style={[
+                  styles.textArea,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                ]}
+              />
+            </View>
+          </Card>
+
+          {/* Custom Fields */}
+          <CustomFieldRenderer
+            entity="estimate"
+            values={customFields}
+            onChange={setCustomFields}
+          />
         </ScrollView>
 
         {/* Customer Modal */}
@@ -1162,5 +1341,54 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.medium,
     marginTop: 2,
+  },
+  summaryInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  discountToggle: {
+    flexDirection: 'row',
+    borderRadius: 6,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  discountToggleBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  discountToggleText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+  },
+  summarySmallInput: {
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    minWidth: 70,
+    textAlign: 'right',
+  },
+  summaryDiscountSub: {
+    fontSize: 11,
+    fontFamily: fonts.semiBold,
+  },
+  notesCard: {
+    padding: 14,
+    gap: 12,
+    marginTop: 12,
+  },
+  textArea: {
+    height: 64,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    textAlignVertical: 'top',
   },
 });

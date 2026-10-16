@@ -153,6 +153,67 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
                 </Card>
               </>
             ) : null}
+
+            {/* Attributes & Tax Details */}
+            {(item.uom || item.unit || item.hsnSacCode || item.hsnCode || item.category || item.costPrice || item.salesTaxRate) ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                  Attributes & Tax Details
+                </Text>
+                <Card style={{ padding: 14, gap: 10 }}>
+                  {item.category ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>Category</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.category}</Text>
+                    </View>
+                  ) : null}
+                  {(item.uom || item.unit) ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>Unit (UOM)</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.uom || item.unit}</Text>
+                    </View>
+                  ) : null}
+                  {(item.hsnSacCode || item.hsnCode) ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>HSN / SAC Code</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.hsnSacCode || item.hsnCode}</Text>
+                    </View>
+                  ) : null}
+                  {item.salesTaxRate !== undefined && item.salesTaxRate !== null ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>GST Rate</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.salesTaxRate}%</Text>
+                    </View>
+                  ) : null}
+                  {item.costPrice ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>Cost Price</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{formatCurrency(Number(item.costPrice), 'INR')}</Text>
+                    </View>
+                  ) : null}
+                </Card>
+              </>
+            ) : null}
+
+            {/* Custom Fields */}
+            {item.customFields && typeof item.customFields === 'object' && Object.keys(item.customFields).length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Custom Fields</Text>
+                <Card style={{ padding: 12, gap: 8 }}>
+                  {Object.entries(item.customFields).map(([k, v], idx, arr) => (
+                    <View key={k}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+                        <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>{k}</Text>
+                        <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{String(v)}</Text>
+                      </View>
+                      {idx < arr.length - 1 ? (
+                        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
+                      ) : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>

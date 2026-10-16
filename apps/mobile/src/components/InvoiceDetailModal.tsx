@@ -245,12 +245,39 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 </Text>
               </View>
 
+              {invoice.discountAmount || invoice.discountValue ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
+                  <Text style={[styles.summaryValue, { color: colors.success }]}>
+                    -{formatCurrency(Number(invoice.discountAmount || invoice.discountValue) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
                   {formatCurrency(rawTax, 'INR')}
                 </Text>
               </View>
+
+              {invoice.shippingCharges ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping</Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(Number(invoice.shippingCharges) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
+
+              {invoice.adjustment ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(Number(invoice.adjustment) || 0, 'INR')}
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.summaryRow}>
                 <Text style={[styles.grandLabel, { color: colors.foreground }]}>Total</Text>
@@ -302,6 +329,49 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 </TouchableOpacity>
               ) : null}
             </View>
+
+            {/* Notes & Terms */}
+            {invoice.notes ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Notes</Text>
+                <Card style={{ padding: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: colors.foreground, lineHeight: 18 }}>
+                    {invoice.notes}
+                  </Text>
+                </Card>
+              </>
+            ) : null}
+
+            {invoice.termsConditions || invoice.terms ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Terms & Conditions</Text>
+                <Card style={{ padding: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: colors.foreground, lineHeight: 18 }}>
+                    {invoice.termsConditions || invoice.terms}
+                  </Text>
+                </Card>
+              </>
+            ) : null}
+
+            {/* Custom Fields */}
+            {invoice.customFields && typeof invoice.customFields === 'object' && Object.keys(invoice.customFields).length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Custom Fields</Text>
+                <Card style={{ padding: 12, gap: 8 }}>
+                  {Object.entries(invoice.customFields).map(([k, v], idx, arr) => (
+                    <View key={k}>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>{k}</Text>
+                        <Text style={[styles.summaryValue, { color: colors.foreground }]}>{String(v)}</Text>
+                      </View>
+                      {idx < arr.length - 1 ? (
+                        <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
+                      ) : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>

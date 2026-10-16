@@ -15,6 +15,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useCreateItem, useUpdateItem } from '@accountiva/api';
 import { itemSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
+import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 
 interface AddItemModalProps {
   visible: boolean;
@@ -34,6 +35,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
   const [sellingPrice, setSellingPrice] = useState('');
   const [description, setDescription] = useState('');
   const [openingStock, setOpeningStock] = useState('');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       setSellingPrice(initialItem.sellingPrice != null ? String(initialItem.sellingPrice) : '');
       setDescription(initialItem.description || '');
       setOpeningStock(initialItem.stockOnHand != null ? String(initialItem.stockOnHand) : initialItem.openingStock != null ? String(initialItem.openingStock) : '');
+      setCustomFields(initialItem.customFields || initialItem.custom_fields || {});
     } else {
       setName('');
       setType('Product');
@@ -52,6 +55,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       setSellingPrice('');
       setDescription('');
       setOpeningStock('');
+      setCustomFields({});
     }
     setErrors({});
   }, [initialItem, visible]);
@@ -63,6 +67,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
     setSellingPrice('');
     setDescription('');
     setOpeningStock('');
+    setCustomFields({});
     setErrors({});
     setApiError(null);
   };
@@ -98,14 +103,19 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       return;
     }
 
+    const payload = {
+      ...formData,
+      customFields,
+    };
+
     try {
       if (initialItem?.id) {
         await updateItemMutation.mutateAsync({
           id: initialItem.id,
-          payload: formData,
+          payload,
         });
       } else {
-        await createItemMutation.mutateAsync(formData);
+        await createItemMutation.mutateAsync(payload);
       }
       resetForm();
       onSuccess();
@@ -281,6 +291,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
                 numberOfLines={3}
               />
             </View>
+
+            {/* Custom Fields */}
+            <CustomFieldRenderer
+              entity="item"
+              values={customFields}
+              onChange={setCustomFields}
+            />
           </ScrollView>
 
           {/* Footer CTA */}

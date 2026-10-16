@@ -406,6 +406,28 @@ export function CustomerDetailModal({
                 </Card>
               </>
             ) : null}
+
+            {/* Custom Fields */}
+            {customer?.customFields && typeof customer.customFields === 'object' && Object.keys(customer.customFields).length > 0 ? (
+              <>
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                  Custom Fields
+                </Text>
+                <Card style={styles.detailCard}>
+                  {Object.entries(customer.customFields).map(([k, v], idx, arr) => (
+                    <View key={k}>
+                      <View style={styles.dataRow}>
+                        <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>{k}</Text>
+                        <Text style={[styles.dataValue, { color: colors.foreground }]}>{String(v)}</Text>
+                      </View>
+                      {idx < arr.length - 1 ? (
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      ) : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
           </ScrollView>
         </View>
       </View>

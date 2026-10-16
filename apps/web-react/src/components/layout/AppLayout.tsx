@@ -39,7 +39,7 @@ export function AppLayout() {
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
         />
-        <main className="flex-1 overflow-y-auto bg-background custom-scrollbar p-6">
+        <main className="flex-1 overflow-y-auto bg-background custom-scrollbar flex flex-col">
           <Outlet />
         </main>
       </div>

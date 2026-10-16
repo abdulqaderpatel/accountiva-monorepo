@@ -73,15 +73,14 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
 
         <DropdownMenuContent
           align="start"
-          side="right"
-          sideOffset={8}
-          className="w-64 rounded-2xl p-1.5 shadow-2xl border-border bg-popover text-popover-foreground animate-in fade-in slide-in-from-left-2 duration-200"
+          sideOffset={6}
+          className="w-60 rounded-xl p-1.5 shadow-lg border-border/40 bg-popover text-popover-foreground animate-in fade-in slide-in-from-top-2 duration-150"
         >
-          <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            My Workspaces
+          <DropdownMenuLabel className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            My Organizations
           </DropdownMenuLabel>
 
-          <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
             {organizations.length === 0 ? (
               <div className="px-2.5 py-2 text-xs text-muted-foreground">
                 No organizations found
@@ -94,13 +93,13 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                     key={org.id}
                     onClick={() => handleSelect(org)}
                     className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-xl cursor-pointer transition-colors outline-none",
+                      "flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors outline-none",
                       isSelected
-                        ? "bg-primary/10 text-primary font-semibold"
-                        : "hover:bg-muted text-foreground/80 hover:text-foreground"
+                        ? "bg-primary/5 text-primary font-semibold"
+                        : "hover:bg-muted/80 text-foreground/80 hover:text-foreground"
                     )}
                   >
-                    <div className="size-7 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/50 overflow-hidden">
+                    <div className="shrink-0 size-7 rounded-md bg-muted flex items-center justify-center overflow-hidden border border-border/50">
                       {org.small_logo_url || org.logo_url ? (
                         <img
                           src={org.small_logo_url || org.logo_url}
@@ -113,10 +112,10 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                     </div>
 
                     <div className="flex flex-col min-w-0 flex-1 text-left">
-                      <span className="text-xs font-semibold truncate leading-tight">
+                      <span className="text-xs font-semibold truncate leading-normal">
                         {org.name}
                       </span>
-                      <span className="text-[9px] text-muted-foreground capitalize leading-none mt-0.5">
+                      <span className="text-[9px] opacity-60 capitalize leading-none mt-0.5">
                         {org.role}
                       </span>
                     </div>
@@ -147,14 +146,16 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
 
           <DropdownMenuSeparator className="my-1 bg-border/60" />
 
-          {/* Create New Workspace */}
+          {/* Create New Organization */}
           <DropdownMenuItem asChild>
             <Link
               to="/onboarding"
-              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-semibold text-primary hover:bg-primary/10 rounded-xl cursor-pointer transition-colors"
+              className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md cursor-pointer transition-colors outline-none"
             >
-              <Plus className="size-3.5" />
-              <span>Create New Workspace</span>
+              <div className="shrink-0 size-7 rounded bg-primary/10 flex items-center justify-center text-primary">
+                <Plus className="size-3.5" />
+              </div>
+              <span>Create New Organization</span>
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>

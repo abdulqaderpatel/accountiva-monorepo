@@ -276,7 +276,7 @@ export function CreditNotes() {
   const filters = ["All", "Draft", "Open", "Closed", "Void"];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background flex flex-col">
+    <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Credit Notes"

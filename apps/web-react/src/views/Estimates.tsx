@@ -341,7 +341,7 @@ export function Estimates() {
   const filters = ["All", "Draft", "Sent", "Accepted", "Declined", "Invoiced"];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background flex flex-col">
+    <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Estimates"

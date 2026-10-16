@@ -253,7 +253,7 @@ export function OrganizationSettings() {
   ];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="px-8 pt-4 md:pt-5 pb-8 max-w-5xl mx-auto space-y-6 flex-1 w-full flex flex-col">
       <div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
           <Link to="/settings" className="hover:text-foreground">Settings</Link>

@@ -20,6 +20,8 @@ export interface Organization {
   logo?: string;
   logo_url?: string;
   small_logo_url?: string;
+  plan?: string;
+  plan_id?: string;
 }
 
 export interface UserProfileData {

@@ -139,7 +139,7 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
                         : "ui-page-title text-2xl md:text-3xl"
                     )}
                   >
-                    {{ title }.title}
+                    {title}
                   </h1>
                 )}
 

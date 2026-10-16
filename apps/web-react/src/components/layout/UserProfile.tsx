@@ -119,16 +119,6 @@ export function UserProfile({ variant = "topbar", collapsed = false }: UserProfi
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuItem asChild>
-          <Link
-            to="/organization-settings"
-            className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium cursor-pointer rounded-lg hover:bg-muted/80 text-foreground transition-colors"
-          >
-            <Building2 className="size-3.5 text-muted-foreground" />
-            <span>Organization Settings</span>
-          </Link>
-        </DropdownMenuItem>
-
         <DropdownMenuSeparator className="my-1 bg-border/50" />
 
         {/* Sign Out Action */}

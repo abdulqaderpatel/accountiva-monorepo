@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -12,21 +12,32 @@ import {
   TrendingDown,
   Plus,
   Trash2,
-  Eye,
-  Edit3,
-  CreditCard,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
   Download,
+  Calendar,
+  Layers,
+  Pencil,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
-import { EmptyState } from "@/components/ui/empty-state";
-import { formatCurrency, exportToCsv } from "@accountiva/shared";
-import { useCustomer, useDeleteCustomer, useInvoices, useEstimates } from "@accountiva/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+} from "@/components/ui/table";
+import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
+import {
+  useCustomer,
+  useDeleteCustomer,
+  useInvoices,
+  useEstimates,
+} from "@accountiva/api";
+import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 import { toast } from "sonner";
@@ -35,11 +46,14 @@ export function CustomerDetail() {
   const { id } = useParams({ strict: false }) as { id: string };
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"transactions" | "details">("transactions");
+  const [activeTab, setActiveTab] = useState<"Transactions" | "Statements" | "Details">("Transactions");
+  const [transactionFilter, setTransactionFilter] = useState<"All" | "Invoices" | "Estimates">("All");
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [isEstimateOpen, setIsEstimateOpen] = useState(false);
 
-  const { data: customerData, isLoading: isCustLoading } = useCustomer(id);
+  const { data: customerData, isLoading: isCustLoading, refetch } = useCustomer(id);
   const { data: apiInvoices, refetch: refetchInvoices } = useInvoices();
   const { data: apiEstimates, refetch: refetchEstimates } = useEstimates();
   const deleteCustomerMutation = useDeleteCustomer();
@@ -47,11 +61,13 @@ export function CustomerDetail() {
   const customer = customerData?.data || customerData || {};
 
   // Find invoices & estimates for this customer
-  const customerInvoices = React.useMemo(() => {
+  const customerInvoices = useMemo(() => {
     const raw: any[] = Array.isArray(apiInvoices)
       ? apiInvoices
       : Array.isArray(apiInvoices?.data)
       ? apiInvoices.data
+      : Array.isArray(apiInvoices?.invoices)
+      ? apiInvoices.invoices
       : [];
     return raw.filter(
       (inv) =>
@@ -60,11 +76,13 @@ export function CustomerDetail() {
     );
   }, [apiInvoices, id, customer.name]);
 
-  const customerEstimates = React.useMemo(() => {
+  const customerEstimates = useMemo(() => {
     const raw: any[] = Array.isArray(apiEstimates)
       ? apiEstimates
       : Array.isArray(apiEstimates?.data)
       ? apiEstimates.data
+      : Array.isArray(apiEstimates?.estimates)
+      ? apiEstimates.estimates
       : [];
     return raw.filter(
       (est) =>
@@ -74,14 +92,14 @@ export function CustomerDetail() {
   }, [apiEstimates, id, customer.name]);
 
   // Combined transactions list
-  const transactions = React.useMemo(() => {
+  const transactions = useMemo(() => {
     const items: any[] = [];
     customerInvoices.forEach((inv) => {
       items.push({
         id: inv.id,
         type: "Invoice",
         number: inv.invoiceNumber || `INV-${inv.id}`,
-        date: inv.date || inv.issueDate || "—",
+        date: inv.date || inv.issueDate || inv.createdAt || "",
         amount: Number(inv.amount) || 0,
         status: inv.status || "Draft",
         raw: inv,
@@ -92,128 +110,184 @@ export function CustomerDetail() {
         id: est.id,
         type: "Estimate",
         number: est.estimateNumber || `EST-${est.id}`,
-        date: est.date || est.expiryDate || "—",
+        date: est.date || est.expiryDate || est.createdAt || "",
         amount: Number(est.amount) || 0,
         status: est.status || "Draft",
         raw: est,
       });
     });
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
   }, [customerInvoices, customerEstimates]);
 
-  // Financial KPI calculations
-  const totalInvoiced = customerInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-  const totalPaid = customerInvoices
-    .filter((inv) => String(inv.status).toUpperCase() === "PAID")
-    .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-  const outstanding = totalInvoiced - totalPaid;
-  const pipelineEstimates = customerEstimates.reduce((sum, est) => sum + (Number(est.amount) || 0), 0);
+  const filteredTransactions = useMemo(() => {
+    if (transactionFilter === "Invoices") return transactions.filter((t) => t.type === "Invoice");
+    if (transactionFilter === "Estimates") return transactions.filter((t) => t.type === "Estimate");
+    return transactions;
+  }, [transactions, transactionFilter]);
+
+  // Financial calculations
+  const outstanding = useMemo(() => {
+    return customerInvoices
+      .filter((i) => {
+        const s = String(i.status || "").toLowerCase();
+        return s !== "paid" && s !== "draft";
+      })
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [customerInvoices]);
+
+  const totalPaid = useMemo(() => {
+    return customerInvoices
+      .filter((i) => String(i.status || "").toLowerCase() === "paid")
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [customerInvoices]);
+
+  const pipelineEstimates = useMemo(() => {
+    return customerEstimates
+      .filter((e) => {
+        const s = String(e.status || "").toLowerCase();
+        return s === "sent" || s === "accepted";
+      })
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  }, [customerEstimates]);
+
+  const stats = [
+    {
+      title: "Outstanding Balance",
+      amount: formatCurrency(outstanding),
+      subText: `${customerInvoices.length} invoices issued`,
+      icon: TrendingUp,
+      color: "text-rose-700 dark:text-rose-400",
+      bg: "bg-rose-500/10 border border-rose-500/15",
+      accentBar: "bg-rose-500/50",
+    },
+    {
+      title: "Total Revenue Collected",
+      amount: formatCurrency(totalPaid),
+      subText: "settled receivables",
+      icon: TrendingDown,
+      color: "text-emerald-700 dark:text-emerald-400",
+      bg: "bg-emerald-500/10 border border-emerald-500/15",
+      accentBar: "bg-emerald-500/50",
+    },
+    {
+      title: "Active Quotation Pipeline",
+      amount: formatCurrency(pipelineEstimates),
+      subText: `${customerEstimates.length} quote proposals`,
+      icon: Calculator,
+      color: "text-amber-700 dark:text-amber-400",
+      bg: "bg-amber-500/10 border border-amber-500/15",
+      accentBar: "bg-amber-500/50",
+    },
+  ];
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${customer.name || "this customer"}?`)) {
-      return;
-    }
+    if (!window.confirm(`Are you sure you want to delete customer ${customer.name}?`)) return;
     try {
       await deleteCustomerMutation.mutateAsync(id);
-      toast.success("Customer deleted successfully");
-      navigate({ to: "/customers" as any });
+      toast.success("Customer deleted");
+      navigate({ to: "/customers" });
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to delete customer");
     }
   };
 
   const handleExportHistory = () => {
-    if (!transactions || transactions.length === 0) {
+    if (transactions.length === 0) {
       toast.error("No transactions to export");
       return;
     }
-    const exportData = transactions.map((t) => ({
-      "Type": t.type,
-      "Number": t.number,
-      "Date": t.date,
-      "Amount": t.amount,
-      "Status": t.status,
+    const data = transactions.map((t) => ({
+      Type: t.type,
+      "Document #": t.number,
+      Date: formatDate(t.date),
+      Status: t.status,
+      Amount: t.amount,
     }));
-    exportToCsv(exportData, `customer-${customer.name || id}-transactions`);
-    toast.success(`Exported ${exportData.length} transaction(s) to CSV`);
+    exportToCsv(data, `customer-${customer.name || id}-transactions`);
+    toast.success(`Exported ${data.length} records to CSV`);
   };
 
   if (isCustLoading) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center gap-3">
-        <Spinner size="lg" />
-        <span className="text-sm text-muted-foreground">Loading customer profile...</span>
+      <div className="flex-1 p-8 max-w-7xl mx-auto space-y-6 w-full">
+        <Skeleton className="h-10 w-48" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <Skeleton className="h-28 w-full rounded-2xl" />
+          <Skeleton className="h-28 w-full rounded-2xl" />
+        </div>
+        <Skeleton className="h-96 w-full rounded-2xl" />
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Breadcrumb back */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Link to="/customers" className="hover:text-foreground flex items-center gap-1">
-          <ArrowLeft className="size-3.5" />
-          <span>Back to Customers</span>
-        </Link>
-        <span>/</span>
-        <span className="text-foreground font-semibold">{customer.name || "Customer Profile"}</span>
-      </div>
+  const initials = (customer.name ? customer.name.charAt(0) : "C").toUpperCase();
 
-      {/* Header Profile Card */}
-      <div className="p-6 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xs">
+  return (
+    <div className="flex-1 overflow-y-auto bg-background p-8 max-w-7xl mx-auto space-y-8 w-full">
+      {/* Navigation & Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl font-display shadow-2xs">
-            {customer.name ? customer.name.slice(0, 2).toUpperCase() : "CU"}
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold tracking-tight text-foreground font-display">
-                {customer.name || "Unknown Customer"}
-              </h1>
-              <Badge variant={customer.gstTreatment === "Registered" ? "default" : "secondary"}>
-                {customer.gstTreatment || "Consumer"}
-              </Badge>
+          <Link
+            to="/customers"
+            className="size-10 rounded-xl bg-card border border-border/80 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs"
+          >
+            <ArrowLeft className="size-4" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl shadow-2xs">
+              {initials}
             </div>
-            {customer.company && (
-              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                <Building2 className="size-3.5" />
-                <span>{customer.company}</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
+                  {customer.name || "Customer Profile"}
+                </h1>
+                {customer.customerCode && (
+                  <span className="text-[10px] font-mono font-bold bg-muted px-2 py-0.5 rounded-md text-muted-foreground border border-border/60">
+                    {customer.customerCode}
+                  </span>
+                )}
               </div>
-            )}
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-              {customer.email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="size-3.5" /> {customer.email}
-                </span>
-              )}
-              {customer.phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="size-3.5" /> {customer.phone}
-                </span>
-              )}
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {customer.company ? `${customer.company} • ` : ""}
+                {customer.email || "No email on file"}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Action CTAs */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button size="sm" variant="outline" onClick={handleExportHistory} className="gap-1.5 text-xs">
-            <Download className="size-3.5" />
-            <span>Export CSV</span>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsEditOpen(true)}
+            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <Pencil className="size-3.5" /> Edit Profile
           </Button>
-          <Button size="sm" onClick={() => setIsInvoiceOpen(true)} className="gap-1.5 font-semibold shadow-xs">
-            <Plus className="size-3.5" />
-            <span>New Invoice</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleExportHistory}
+            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export History
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setIsEstimateOpen(true)} className="gap-1.5">
-            <Calculator className="size-3.5" />
-            <span>New Quote</span>
+          <Button
+            size="sm"
+            onClick={() => setIsInvoiceOpen(true)}
+            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="size-3.5" /> New Invoice
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={handleDelete}
-            className="text-muted-foreground hover:text-destructive"
+            className="size-9 rounded-lg text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
             title="Delete Customer"
           >
             <Trash2 className="size-4" />
@@ -221,198 +295,304 @@ export function CustomerDetail() {
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Outstanding Balance</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500">
-              <TrendingUp className="size-4" />
-            </div>
-          </div>
-          <p className="text-xl font-bold font-mono text-rose-500 mt-2">
-            {formatCurrency(outstanding)}
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {customerInvoices.length} invoices issued
-          </span>
-        </Card>
-
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Revenue Collected</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
-              <TrendingDown className="size-4" />
-            </div>
-          </div>
-          <p className="text-xl font-bold font-mono text-emerald-500 mt-2">
-            {formatCurrency(totalPaid)}
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            Settled receivables
-          </span>
-        </Card>
-
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Active Quotation Pipeline</span>
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-              <Calculator className="size-4" />
-            </div>
-          </div>
-          <p className="text-xl font-bold font-mono text-foreground mt-2">
-            {formatCurrency(pipelineEstimates)}
-          </p>
-          <span className="text-[11px] text-muted-foreground mt-0.5 block">
-            {customerEstimates.length} quotes proposals
-          </span>
-        </Card>
+      {/* KPI Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={stat.title}
+              className="border-border/60 shadow-2xs overflow-hidden relative group hover:border-primary/40 hover:shadow-xs transition-all duration-300 py-0 gap-0 bg-card/50 backdrop-blur-xs"
+            >
+              <div className={`h-[2.5px] w-full ${stat.accentBar}`} />
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.18em]">
+                    {stat.title}
+                  </span>
+                  <div
+                    className={`size-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${stat.bg} ${stat.color}`}
+                  >
+                    <Icon className="size-4" />
+                  </div>
+                </div>
+                <div className="text-2xl font-bold text-foreground mb-1 tracking-tight font-mono">
+                  {stat.amount}
+                </div>
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                  {stat.subText}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Tabs Control */}
-      <div className="flex border-b border-border/60 gap-4">
-        <button
-          onClick={() => setActiveTab("transactions")}
-          className={`pb-3 text-xs font-semibold tracking-wide border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === "transactions"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <FileText className="size-3.5" />
-          <span>Transactions & Billing ({transactions.length})</span>
-        </button>
-        <button
-          onClick={() => setActiveTab("details")}
-          className={`pb-3 text-xs font-semibold tracking-wide border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === "details"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Building2 className="size-3.5" />
-          <span>Contact & Address Info</span>
-        </button>
+      {/* Tabs Bar */}
+      <div className="flex border-b border-border/60 gap-6">
+        {(["Transactions", "Statements", "Details"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`pb-3 text-xs font-bold tracking-wide border-b-2 transition-colors cursor-pointer ${
+              activeTab === tab
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab === "Transactions" ? `Transactions (${transactions.length})` : tab}
+          </button>
+        ))}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "transactions" && (
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm overflow-hidden">
-          {transactions.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                icon={FileText}
-                title="No billing activity yet"
-                description="Issue an invoice or quotation for this client to begin tracking history."
-                actionLabel="Create Invoice"
-                onAction={() => setIsInvoiceOpen(true)}
-              />
+      {/* Tab: Transactions */}
+      {activeTab === "Transactions" && (
+        <div className="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs space-y-0">
+          <div className="p-4 flex items-center justify-between border-b border-border/60 bg-muted/25">
+            <div className="inline-flex h-8.5 items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border/50">
+              {(["All", "Invoices", "Estimates"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setTransactionFilter(f)}
+                  className={`px-3 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer ${
+                    transactionFilter === f
+                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                      : "text-muted-foreground font-medium hover:text-foreground"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-muted/20">
-                    <th className="py-3 px-4">Type</th>
-                    <th className="py-3 px-4">Reference #</th>
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {transactions.map((tx) => (
-                    <tr key={`${tx.type}-${tx.id}`} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-3.5 px-4">
-                        <Badge
-                          variant={tx.type === "Invoice" ? "default" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {tx.type}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-foreground">
-                        {tx.number}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground">{tx.date}</td>
-                      <td className="py-3.5 px-4 text-center">
-                        <Badge variant="outline" className="text-[10px]">
-                          {tx.status}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground">
-                        {formatCurrency(tx.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <span className="text-xs text-muted-foreground font-medium">
+              Showing {filteredTransactions.length} transaction(s)
+            </span>
+          </div>
+
+          <Table>
+            <TableHeader className="bg-muted/35 border-b border-border/70">
+              <TableRow className="hover:bg-transparent border-b border-border/70">
+                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[120px]">
+                  Type
+                </TableHead>
+                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90">
+                  Document #
+                </TableHead>
+                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[140px]">
+                  Date
+                </TableHead>
+                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-center w-[140px]">
+                  Status
+                </TableHead>
+                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-right w-[150px]">
+                  Amount
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody className="divide-y divide-border/60">
+              {filteredTransactions.length === 0 ? (
+                <TableEmpty colSpan={5}>
+                  <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3 py-8">
+                    <div className="size-14 rounded-2xl bg-muted/60 flex items-center justify-center">
+                      <FileText className="size-7 text-muted-foreground/40" />
+                    </div>
+                    <div className="space-y-1 text-center">
+                      <h3 className="text-sm font-bold text-foreground">No transactions recorded</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Issue an invoice or quotation for this client to begin building their transaction history.
+                      </p>
+                    </div>
+                  </div>
+                </TableEmpty>
+              ) : (
+                filteredTransactions.map((tx) => (
+                  <TableRow
+                    key={`${tx.type}-${tx.id}`}
+                    onClick={() => {
+                      if (tx.type === "Invoice") navigate({ to: "/invoices" });
+                      else navigate({ to: "/estimates" });
+                    }}
+                    className="hover:bg-muted/40 transition-colors cursor-pointer"
+                  >
+                    <TableCell className="py-4 px-6">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${
+                          tx.type === "Invoice"
+                            ? "bg-primary/10 text-primary border-primary/20"
+                            : "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20"
+                        }`}
+                      >
+                        {tx.type === "Invoice" ? <FileText className="size-3" /> : <Calculator className="size-3" />}
+                        {tx.type}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 font-mono text-xs font-bold text-foreground">
+                      {tx.number}
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-xs text-muted-foreground font-medium">
+                      {formatDate(tx.date)}
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-muted-foreground border border-border">
+                        {tx.status}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="py-4 px-6 text-right font-mono text-xs font-bold text-foreground">
+                      {formatCurrency(tx.amount)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Tab: Statements */}
+      {activeTab === "Statements" && (
+        <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Customer Account Statement</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Summary of all historical billings, settled payments, and current outstanding balances.
+              </p>
             </div>
-          )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportHistory}
+              className="gap-2 text-xs font-semibold cursor-pointer shadow-2xs"
+            >
+              <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Download Statement CSV
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Statement Details
+              </span>
+              <div className="space-y-1">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Client Name:</span>
+                  <span className="font-semibold text-foreground">{customer.name}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">GSTIN / Tax ID:</span>
+                  <span className="font-mono text-foreground">{customer.gstNumber || customer.pan || "N/A"}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-muted-foreground">Total Invoices:</span>
+                  <span className="font-mono font-bold text-foreground">{customerInvoices.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Financial Summary
+              </span>
+              <div className="space-y-1">
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Total Invoiced:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {formatCurrency(customerInvoices.reduce((s, i) => s + (Number(i.amount) || 0), 0))}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/50">
+                  <span className="text-muted-foreground">Total Paid:</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(totalPaid)}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-muted-foreground font-bold">Outstanding Balance:</span>
+                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+                    {formatCurrency(outstanding)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </Card>
       )}
 
-      {activeTab === "details" && (
+      {/* Tab: Details */}
+      {activeTab === "Details" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Tax & Financial Details */}
-          <Card className="border-border/60 bg-card/60 backdrop-blur-sm p-5 space-y-4">
-            <h3 className="text-sm font-bold text-foreground">Tax & Legal Profile</h3>
+          <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground pb-2 border-b border-border/60 flex items-center gap-2">
+              <Building2 className="size-4 text-primary" /> Contact & Business Info
+            </h3>
             <div className="space-y-3 text-xs">
-              <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">GST Treatment</span>
-                <span className="font-semibold text-foreground">{customer.gstTreatment || "Consumer"}</span>
+              <div>
+                <span className="text-muted-foreground block text-[11px]">Primary Contact</span>
+                <span className="font-semibold text-foreground text-sm">{customer.name}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">GSTIN</span>
-                <span className="font-mono font-semibold text-foreground uppercase">
-                  {customer.gstNumber || customer.gstin || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-border/40">
-                <span className="text-muted-foreground">PAN</span>
-                <span className="font-mono font-semibold text-foreground uppercase">
-                  {customer.pan || "—"}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span className="text-muted-foreground">Customer Code</span>
-                <span className="font-mono font-semibold text-foreground">
-                  {customer.customerCode || "—"}
-                </span>
-              </div>
+              {customer.company && (
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Company</span>
+                  <span className="font-medium text-foreground">{customer.company}</span>
+                </div>
+              )}
+              {customer.email && (
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Email Address</span>
+                  <span className="font-medium text-foreground">{customer.email}</span>
+                </div>
+              )}
+              {customer.phone && (
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Phone Number</span>
+                  <span className="font-medium text-foreground">{customer.phone}</span>
+                </div>
+              )}
+              {customer.gstTreatment && (
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">GST Treatment</span>
+                  <span className="font-medium text-foreground">{customer.gstTreatment}</span>
+                </div>
+              )}
             </div>
           </Card>
 
-          {/* Billing & Shipping Address */}
-          <Card className="border-border/60 bg-card/60 backdrop-blur-sm p-5 space-y-4">
-            <h3 className="text-sm font-bold text-foreground">Addresses & Logistics</h3>
+          <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground pb-2 border-b border-border/60 flex items-center gap-2">
+              <MapPin className="size-4 text-primary" /> Address & Tax Identification
+            </h3>
             <div className="space-y-3 text-xs">
               <div>
-                <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1">
-                  <MapPin className="size-3.5" /> Billing Address
-                </span>
-                <p className="text-foreground leading-relaxed whitespace-pre-line bg-muted/20 p-2.5 rounded-xl border border-border/40">
-                  {customer.billingAddress || customer.address || "No billing address provided."}
+                <span className="text-muted-foreground block text-[11px]">Billing Address</span>
+                <p className="font-medium text-foreground leading-relaxed whitespace-pre-wrap">
+                  {customer.billingAddress || customer.address || "No address on file"}
                 </p>
               </div>
-
               {customer.shippingAddress && (
                 <div>
-                  <span className="text-muted-foreground font-semibold flex items-center gap-1 mb-1">
-                    <MapPin className="size-3.5" /> Shipping Address
-                  </span>
-                  <p className="text-foreground leading-relaxed whitespace-pre-line bg-muted/20 p-2.5 rounded-xl border border-border/40">
+                  <span className="text-muted-foreground block text-[11px]">Shipping Address</span>
+                  <p className="font-medium text-foreground leading-relaxed whitespace-pre-wrap">
                     {customer.shippingAddress}
                   </p>
                 </div>
               )}
-
-              {customer.notes && (
+              {customer.gstNumber && (
                 <div>
-                  <span className="text-muted-foreground font-semibold block mb-1">Internal Notes</span>
-                  <p className="text-muted-foreground italic bg-muted/20 p-2.5 rounded-xl border border-border/40">
-                    {customer.notes}
-                  </p>
+                  <span className="text-muted-foreground block text-[11px]">GSTIN</span>
+                  <span className="font-mono font-bold text-foreground">{customer.gstNumber}</span>
+                </div>
+              )}
+              {customer.pan && (
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">PAN</span>
+                  <span className="font-mono font-bold text-foreground">{customer.pan}</span>
                 </div>
               )}
             </div>
@@ -420,20 +600,33 @@ export function CustomerDetail() {
         </div>
       )}
 
-      {/* Create Modals */}
+      {/* Modals */}
+      <AddCustomerModal
+        isOpen={isEditOpen}
+        customer={customer}
+        onClose={() => setIsEditOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
       <CreateInvoiceModal
         isOpen={isInvoiceOpen}
         onClose={() => setIsInvoiceOpen(false)}
-        onSuccess={() => refetchInvoices()}
+        onSuccess={() => {
+          refetchInvoices();
+          refetch();
+        }}
       />
+
       <CreateEstimateModal
         isOpen={isEstimateOpen}
         onClose={() => setIsEstimateOpen(false)}
-        onSuccess={() => refetchEstimates()}
+        onSuccess={() => {
+          refetchEstimates();
+          refetch();
+        }}
       />
     </div>
   );
 }
 
 export default CustomerDetail;
-

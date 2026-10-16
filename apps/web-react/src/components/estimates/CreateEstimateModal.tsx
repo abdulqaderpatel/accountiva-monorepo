@@ -8,7 +8,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@accountiva/shared";
-import { useCreateEstimate, useCustomers, useItems } from "@accountiva/api";
+import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from "@accountiva/api";
 import { toast } from "sonner";
 
 interface LineItem {
@@ -23,14 +23,17 @@ interface CreateEstimateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  estimateToEdit?: any;
 }
 
 export function CreateEstimateModal({
   isOpen,
   onClose,
   onSuccess,
+  estimateToEdit,
 }: CreateEstimateModalProps) {
   const createEstimateMutation = useCreateEstimate();
+  const updateEstimateMutation = useUpdateEstimate();
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
 
@@ -67,6 +70,38 @@ export function CreateEstimateModal({
       rate: 0,
     },
   ]);
+
+  React.useEffect(() => {
+    if (estimateToEdit && isOpen) {
+      setCustomerName(estimateToEdit.customerName || estimateToEdit.customers?.name || "");
+      setEstimateNumber(estimateToEdit.estimateNumber || "");
+      setEstimateDate(estimateToEdit.date || new Date().toISOString().split("T")[0]);
+      setExpiryDate(estimateToEdit.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+      setNotes(estimateToEdit.notes || "");
+      setTaxRate(Number(estimateToEdit.taxPercent) || 18);
+      setCustomFields(estimateToEdit.customFields || {});
+      if (Array.isArray(estimateToEdit.items) && estimateToEdit.items.length > 0) {
+        setItems(
+          estimateToEdit.items.map((it: any, idx: number) => ({
+            id: String(idx + 1),
+            name: it.itemName || it.name || "",
+            description: it.description || "",
+            quantity: Number(it.quantity) || 1,
+            rate: Number(it.rate) || 0,
+          }))
+        );
+      }
+    } else if (!estimateToEdit && isOpen) {
+      setCustomerName("");
+      setEstimateNumber(`EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+      setEstimateDate(new Date().toISOString().split("T")[0]);
+      setExpiryDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+      setNotes("");
+      setTaxRate(18);
+      setCustomFields({});
+      setItems([{ id: "1", name: "", description: "", quantity: 1, rate: 0 }]);
+    }
+  }, [estimateToEdit, isOpen]);
 
   const addItem = () => {
     setItems([
@@ -135,7 +170,7 @@ export function CreateEstimateModal({
     }
 
     try {
-      await createEstimateMutation.mutateAsync({
+      const payload = {
         estimateNumber,
         customerName,
         date: estimateDate,
@@ -145,7 +180,7 @@ export function CreateEstimateModal({
         taxPercent: taxRate,
         taxAmount,
         notes,
-        status: "Draft",
+        status: estimateToEdit?.status || "Draft",
         customFields,
         items: items.map((i) => ({
           itemName: i.name,
@@ -154,15 +189,20 @@ export function CreateEstimateModal({
           rate: Number(i.rate),
           amount: Number(i.quantity) * Number(i.rate),
         })),
-      });
+      };
 
-      toast.success("Estimate created successfully!", {
-        description: `Estimate ${estimateNumber} saved as Draft.`,
-      });
+      if (estimateToEdit?.id) {
+        await updateEstimateMutation.mutateAsync({ id: estimateToEdit.id, payload });
+        toast.success(`Estimate ${estimateNumber} updated successfully!`);
+      } else {
+        await createEstimateMutation.mutateAsync(payload);
+        toast.success(`Estimate ${estimateNumber} created successfully!`);
+      }
+
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      toast.error("Failed to create estimate", {
+      toast.error("Failed to save estimate", {
         description: error.response?.data?.message || error.message,
       });
     }

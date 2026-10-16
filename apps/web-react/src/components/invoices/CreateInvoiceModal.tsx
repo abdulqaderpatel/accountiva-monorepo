@@ -9,7 +9,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Plus, Trash2 } from "lucide-react";
 import { formatCurrency } from "@accountiva/shared";
-import { useCreateInvoice, useCustomers, useItems } from "@accountiva/api";
+import { useCreateInvoice, useUpdateInvoice, useCustomers, useItems } from "@accountiva/api";
 import { toast } from "sonner";
 
 interface LineItem {
@@ -24,14 +24,17 @@ interface CreateInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  invoiceToEdit?: any;
 }
 
 export function CreateInvoiceModal({
   isOpen,
   onClose,
   onSuccess,
+  invoiceToEdit,
 }: CreateInvoiceModalProps) {
   const createInvoiceMutation = useCreateInvoice();
+  const updateInvoiceMutation = useUpdateInvoice();
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
 
@@ -66,6 +69,38 @@ export function CreateInvoiceModal({
       rate: 0,
     },
   ]);
+
+  React.useEffect(() => {
+    if (invoiceToEdit && isOpen) {
+      setCustomerName(invoiceToEdit.customerName || invoiceToEdit.customers?.name || "");
+      setInvoiceNumber(invoiceToEdit.invoiceNumber || "");
+      setInvoiceDate(invoiceToEdit.date || invoiceToEdit.issueDate || new Date().toISOString().split("T")[0]);
+      setDueDate(invoiceToEdit.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+      setNotes(invoiceToEdit.notes || "");
+      setTaxRate(Number(invoiceToEdit.taxPercent) || 18);
+      setCustomFields(invoiceToEdit.customFields || {});
+      if (Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0) {
+        setItems(
+          invoiceToEdit.items.map((it: any, idx: number) => ({
+            id: String(idx + 1),
+            name: it.itemName || it.name || "",
+            description: it.description || "",
+            quantity: Number(it.quantity) || 1,
+            rate: Number(it.rate) || 0,
+          }))
+        );
+      }
+    } else if (!invoiceToEdit && isOpen) {
+      setCustomerName("");
+      setInvoiceNumber(`INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+      setInvoiceDate(new Date().toISOString().split("T")[0]);
+      setDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+      setNotes("");
+      setTaxRate(18);
+      setCustomFields({});
+      setItems([{ id: "1", name: "", description: "", quantity: 1, rate: 0 }]);
+    }
+  }, [invoiceToEdit, isOpen]);
 
   const addItem = () => {
     setItems([
@@ -134,7 +169,7 @@ export function CreateInvoiceModal({
     }
 
     try {
-      await createInvoiceMutation.mutateAsync({
+      const payload = {
         invoiceNumber,
         customerName,
         date: invoiceDate,
@@ -144,7 +179,7 @@ export function CreateInvoiceModal({
         taxPercent: taxRate,
         taxAmount,
         notes,
-        status: "Draft",
+        status: invoiceToEdit?.status || "Draft",
         customFields,
         items: items.map((i) => ({
           itemName: i.name,
@@ -153,15 +188,20 @@ export function CreateInvoiceModal({
           rate: Number(i.rate),
           amount: Number(i.quantity) * Number(i.rate),
         })),
-      });
+      };
 
-      toast.success("Invoice created successfully!", {
-        description: `Invoice ${invoiceNumber} saved.`,
-      });
+      if (invoiceToEdit?.id) {
+        await updateInvoiceMutation.mutateAsync({ id: invoiceToEdit.id, payload });
+        toast.success(`Invoice ${invoiceNumber} updated successfully!`);
+      } else {
+        await createInvoiceMutation.mutateAsync(payload);
+        toast.success(`Invoice ${invoiceNumber} created successfully!`);
+      }
+
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      toast.error("Failed to create invoice", {
+      toast.error("Failed to save invoice", {
         description: error.response?.data?.message || error.message,
       });
     }

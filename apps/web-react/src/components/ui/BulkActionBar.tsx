@@ -11,13 +11,16 @@ import {
 import { X, Trash2, Download, ChevronDown, Loader2 } from "lucide-react";
 
 export interface BulkActionBarProps {
-  count: number;
+  count?: number;
+  selectedCount?: number;
+  totalCount?: number;
   label?: string;
   loading?: boolean;
   canDelete?: boolean;
   deleteLabel?: string;
   enableExport?: boolean;
-  onClear: () => void;
+  onClear?: () => void;
+  onClearSelection?: () => void;
   onDelete?: () => void;
   onExport?: (format: "csv" | "json") => void;
   children?: React.ReactNode;
@@ -25,17 +28,23 @@ export interface BulkActionBarProps {
 
 export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   count,
+  selectedCount,
+  totalCount,
   label = "items",
   loading = false,
   canDelete = true,
   deleteLabel = "Delete",
   enableExport = true,
   onClear,
+  onClearSelection,
   onDelete,
   onExport,
   children,
 }) => {
-  if (count <= 0) return null;
+  const effectiveCount = selectedCount ?? count ?? 0;
+  const handleClear = onClearSelection ?? onClear ?? (() => {});
+
+  if (effectiveCount <= 0) return null;
 
   return createPortal(
     <div
@@ -48,10 +57,10 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           variant="secondary"
           className="font-mono text-xs font-semibold px-2.5 py-0.5 bg-primary/10 text-primary border border-primary/20"
         >
-          {count}
+          {effectiveCount}
         </Badge>
         <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
-          {count === 1 ? "item selected" : `${label} selected`}
+          {effectiveCount === 1 ? "item selected" : `${label} selected`}
         </span>
       </div>
 
@@ -61,7 +70,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
         variant="ghost"
         size="sm"
         className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground shrink-0 rounded-lg cursor-pointer"
-        onClick={onClear}
+        onClick={handleClear}
       >
         <X className="size-3.5 mr-1" />
         Deselect

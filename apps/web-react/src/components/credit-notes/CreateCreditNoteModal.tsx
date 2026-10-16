@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,14 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { Select } from "@/components/ui/Select";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { formatCurrency } from "@accountiva/shared";
-import { useCreateCreditNote, useCustomers, useInvoices } from "@accountiva/api";
+import { useCreateCreditNote, useUpdateCreditNote, useCustomers, useInvoices } from "@accountiva/api";
 import { toast } from "sonner";
 
 interface CreateCreditNoteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  creditNoteToEdit?: any;
 }
 
 const CREDIT_REASONS = [
@@ -30,8 +31,10 @@ export function CreateCreditNoteModal({
   isOpen,
   onClose,
   onSuccess,
+  creditNoteToEdit,
 }: CreateCreditNoteModalProps) {
   const createCreditNoteMutation = useCreateCreditNote();
+  const updateCreditNoteMutation = useUpdateCreditNote();
   const { data: apiCustomers } = useCustomers();
   const { data: apiInvoices } = useInvoices();
 
@@ -58,6 +61,28 @@ export function CreateCreditNoteModal({
   const [notes, setNotes] = useState("");
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
+  useEffect(() => {
+    if (creditNoteToEdit && isOpen) {
+      setCustomerName(creditNoteToEdit.customerName || creditNoteToEdit.customers?.name || "");
+      setInvoiceNumber(creditNoteToEdit.invoiceNumber || "");
+      setCreditNoteNumber(creditNoteToEdit.creditNoteNumber || "");
+      setDate(creditNoteToEdit.date || new Date().toISOString().split("T")[0]);
+      setReason(creditNoteToEdit.reason || CREDIT_REASONS[0]);
+      setAmount(String(creditNoteToEdit.amount || ""));
+      setNotes(creditNoteToEdit.notes || "");
+      setCustomFields(creditNoteToEdit.customFields || {});
+    } else if (!creditNoteToEdit && isOpen) {
+      setCustomerName("");
+      setInvoiceNumber("");
+      setCreditNoteNumber(`CN-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+      setDate(new Date().toISOString().split("T")[0]);
+      setReason(CREDIT_REASONS[0]);
+      setAmount("");
+      setNotes("");
+      setCustomFields({});
+    }
+  }, [creditNoteToEdit, isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -78,7 +103,7 @@ export function CreateCreditNoteModal({
     }
 
     try {
-      await createCreditNoteMutation.mutateAsync({
+      const payload = {
         creditNoteNumber,
         customerName,
         invoiceNumber: invoiceNumber || undefined,
@@ -86,17 +111,24 @@ export function CreateCreditNoteModal({
         amount: numericAmount,
         reason,
         notes,
-        status: "Open",
+        status: creditNoteToEdit?.status || "Open",
         customFields,
-      });
+      };
 
-      toast.success("Credit note created successfully!", {
-        description: `Credit Note ${creditNoteNumber} issued for ${formatCurrency(numericAmount)}.`,
-      });
+      if (creditNoteToEdit?.id) {
+        await updateCreditNoteMutation.mutateAsync({ id: creditNoteToEdit.id, payload });
+        toast.success(`Credit Note ${creditNoteNumber} updated successfully!`);
+      } else {
+        await createCreditNoteMutation.mutateAsync(payload);
+        toast.success("Credit note created successfully!", {
+          description: `Credit Note ${creditNoteNumber} issued for ${formatCurrency(numericAmount)}.`,
+        });
+      }
+
       onSuccess?.();
       onClose();
     } catch (error: any) {
-      toast.error("Failed to create credit note", {
+      toast.error("Failed to save credit note", {
         description: error.response?.data?.message || error.message,
       });
     }

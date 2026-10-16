@@ -12,39 +12,57 @@ import { AlertTriangle, Info, Loader2 } from "lucide-react";
 
 export interface BulkConfirmDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
   title?: string;
   description?: string;
-  itemCount: number;
+  itemCount?: number;
+  count?: number;
+  itemLabel?: string;
   itemNames?: string[];
   actionLabel?: string;
   variant?: "destructive" | "default";
   loading?: boolean;
-  onConfirm: () => void;
+  isPending?: boolean;
+  onConfirm: () => void | Promise<void>;
 }
 
 export const BulkConfirmDialog: React.FC<BulkConfirmDialogProps> = ({
   open,
   onOpenChange,
+  onClose,
   title = "Confirm Bulk Action",
   description = "Are you sure you want to proceed with this bulk action?",
   itemCount,
+  count,
+  itemLabel = "items",
   itemNames = [],
   actionLabel = "Confirm",
   variant = "destructive",
   loading = false,
+  isPending = false,
   onConfirm,
 }) => {
+  const effectiveCount = count ?? itemCount ?? 0;
+  const effectiveLoading = loading || isPending;
+
   const handleCancel = () => {
-    if (!loading) {
-      onOpenChange(false);
+    if (!effectiveLoading) {
+      if (onClose) onClose();
+      if (onOpenChange) onOpenChange(false);
     }
   };
 
   const formattedTitle = title.endsWith("?") ? title : `${title}?`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) handleCancel();
+        else onOpenChange?.(val);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -76,7 +94,7 @@ export const BulkConfirmDialog: React.FC<BulkConfirmDialogProps> = ({
         {itemNames && itemNames.length > 0 && (
           <div className="my-2 p-3 bg-muted/50 rounded-lg border border-border/60 text-xs">
             <p className="font-medium text-muted-foreground mb-1.5">
-              Selected {itemCount === 1 ? "record" : "records"} ({itemCount}):
+              Selected {effectiveCount === 1 ? (itemLabel ? itemLabel.replace(/s$/, "") : "record") : (itemLabel || "records")} ({effectiveCount}):
             </p>
             <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
               {itemNames.slice(0, 10).map((name, idx) => (
@@ -102,7 +120,7 @@ export const BulkConfirmDialog: React.FC<BulkConfirmDialogProps> = ({
             variant="outline"
             size="sm"
             className="text-xs cursor-pointer"
-            disabled={loading}
+            disabled={effectiveLoading}
             onClick={handleCancel}
           >
             Cancel
@@ -112,14 +130,14 @@ export const BulkConfirmDialog: React.FC<BulkConfirmDialogProps> = ({
             variant={variant === "destructive" ? "destructive" : "default"}
             size="sm"
             className="text-xs gap-1.5 cursor-pointer"
-            disabled={loading}
+            disabled={effectiveLoading}
             onClick={onConfirm}
           >
-            {loading ? (
+            {effectiveLoading ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : null}
             <span>
-              {actionLabel} {itemCount > 0 ? `(${itemCount})` : ""}
+              {actionLabel} {effectiveCount > 0 ? `(${effectiveCount})` : ""}
             </span>
           </Button>
         </DialogFooter>

@@ -9,10 +9,14 @@ import { useSendInvoice } from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
-interface SendInvoiceModalProps {
+export interface SendInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  invoice: any | null;
+  invoice?: any | null;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  customerEmail?: string;
+  customerName?: string;
   onSuccess?: () => void;
 }
 
@@ -20,28 +24,40 @@ export function SendInvoiceModal({
   isOpen,
   onClose,
   invoice,
+  invoiceId,
+  invoiceNumber,
+  customerEmail,
+  customerName,
   onSuccess,
 }: SendInvoiceModalProps) {
   const { currentOrganization } = useAuth();
   const sendInvoiceMutation = useSendInvoice();
+
+  const activeInvoice = invoice || (invoiceId ? {
+    id: invoiceId,
+    invoiceNumber: invoiceNumber,
+    number: invoiceNumber,
+    email: customerEmail,
+    customerName: customerName,
+  } : null);
 
   const [recipientEmail, setRecipientEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (isOpen && invoice) {
-      const invNum = invoice.invoiceNumber || invoice.number || "INV";
+    if (isOpen && activeInvoice) {
+      const invNum = activeInvoice.invoiceNumber || activeInvoice.number || "INV";
       const orgName = currentOrganization?.name || "Accountiva";
-      const clientName = invoice.customerName || invoice.customers?.name || "Valued Client";
+      const clientName = activeInvoice.customerName || activeInvoice.customers?.name || "Valued Client";
 
-      setRecipientEmail(invoice.email || invoice.customers?.email || "");
+      setRecipientEmail(activeInvoice.email || activeInvoice.customers?.email || "");
       setSubject(`Invoice ${invNum} from ${orgName}`);
       setMessage(
         `Dear ${clientName},\n\nPlease find attached your invoice ${invNum} for recent services. You can review the itemized breakdown and make a payment directly online.\n\nThank you for your business!\n\nBest regards,\n${orgName}`
       );
     }
-  }, [isOpen, invoice, currentOrganization]);
+  }, [isOpen, activeInvoice, currentOrganization]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,11 +67,11 @@ export function SendInvoiceModal({
       return;
     }
 
-    if (!invoice?.id) return;
+    if (!activeInvoice?.id) return;
 
     try {
       await sendInvoiceMutation.mutateAsync({
-        id: invoice.id,
+        id: activeInvoice.id,
         payload: {
           recipientEmail: recipientEmail.trim(),
           subject: subject.trim(),
@@ -73,7 +89,7 @@ export function SendInvoiceModal({
     }
   };
 
-  if (!invoice) return null;
+  if (!activeInvoice) return null;
 
   return (
     <Modal
@@ -127,7 +143,7 @@ export function SendInvoiceModal({
           <FileText className="size-4 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-foreground truncate">
-              {invoice.invoiceNumber || invoice.number}.pdf
+              {activeInvoice.invoiceNumber || activeInvoice.number}.pdf
             </div>
             <div className="text-[11px] text-muted-foreground">
               Official tax invoice with itemized calculation attached automatically.

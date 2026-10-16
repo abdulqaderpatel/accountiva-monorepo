@@ -143,3 +143,4 @@ export function UserProfile({ variant = "topbar", collapsed = false }: UserProfi
     </DropdownMenu>
   );
 }
+

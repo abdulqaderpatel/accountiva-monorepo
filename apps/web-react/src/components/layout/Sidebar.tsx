@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { isFeatureEnabled, FeatureFlags } from "@accountiva/shared";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ interface NavSection {
 
 export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
+  const { isAdmin } = useAuth();
 
   const sections: NavSection[] = [
     {
@@ -64,14 +66,14 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         { name: "Credit Notes", icon: FileMinus, route: "/sales/credit-notes", shortcut: "G N", feature: "creditNotes" },
       ],
     },
-    {
-      title: "Settings",
-      items: [
-        { name: "Organization", icon: Building2, route: "/organization-settings", shortcut: "G O" },
-        { name: "Preferences", icon: Settings, route: "/settings", shortcut: "G S" },
-      ],
-    },
   ];
+
+  if (isAdmin) {
+    sections.push({
+      title: "Admin",
+      items: [{ name: "Admin", icon: ShieldCheck, route: "/admin" }],
+    });
+  }
 
   const visibleSections = sections
     .map((section) => ({

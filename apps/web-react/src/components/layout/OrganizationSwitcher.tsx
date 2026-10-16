@@ -121,7 +121,24 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                       </span>
                     </div>
 
-                    {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isSelected && <Check className="size-3.5 text-primary" />}
+                      <button
+                        type="button"
+                        className="size-6 rounded hover:bg-muted-foreground/15 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center p-0 cursor-pointer"
+                        title="Organization Settings"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          if (currentOrganization?.id !== org.id) {
+                            setCurrentOrganization(org);
+                          }
+                          navigate({ to: "/organization-settings" });
+                        }}
+                      >
+                        <Settings className="size-3" />
+                      </button>
+                    </div>
                   </DropdownMenuItem>
                 );
               })
@@ -130,7 +147,7 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
 
           <DropdownMenuSeparator className="my-1 bg-border/60" />
 
-          {/* Links to Onboarding or Org Settings */}
+          {/* Create New Workspace */}
           <DropdownMenuItem asChild>
             <Link
               to="/onboarding"
@@ -140,18 +157,9 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
               <span>Create New Workspace</span>
             </Link>
           </DropdownMenuItem>
-
-          <DropdownMenuItem asChild>
-            <Link
-              to="/organization-settings"
-              className="flex items-center gap-2.5 px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-xl cursor-pointer transition-colors"
-            >
-              <Settings className="size-3.5 text-muted-foreground" />
-              <span>Organization Settings</span>
-            </Link>
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
   );
 }
+

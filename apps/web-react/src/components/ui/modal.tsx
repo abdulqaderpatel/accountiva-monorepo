@@ -1,17 +1,25 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface ModalProps {
-  isOpen: boolean;
+export interface ModalProps {
+  open?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
-  title?: string;
-  description?: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   maxWidth?: "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
+  maxWidthClass?: string;
+  zIndexClass?: string;
+  bodyClass?: string;
+  header?: React.ReactNode;
+  footer?: React.ReactNode;
+  closeOnBackdrop?: boolean;
 }
 
-const maxWidthMap = {
+const maxWidthMap: Record<string, string> = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
@@ -23,19 +31,28 @@ const maxWidthMap = {
 };
 
 export function Modal({
+  open,
   isOpen,
   onClose,
   title,
   description,
   children,
-  maxWidth = "lg",
+  maxWidth = "xl",
+  maxWidthClass,
+  zIndexClass = "z-50",
+  bodyClass = "p-6",
+  header,
+  footer,
+  closeOnBackdrop = false,
 }: ModalProps) {
+  const isVisible = open ?? isOpen ?? false;
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
 
-    if (isOpen) {
+    if (isVisible) {
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
     } else {
@@ -46,49 +63,77 @@ export function Modal({
       document.body.style.overflow = "unset";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isVisible, onClose]);
 
-  if (!isOpen) return null;
+  if (!isVisible) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+  const resolvedMaxWidth = maxWidthClass || (maxWidth ? maxWidthMap[maxWidth] || maxWidth : "max-w-xl");
 
-      {/* Dialog container */}
+  return createPortal(
+    <div
+      className={cn(
+        "fixed inset-0 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs",
+        zIndexClass
+      )}
+      onClick={() => closeOnBackdrop && onClose()}
+    >
       <div
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
         className={cn(
-          "relative z-50 w-full rounded-2xl border border-border/80 bg-background p-6 shadow-2xl transition-all duration-200 animate-in fade-in-0 zoom-in-95 my-8 max-h-[90vh] flex flex-col",
-          maxWidthMap[maxWidth]
+          "flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-2xl shadow-black/50 outline-none animate-in fade-in zoom-in-95 duration-200",
+          resolvedMaxWidth
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-border/60">
-          <div>
-            {title && <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>}
-            {description && (
-              <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
-            )}
+        {header !== undefined ? (
+          header
+        ) : title || description ? (
+          <div className="flex items-start justify-between gap-4 border-b border-border bg-background px-6 py-4 shrink-0">
+            <div className="min-w-0 space-y-1">
+              {title && (
+                <h2 className="text-base font-semibold leading-tight text-foreground">
+                  {title}
+                </h2>
+              )}
+              {description && (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {description}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Close dialog"
+              onClick={onClose}
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+            >
+              <X className="size-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
+        ) : null}
+
+        {/* Body */}
+        <div data-slot="modal-body" className={cn("min-h-0 flex-1 overflow-y-auto custom-scrollbar", bodyClass)}>
+          {children}
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto pt-4 flex-1">{children}</div>
+        {/* Footer */}
+        {footer && (
+          <div
+            data-slot="modal-footer"
+            className="flex shrink-0 justify-end gap-3 border-t border-border bg-muted/20 px-6 py-4"
+          >
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
+
+export default Modal;
 

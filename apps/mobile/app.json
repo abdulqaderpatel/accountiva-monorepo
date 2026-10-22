@@ -48,6 +48,12 @@
           "imageWidth": 200
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0e602173-260d-46a7-9f8b-4347fdbd6062"
+      }
+    },
+    "owner": "abdulqaderpatel"
   }
 }

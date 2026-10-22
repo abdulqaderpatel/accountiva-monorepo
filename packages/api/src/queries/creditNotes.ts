@@ -90,7 +90,8 @@ export function useCreditNote(id: string) {
 export function useCreateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createCreditNote,
+    mutationFn: (payload: CreditNotePayload | Record<string, unknown>) =>
+      createCreditNote(payload as CreditNotePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
     },
@@ -100,8 +101,8 @@ export function useCreateCreditNote() {
 export function useUpdateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: CreditNotePayload }) =>
-      updateCreditNote(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: CreditNotePayload | Record<string, unknown> }) =>
+      updateCreditNote(id, payload as CreditNotePayload),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
       queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });

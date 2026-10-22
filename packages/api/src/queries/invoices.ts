@@ -78,7 +78,8 @@ export function useInvoice(id: string) {
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createInvoice,
+    mutationFn: (payload: InvoicePayload | Record<string, unknown>) =>
+      createInvoice(payload as InvoicePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },
@@ -88,8 +89,8 @@ export function useCreateInvoice() {
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: InvoicePayload }) =>
-      updateInvoice(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: InvoicePayload | Record<string, unknown> }) =>
+      updateInvoice(id, payload as InvoicePayload),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoices', id] });

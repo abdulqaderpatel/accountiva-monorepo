@@ -70,7 +70,8 @@ export function useEstimate(id: string) {
 export function useCreateEstimate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createEstimate,
+    mutationFn: (payload: EstimatePayload | Record<string, unknown>) =>
+      createEstimate(payload as EstimatePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
     },
@@ -80,8 +81,8 @@ export function useCreateEstimate() {
 export function useUpdateEstimate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: EstimatePayload }) =>
-      updateEstimate(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: EstimatePayload | Record<string, unknown> }) =>
+      updateEstimate(id, payload as EstimatePayload),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       queryClient.invalidateQueries({ queryKey: ['estimates', id] });

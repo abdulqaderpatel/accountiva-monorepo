@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import type { AxiosResponse } from 'axios';
 import api from '@accountiva/api';
+import { extractAuthToken } from '../auth/session';
 
 export interface MobileUser {
   id: string;
@@ -39,6 +41,16 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function normalizeAuthenticatedUser(value: unknown): MobileUser | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as { id?: unknown; email?: unknown; name?: unknown };
+  const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
+  const email = typeof candidate.email === 'string' ? candidate.email.trim() : '';
+  const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
+  if (!id || !email) return null;
+  return { id, email, name: name || email.split('@')[0] || email };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MobileUser | null>(null);
@@ -117,41 +129,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const persistAuthenticatedSession = useCallback(async (
+    response: AxiosResponse<any>,
+    fallbackUser?: unknown,
+  ) => {
+    const authToken = extractAuthToken(response);
+    const authUser = normalizeAuthenticatedUser(response.data?.user ?? fallbackUser);
+
+    if (!authToken) {
+      throw new Error(response.data?.message || 'Authentication did not return a session token.');
+    }
+    if (!authUser) {
+      throw new Error(response.data?.message || 'Authentication did not return a valid user.');
+    }
+
+    await Promise.all([
+      AsyncStorage.setItem('accountiva_token', authToken),
+      AsyncStorage.setItem('accountiva_user', JSON.stringify(authUser)),
+    ]);
+    setToken(authToken);
+    setUser(authUser);
+
+    const list = await refreshOrganizations();
+    await setCurrentOrg(list[0] || null);
+    return response.data;
+  }, [refreshOrganizations, setCurrentOrg]);
+
   const login = async (email: string, password: string) => {
-    const { data } = await api.post('/auth/sign-in/email', {
+    const response = await api.post('/auth/sign-in/email', {
       email,
       password,
     });
-
-    if (data?.token || data?.session?.token) {
-      const authToken = data.token || data.session.token;
-      const authUser = data.user || { id: 'usr-1', email, name: email.split('@')[0] };
-
-      setToken(authToken);
-      setUser(authUser);
-      await AsyncStorage.setItem('accountiva_token', authToken);
-      await AsyncStorage.setItem('accountiva_user', JSON.stringify(authUser));
-
-      // Attempt to load user organizations
-      try {
-        const { data: orgs } = await api.get('/organizations');
-        const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
-        setOrganizations(list);
-        await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
-        if (list.length > 0) {
-          await setCurrentOrg(list[0]);
-        } else {
-          await setCurrentOrg(null);
-        }
-      } catch {
-        setOrganizations([]);
-        await setCurrentOrg(null);
-      }
-
-      return data;
-    }
-
-    throw new Error(data?.message || 'Invalid credentials');
+    return persistAuthenticatedSession(response);
   };
 
   // Configure GoogleSignin on mount
@@ -182,46 +191,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Google Sign-In did not return an ID token.');
       }
 
-      const { data } = await api.post('/auth/sign-in/social', {
+      const response = await api.post('/auth/sign-in/social', {
         provider: 'google',
         idToken: {
           token: idToken,
         },
       });
-
-      if (data?.token || data?.session?.token) {
-        const authToken = data.token || data.session.token;
-        const authUser = data.user || {
-          id: signInResult.data?.user?.id || 'usr-google',
-          email: signInResult.data?.user?.email || '',
-          name: signInResult.data?.user?.name || 'Google User',
-        };
-
-        setToken(authToken);
-        setUser(authUser);
-        await AsyncStorage.setItem('accountiva_token', authToken);
-        await AsyncStorage.setItem('accountiva_user', JSON.stringify(authUser));
-
-        // Attempt to load user organizations
-        try {
-          const { data: orgs } = await api.get('/organizations');
-          const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
-          setOrganizations(list);
-          await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
-          if (list.length > 0) {
-            await setCurrentOrg(list[0]);
-          } else {
-            await setCurrentOrg(null);
-          }
-        } catch {
-          setOrganizations([]);
-          await setCurrentOrg(null);
-        }
-
-        return data;
-      }
-
-      throw new Error(data?.message || 'Failed to authenticate with Google');
+      return persistAuthenticatedSession(response, signInResult.data?.user);
     } catch (err: any) {
       if (err?.code === 'SIGN_IN_CANCELLED' || err?.code === '12501') {
         return null;
@@ -307,15 +283,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await GoogleSignin.signOut();
-    } catch {}
-    setUser(null);
-    setToken(null);
-    setCurrentOrgState(null);
-    await AsyncStorage.removeItem('accountiva_token');
-    await AsyncStorage.removeItem('accountiva_user');
-    await AsyncStorage.removeItem('accountiva_org_id');
-    await AsyncStorage.removeItem('accountiva_current_org');
+      await api.post('/auth/sign-out');
+    } catch {
+      // Local sign-out must still complete if the server session is already gone.
+    } finally {
+      try {
+        await GoogleSignin.signOut();
+      } catch {}
+      setUser(null);
+      setToken(null);
+      setCurrentOrgState(null);
+      setOrganizations([]);
+      await Promise.allSettled([
+        AsyncStorage.removeItem('accountiva_token'),
+        AsyncStorage.removeItem('accountiva_user'),
+        AsyncStorage.removeItem('accountiva_org_id'),
+        AsyncStorage.removeItem('accountiva_current_org'),
+        AsyncStorage.removeItem('accountiva_organizations'),
+      ]);
+    }
   };
 
   return (

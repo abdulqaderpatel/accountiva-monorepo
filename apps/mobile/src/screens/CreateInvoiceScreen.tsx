@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,12 +27,23 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
-import { formatCurrency } from '@accountiva/shared';
-import { useCreateInvoice, useUpdateInvoice, useCustomers, useItems } from '@accountiva/api';
+import {
+  formatCurrency,
+  isDuplicateDocumentNumberError,
+  type InvoiceStatus,
+} from '@accountiva/shared';
+import {
+  fetchNextInvoiceNumber,
+  useCreateInvoice,
+  useUpdateInvoice,
+  useCustomers,
+  useItems,
+} from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { AddCustomerModal } from '../components/AddCustomerModal';
 import { CustomFieldRenderer } from '../components/ui/CustomFieldRenderer';
+import { buildMobileInvoicePayload } from '../documents/payloads';
 
 export interface LineItem {
   id: string;
@@ -93,8 +104,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const [invoiceNumber, setInvoiceNumber] = useState(
     initialInvoice?.number ||
       initialInvoice?.invoiceNumber ||
-      `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+      ''
   );
+  const [isNumberLoading, setIsNumberLoading] = useState(false);
+  const [numberError, setNumberError] = useState<string | null>(null);
+  const numberRequestRef = useRef(0);
 
   const [date, setDate] = useState(() => {
     if (initialInvoice?.date) {
@@ -157,6 +171,42 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const loadNextInvoiceNumber = useCallback(async () => {
+    const requestId = ++numberRequestRef.current;
+    setIsNumberLoading(true);
+    setNumberError(null);
+    try {
+      const nextNumber = await fetchNextInvoiceNumber();
+      if (numberRequestRef.current === requestId) {
+        setInvoiceNumber(nextNumber);
+      }
+      return nextNumber;
+    } catch (error: any) {
+      if (numberRequestRef.current === requestId) {
+        setInvoiceNumber('');
+        setNumberError(
+          error.response?.data?.error ||
+            error.message ||
+            'Could not load the next invoice number.',
+        );
+      }
+      return null;
+    } finally {
+      if (numberRequestRef.current === requestId) {
+        setIsNumberLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!initialInvoice?.id) {
+      void loadNextInvoiceNumber();
+    }
+    return () => {
+      numberRequestRef.current += 1;
+    };
+  }, [initialInvoice?.id, loadNextInvoiceNumber]);
+
   // Calculations
   const subtotal = useMemo(() => {
     return items.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
@@ -168,7 +218,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     if (discountType === 'percentage') {
       return (subtotal * val) / 100;
     }
-    return val;
+    return Math.min(val, subtotal);
   }, [subtotal, discountValue, discountType]);
 
   const taxableAmount = Math.max(0, subtotal - discountAmount);
@@ -252,6 +302,12 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     );
   };
 
+  const updateDescription = (id: string, description: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, description } : item))
+    );
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -290,34 +346,39 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     setApiError(null);
     if (!validateForm()) return;
 
-    const payload = {
-      invoiceNumber: invoiceNumber.trim(),
-      customerId,
-      customerName: customer,
-      date,
-      dueDate,
-      amount: grandTotal,
-      subtotal,
-      taxAmount: tax,
-      taxPercent: 18,
-      discountType,
-      discountValue: Number(discountValue) || undefined,
-      discountAmount,
-      shippingCharges: shipping || undefined,
-      adjustment: adj || undefined,
-      notes: notes.trim() || undefined,
-      termsConditions: termsConditions.trim() || undefined,
-      customFields,
-      status: initialInvoice?.status || 'Draft',
-      items: items.map((i) => ({
-        itemId: i.itemId || undefined,
-        itemName: i.name.trim(),
-        description: i.description || undefined,
-        quantity: Number(i.quantity) || 1,
-        rate: Number(i.rate) || 0,
-        amount: (Number(i.quantity) || 1) * (Number(i.rate) || 0),
-      })),
-    };
+    const rawStatus = String(initialInvoice?.status || 'Draft').toLowerCase();
+    const status: InvoiceStatus = rawStatus === 'paid'
+      ? 'Paid'
+      : rawStatus === 'outstanding'
+        ? 'Outstanding'
+        : 'Draft';
+
+    let payload;
+    try {
+      payload = buildMobileInvoicePayload({
+        invoiceNumber,
+        customerId,
+        date,
+        dueDate,
+        status,
+        items,
+        referenceNumber: initialInvoice?.referenceNumber,
+        billingAddress: initialInvoice?.billingAddress,
+        shippingAddress: initialInvoice?.shippingAddress,
+        terms: initialInvoice?.terms,
+        discountType,
+        discountValue,
+        shippingCharges,
+        adjustment,
+        taxPercent: 18,
+        notes,
+        termsConditions,
+        customFields,
+      });
+    } catch (error: any) {
+      setApiError(error.message || 'Please correct the invoice details.');
+      return;
+    }
 
     try {
       if (initialInvoice?.id) {
@@ -335,6 +396,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         err.response?.data?.message ||
         err.message ||
         'Failed to save invoice. Please check all fields.';
+      if (!initialInvoice?.id && isDuplicateDocumentNumberError(err)) {
+        setApiError(`${msg} Your entries were kept while a fresh number is loaded.`);
+        await loadNextInvoiceNumber();
+        return;
+      }
       setApiError(msg);
     }
   };
@@ -359,8 +425,16 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         </Text>
         <TouchableOpacity
           onPress={handleSave}
-          disabled={createInvoiceMutation.isPending || updateInvoiceMutation.isPending}
-          style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+          disabled={
+            createInvoiceMutation.isPending ||
+            updateInvoiceMutation.isPending ||
+            (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
+          }
+          style={[
+            styles.saveBtn,
+            { backgroundColor: colors.primary },
+            !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()) ? styles.disabledBtn : null,
+          ]}
           activeOpacity={0.8}
         >
           {createInvoiceMutation.isPending || updateInvoiceMutation.isPending ? (
@@ -441,6 +515,17 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
             />
             {errors.invoiceNumber ? (
               <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.invoiceNumber}</Text>
+            ) : null}
+            {!initialInvoice?.id && isNumberLoading ? (
+              <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>Loading next number...</Text>
+            ) : null}
+            {!initialInvoice?.id && numberError ? (
+              <View style={styles.numberErrorRow}>
+                <Text style={[styles.inlineError, { color: colors.destructive, flex: 1 }]}>{numberError}</Text>
+                <TouchableOpacity onPress={() => void loadNextInvoiceNumber()} activeOpacity={0.7}>
+                  <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+                </TouchableOpacity>
+              </View>
             ) : null}
           </View>
 
@@ -598,6 +683,22 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                     <Trash size={16} color={colors.destructive} />
                   </TouchableOpacity>
                 </View>
+
+                <TextInput
+                  value={item.description || ''}
+                  onChangeText={(value) => updateDescription(item.id, value)}
+                  placeholder="Line-item description..."
+                  placeholderTextColor={colors.mutedForeground}
+                  multiline
+                  style={[
+                    styles.itemDescriptionInput,
+                    {
+                      backgroundColor: colors.surfaceSubtle,
+                      borderColor: colors.border,
+                      color: colors.foreground,
+                    },
+                  ]}
+                />
 
                 <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
 
@@ -1009,6 +1110,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.bold,
   },
+  disabledBtn: {
+    opacity: 0.55,
+  },
   formContent: {
     padding: 16,
     paddingBottom: 40,
@@ -1037,6 +1141,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  fieldHint: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    marginTop: 2,
+  },
+  numberErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  retryText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
   },
   customerSelectBox: {
     flexDirection: 'row',
@@ -1160,6 +1278,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fonts.regular,
     marginTop: 2,
+  },
+  itemDescriptionInput: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 10,
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    textAlignVertical: 'top',
   },
   deleteBtn: {
     padding: 4,

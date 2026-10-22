@@ -7,16 +7,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
-  ActivityIndicator,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
-import { X, Share2, CircleCheck, Users, FileText, Send, Trash, Pencil, Ban } from 'lucide-react-native';
+import { X, Share2, CircleCheck, Users, Send, Trash, Pencil } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import { formatCurrency, formatDate } from '@accountiva/shared';
-import { useUpdateInvoice, useDeleteInvoice } from '@accountiva/api';
+import { formatCurrency } from '@accountiva/shared';
+import { useUpdateInvoiceStatus, useDeleteInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
+import { useAuth } from '../context/AuthContext';
 
 interface InvoiceDetailModalProps {
   visible: boolean;
@@ -28,14 +28,21 @@ interface InvoiceDetailModalProps {
 
 export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdit }: InvoiceDetailModalProps) {
   const { colors } = useTheme();
-  const updateInvoiceMutation = useUpdateInvoice();
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
+  const updateInvoiceStatusMutation = useUpdateInvoiceStatus();
   const deleteInvoiceMutation = useDeleteInvoice();
 
   if (!invoice) return null;
 
   const rawAmount = Number(invoice.amount) || 0;
-  const rawSubtotal = Number(invoice.subtotal) || rawAmount * 0.847;
-  const rawTax = Number(invoice.taxAmount) || Number(invoice.tax_amount) || rawAmount - rawSubtotal;
+  const lineItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
+  const calculatedSubtotal = lineItems.reduce((sum, item) => {
+    const lineAmount = Number(item.amount ?? (Number(item.quantity) * Number(item.rate)));
+    return sum + (Number.isFinite(lineAmount) ? lineAmount : 0);
+  }, 0);
+  const rawSubtotal = Number(invoice.subtotal) || calculatedSubtotal;
+  const rawTax = Number(invoice.taxAmount) || Number(invoice.tax_amount) || 0;
   const status = String(invoice.status || 'Draft').toUpperCase();
 
   const clientName = typeof invoice.customer === 'string'
@@ -53,15 +60,14 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
   const invoiceDueDate = String(invoice.dueDate || 'Upon Receipt');
 
   const isPaid = status === 'PAID';
-  const isOverdue = status === 'OVERDUE';
-  const isVoid = status === 'VOID';
   const isDraft = status === 'DRAFT';
-  const variant = isPaid ? 'success' : isOverdue ? 'destructive' : isVoid ? 'default' : 'warning';
+  const isOutstanding = status === 'OUTSTANDING';
+  const variant = isPaid ? 'success' : isOutstanding ? 'warning' : 'outline';
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Accountiva Invoice ${invoice.number || invoice.invoiceNumber} for ${invoice.customer || invoice.customerName} - Total: ${formatCurrency(rawAmount, 'INR')}`,
+        message: `Accountiva Invoice ${invoice.number || invoice.invoiceNumber} for ${clientName} - Total: ${formatCurrency(rawAmount, currency)}`,
         title: `Invoice ${invoice.number || invoice.invoiceNumber}`,
       });
     } catch (err: any) {
@@ -69,17 +75,20 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
     }
   };
 
-  const handleStatusChange = async (newStatus: 'Paid' | 'Sent' | 'Void') => {
+  const handleStatusChange = async (newStatus: 'Outstanding' | 'Paid') => {
     try {
-      await updateInvoiceMutation.mutateAsync({
+      await updateInvoiceStatusMutation.mutateAsync({
         id: invoice.id,
-        payload: { status: newStatus },
+        status: newStatus,
       });
       toast.success('Status Updated', `Invoice marked as ${newStatus}!`);
       if (onRefresh) onRefresh();
       onClose();
     } catch (err: any) {
-      toast.error('Update Failed', err.message || 'Could not update status');
+      toast.error(
+        'Update Failed',
+        err.response?.data?.error || err.response?.data?.message || err.message || 'Could not update status',
+      );
     }
   };
 
@@ -102,29 +111,6 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
       },
     });
   };
-
-  const handleVoid = () => {
-    confirm({
-      title: 'Void Invoice',
-      message: `Are you sure you want to mark invoice ${invoice.number || invoice.invoiceNumber} as void?`,
-      confirmText: 'Void Invoice',
-      destructive: true,
-      icon: 'alert',
-      onConfirm: () => handleStatusChange('Void'),
-    });
-  };
-
-  const lineItems: any[] = Array.isArray(invoice.items) && invoice.items.length > 0
-    ? invoice.items
-    : [
-        {
-          id: '1',
-          name: invoice.description || 'Standard Professional Services',
-          quantity: 1,
-          rate: rawSubtotal,
-          amount: rawSubtotal,
-        },
-      ];
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -172,7 +158,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 <View>
                   <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>Total Payable</Text>
                   <Text style={[styles.heroAmount, { color: colors.foreground }]}>
-                    {formatCurrency(rawAmount, 'INR')}
+                    {formatCurrency(rawAmount, currency)}
                   </Text>
                 </View>
                 <Badge variant={variant}>{status}</Badge>
@@ -215,19 +201,26 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
             {/* Line Items Breakdown */}
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Line Items</Text>
             <Card style={styles.itemsCard}>
-              {lineItems.map((item, idx) => (
+              {lineItems.length === 0 ? (
+                <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>No line items recorded.</Text>
+              ) : lineItems.map((item, idx) => (
                 <View key={item.id || idx}>
                   <View style={styles.itemRow}>
                     <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={[styles.itemName, { color: colors.foreground }]}>
                         {item.name || item.itemName}
                       </Text>
+                      {item.description ? (
+                        <Text style={[styles.itemDescription, { color: colors.mutedForeground }]}>
+                          {item.description}
+                        </Text>
+                      ) : null}
                       <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
-                        {item.quantity || 1} × {formatCurrency(Number(item.rate) || 0, 'INR')}
+                        {item.quantity || 1} × {formatCurrency(Number(item.rate) || 0, currency)}
                       </Text>
                     </View>
                     <Text style={[styles.itemTotal, { color: colors.foreground }]}>
-                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), 'INR')}
+                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), currency)}
                     </Text>
                   </View>
                   {idx < lineItems.length - 1 ? (
@@ -241,7 +234,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawSubtotal, 'INR')}
+                  {formatCurrency(rawSubtotal, currency)}
                 </Text>
               </View>
 
@@ -249,7 +242,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
-                    -{formatCurrency(Number(invoice.discountAmount || invoice.discountValue) || 0, 'INR')}
+                    -{formatCurrency(Number(invoice.discountAmount || invoice.discountValue) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -257,7 +250,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawTax, 'INR')}
+                  {formatCurrency(rawTax, currency)}
                 </Text>
               </View>
 
@@ -265,7 +258,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(invoice.shippingCharges) || 0, 'INR')}
+                    {formatCurrency(Number(invoice.shippingCharges) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -274,7 +267,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(invoice.adjustment) || 0, 'INR')}
+                    {formatCurrency(Number(invoice.adjustment) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -282,17 +275,17 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
               <View style={styles.summaryRow}>
                 <Text style={[styles.grandLabel, { color: colors.foreground }]}>Total</Text>
                 <Text style={[styles.grandValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawAmount, 'INR')}
+                  {formatCurrency(rawAmount, currency)}
                 </Text>
               </View>
             </Card>
 
             {/* Status Quick Actions */}
             <View style={styles.actionRow}>
-              {!isPaid ? (
+              {isOutstanding ? (
                 <TouchableOpacity
                   onPress={() => handleStatusChange('Paid')}
-                  disabled={updateInvoiceMutation.isPending}
+                  disabled={updateInvoiceStatusMutation.isPending}
                   style={[styles.primaryActionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
@@ -303,28 +296,14 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
 
               {status === 'DRAFT' ? (
                 <TouchableOpacity
-                  onPress={() => handleStatusChange('Sent')}
-                  disabled={updateInvoiceMutation.isPending}
+                  onPress={() => handleStatusChange('Outstanding')}
+                  disabled={updateInvoiceStatusMutation.isPending}
                   style={[styles.primaryActionBtn, { backgroundColor: colors.primary }]}
                   activeOpacity={0.8}
                 >
                   <Send size={16} color={colors.primaryForeground} style={{ marginRight: 6 }} />
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
-                    Mark as Sent
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {!isPaid && !isVoid ? (
-                <TouchableOpacity
-                  onPress={handleVoid}
-                  disabled={updateInvoiceMutation.isPending}
-                  style={[styles.secondaryActionBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
-                  activeOpacity={0.7}
-                >
-                  <Ban size={15} color={colors.destructive} style={{ marginRight: 6 }} />
-                  <Text style={[styles.secondaryActionText, { color: colors.destructive }]}>
-                    Void
+                    Finalize Invoice
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -508,6 +487,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: fonts.semiBold,
   },
+  itemDescription: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    marginTop: 2,
+  },
   itemSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
@@ -561,18 +545,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
-  },
-  secondaryActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    height: 44,
-    paddingHorizontal: 16,
-  },
-  secondaryActionText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

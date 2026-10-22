@@ -20,6 +20,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { InvoiceDetailModal } from '../components/InvoiceDetailModal';
 import { CreateInvoiceScreen } from './CreateInvoiceScreen';
+import { useAuth } from '../context/AuthContext';
 
 interface InvoicesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -37,30 +38,36 @@ interface InvoiceRecord {
   items?: any[];
   subtotal?: number;
   taxAmount?: number;
+  customerId?: string;
+  [key: string]: any;
 }
 
 export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
   const { colors } = useTheme();
-  const [filter, setFilter] = useState<'all' | 'unpaid' | 'paid' | 'overdue'>('all');
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
+  const [filter, setFilter] = useState<'all' | 'draft' | 'outstanding' | 'paid'>('all');
   const [search, setSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices({
     search: search || undefined,
-    status: filter === 'all' ? undefined : filter.toUpperCase(),
+    status: filter === 'all'
+      ? undefined
+      : filter === 'draft'
+        ? 'Draft'
+        : filter === 'outstanding'
+          ? 'Outstanding'
+          : 'Paid',
   });
 
   const getStatusVariant = (status: string): InvoiceRecord['variant'] => {
     switch (status.toUpperCase()) {
       case 'PAID':
         return 'success';
-      case 'SENT':
       case 'OUTSTANDING':
-      case 'PENDING':
         return 'warning';
-      case 'OVERDUE':
-        return 'destructive';
       default:
         return 'outline';
     }
@@ -73,6 +80,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     : [];
 
   const invoices: InvoiceRecord[] = rawList.map((item: any) => ({
+    ...item,
     id: item.id,
     customer:
       typeof item.customer === 'string'
@@ -97,8 +105,8 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     const matchesFilter =
       filter === 'all' ||
       (filter === 'paid' && inv.status === 'PAID') ||
-      (filter === 'overdue' && inv.status === 'OVERDUE') ||
-      (filter === 'unpaid' && (inv.status === 'SENT' || inv.status === 'OUTSTANDING' || inv.status === 'PENDING'));
+      (filter === 'draft' && inv.status === 'DRAFT') ||
+      (filter === 'outstanding' && inv.status === 'OUTSTANDING');
 
     return matchesSearch && matchesFilter;
   });
@@ -135,7 +143,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
       {/* Filter Tabs */}
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {(['all', 'unpaid', 'paid', 'overdue'] as const).map((key) => {
+          {(['all', 'draft', 'outstanding', 'paid'] as const).map((key) => {
             const isSelected = filter === key;
             return (
               <TouchableOpacity
@@ -235,10 +243,10 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
                 <Text
                   style={[
                     styles.totalAmount,
-                    { color: inv.status === 'OVERDUE' ? colors.destructive : colors.foreground },
+                    { color: colors.foreground },
                   ]}
                 >
-                  {formatCurrency(inv.amount, 'INR')}
+                  {formatCurrency(inv.amount, currency)}
                 </Text>
               </View>
             </TouchableOpacity>

@@ -157,7 +157,7 @@ Keep `POST /api/chat` for compatibility. The new request shape is:
   "clientRequestId": "client-generated-id-or-null",
   "message": "user text",
   "attachments": [
-    { "name": "invoice.pdf", "mimeType": "application/pdf", "data": "data:..." }
+    { "name": "invoice.pdf", "mimeType": "application/pdf", "size": 102400, "data": "data:..." }
   ]
 }
 ```
@@ -278,7 +278,7 @@ The AI tool registry and executor must honor the existing `ENABLE_ALL_FEATURES` 
 
 ## Attachment Handling
 
-- Accept PNG, JPEG, and PDF files up to 10 MB each, matching the existing assistant behavior.
+- Accept at most three PNG, JPEG, or PDF files up to 10 MB each, matching the existing assistant behavior while remaining below the 50 MB encoded JSON request limit.
 - Validate MIME type, declared size, decoded size, and attachment count at the backend boundary.
 - Strip data-URL prefixes before sending inline data to Gemini.
 - Store only safe metadata such as filename and MIME type with the chat message.
@@ -286,7 +286,7 @@ The AI tool registry and executor must honor the existing `ENABLE_ALL_FEATURES` 
 - Document analysis may propose a supported write action, but the proposal still requires confirmation.
 - Unsupported staged records are explained without bypassing release controls.
 
-The implementation plan must set a small attachment-count limit based on the backend request-body limit already in use; it must not raise global body limits without an explicit need.
+The implementation must not raise global body limits.
 
 ## React Web Experience
 

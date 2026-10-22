@@ -44,6 +44,7 @@ Each later cycle receives its own written specification and implementation plan.
 | Invoice creation | Auto-number mode can submit no number | Resolve a backend number before submission and always send it |
 | Estimate conversion | Incomplete invoice payload and invalid follow-up update | Create a valid invoice, then mark the estimate `Invoiced` through its status endpoint |
 | Mobile credit note creation | Omits required date and line items | Submit a complete validated financial-document payload |
+| Credit application | React and mobile omit Vue's apply-to-invoice workflow | Apply open credit through `POST /credit-notes/:id/apply` and refresh both records |
 | Invoice statuses | React/mobile expose unsupported `Sent` or `Void` states | Use only `Draft`, `Outstanding`, and `Paid` |
 | Mobile session persistence | Looks only for a token in the response body | Prefer Better Auth's `set-auth-token` response header, with body fallback |
 | Mobile logout | Clears local state only | Attempt backend sign-out, then clear local state even if the request fails |
@@ -57,6 +58,7 @@ Each later cycle receives its own written specification and implementation plan.
 - full update mutations using `PATCH`;
 - document-specific status mutations;
 - invoice bulk-status mutation;
+- credit-note application mutation;
 - next-number queries or request helpers;
 - typed create, update, status, and line-item payloads for the three document types.
 
@@ -113,7 +115,7 @@ Supported states are:
 
 - Invoice: `Draft`, `Outstanding`, `Paid`.
 - Estimate: `Draft`, `Sent`, `Accepted`, `Declined`, `Invoiced`.
-- Credit note: `Open`, `Void`, subject to backend restrictions for already-applied credit notes.
+- Credit note: `Draft`, `Open`, `Closed`, and `Void`. A draft may be issued as `Open`; only untouched open credit may be voided, and `Closed` is produced by fully applying the balance.
 
 ### Estimate-to-invoice conversion
 
@@ -131,6 +133,10 @@ The invoice is created before the estimate is marked invoiced because an `Invoic
 ### Mobile credit-note creation
 
 The mobile form will use a native line-item editor consistent with the existing invoice and estimate editors. It will collect or derive the issue date, customer ID, one or more valid line items, totals, optional reference invoice, reason/notes, and custom fields. An amount-only request will no longer be submitted.
+
+### Credit-note application
+
+Both frontends will offer Apply to Invoice only for an `Open` credit note with remaining balance. The selection is limited to outstanding invoices belonging to the same customer. The amount must be positive and no greater than either the remaining credit or the invoice's outstanding balance. Submission calls `POST /credit-notes/:id/apply`; success refreshes credit-note and invoice queries so server-derived balances and `Closed`/`Paid` states are shown. A `409` balance conflict keeps the form open, refreshes the relevant records, and asks the user to review the new balances.
 
 ## Error Handling
 
@@ -168,6 +174,7 @@ If authenticated integration testing cannot be performed safely without writing 
 - Invoice actions expose only backend-supported statuses.
 - Estimate conversion creates a valid draft invoice and marks the estimate `Invoiced`, with truthful partial-failure reporting.
 - Mobile credit notes contain valid dates and line items.
+- Open credit notes can be applied to a matching customer's outstanding invoice with backend-enforced balance limits reflected in both frontends.
 - Native email and Google sign-in persist the Better Auth bearer token when the server returns it in `set-auth-token`.
 - Native logout attempts server invalidation and always clears local authentication state.
 - React web matches the Vue reference for scoped screens and workflows, apart from the intentionally retained React theme colors.

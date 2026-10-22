@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@accountiva/shared";
-import { useUpdateInvoice } from "@accountiva/api";
+import { useUpdateInvoiceStatus } from "@accountiva/api";
 import { toast } from "sonner";
 import {
   FileText,
@@ -35,7 +35,7 @@ export function InvoiceDetailModal({
   onSuccess,
 }: InvoiceDetailModalProps) {
   const [isSendOpen, setIsSendOpen] = useState(false);
-  const updateInvoiceMutation = useUpdateInvoice();
+  const updateStatusMutation = useUpdateInvoiceStatus();
 
   if (!invoice) return null;
 
@@ -47,13 +47,15 @@ export function InvoiceDetailModal({
   const isPaid = status === "PAID";
   const isOverdue = status === "OVERDUE";
 
-  const handleStatusUpdate = async (newStatus: "Paid" | "Sent") => {
+  const handleStatusUpdate = async (newStatus: "Paid" | "Outstanding") => {
     try {
-      await updateInvoiceMutation.mutateAsync({
+      await updateStatusMutation.mutateAsync({
         id: invoice.id,
-        payload: { status: newStatus },
+        status: newStatus,
       });
-      toast.success(`Invoice marked as ${newStatus}!`);
+      toast.success(
+        newStatus === "Outstanding" ? "Invoice finalized!" : "Invoice marked as Paid!",
+      );
       onSuccess?.();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to update status");
@@ -97,6 +99,10 @@ export function InvoiceDetailModal({
             ) : isOverdue ? (
               <Badge variant="destructive" className="gap-1">
                 <AlertCircle className="size-3" /> Overdue
+              </Badge>
+            ) : status === "DRAFT" ? (
+              <Badge variant="draft" className="gap-1">
+                <FileText className="size-3" /> Draft
               </Badge>
             ) : (
               <Badge variant="warning" className="gap-1">
@@ -245,7 +251,7 @@ export function InvoiceDetailModal({
                 size="sm"
                 variant="outline"
                 onClick={() => handleStatusUpdate("Paid")}
-                disabled={updateInvoiceMutation.isPending}
+                disabled={updateStatusMutation.isPending}
                 className="gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
               >
                 <Check className="size-3.5" />
@@ -256,12 +262,12 @@ export function InvoiceDetailModal({
             {status === "DRAFT" && (
               <Button
                 size="sm"
-                onClick={() => handleStatusUpdate("Sent")}
-                disabled={updateInvoiceMutation.isPending}
+                onClick={() => handleStatusUpdate("Outstanding")}
+                disabled={updateStatusMutation.isPending}
                 className="gap-1.5 text-xs"
               >
-                <Send className="size-3.5" />
-                <span>Mark Sent</span>
+                <Check className="size-3.5" />
+                <span>Finalize Invoice</span>
               </Button>
             )}
 

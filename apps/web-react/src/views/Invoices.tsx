@@ -42,8 +42,18 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
-import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
-import { useInvoices, useDeleteInvoice, useUpdateInvoice } from "@accountiva/api";
+import {
+  formatCurrency,
+  formatDate,
+  exportToCsv,
+  type InvoiceStatus,
+} from "@accountiva/shared";
+import {
+  useInvoices,
+  useDeleteInvoice,
+  useUpdateInvoiceStatus,
+  useBulkUpdateInvoiceStatus,
+} from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
@@ -104,7 +114,8 @@ export function Invoices() {
   });
 
   const deleteInvoiceMutation = useDeleteInvoice();
-  const updateInvoiceMutation = useUpdateInvoice();
+  const updateStatusMutation = useUpdateInvoiceStatus();
+  const bulkUpdateStatusMutation = useBulkUpdateInvoiceStatus();
 
   const rawInvoices: InvoiceRecord[] = useMemo(() => {
     if (Array.isArray(apiInvoices)) return apiInvoices;
@@ -118,7 +129,7 @@ export function Invoices() {
     const outstanding = rawInvoices
       .filter((i) => {
         const s = String(i.status || "").toLowerCase();
-        return s === "outstanding" || s === "sent" || s === "due";
+        return s === "outstanding";
       })
       .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
 
@@ -182,7 +193,7 @@ export function Invoices() {
       let matchesFilter = true;
       if (activeFilter === "Draft") matchesFilter = s === "draft";
       else if (activeFilter === "Due" || activeFilter === "Outstanding") {
-        matchesFilter = s === "outstanding" || s === "sent" || s === "due";
+        matchesFilter = s === "outstanding";
       } else if (activeFilter === "Paid") matchesFilter = s === "paid";
       else if (activeFilter === "Overdue") matchesFilter = s === "overdue";
 
@@ -256,20 +267,30 @@ export function Invoices() {
     }
   };
 
-  const handleBulkMarkPaid = async () => {
+  const handleBulkStatus = async (status: InvoiceStatus) => {
     if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
     try {
-      for (const id of Array.from(selectedIds)) {
-        await updateInvoiceMutation.mutateAsync({
-          id,
-          payload: { status: "Paid" },
-        });
-      }
-      toast.success(`Marked ${selectedIds.size} invoice(s) as Paid`);
+      await bulkUpdateStatusMutation.mutateAsync({ ids, status });
+      toast.success(`Marked ${ids.length} invoice(s) as ${status}`);
       setSelectedIds(new Set());
       refetch();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to update invoices");
+    }
+  };
+
+  const handleStatusUpdate = async (invoice: InvoiceRecord, status: InvoiceStatus) => {
+    try {
+      await updateStatusMutation.mutateAsync({ id: invoice.id, status });
+      toast.success(
+        status === "Outstanding"
+          ? `Invoice ${invoice.invoiceNumber} finalized`
+          : `Invoice ${invoice.invoiceNumber} marked as ${status}`,
+      );
+      refetch();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || "Failed to update status");
     }
   };
 
@@ -304,8 +325,6 @@ export function Invoices() {
           </span>
         );
       case "outstanding":
-      case "sent":
-      case "due":
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
             <Clock className="size-3" /> Outstanding
@@ -599,20 +618,21 @@ export function Invoices() {
                               Edit Invoice
                             </DropdownMenuItem>
 
-                            {String(inv.status).toLowerCase() !== "paid" && (
+                            {inv.status === "Draft" && (
                               <DropdownMenuItem
-                                onClick={async () => {
-                                  try {
-                                    await updateInvoiceMutation.mutateAsync({
-                                      id: inv.id,
-                                      payload: { status: "Paid" },
-                                    });
-                                    toast.success(`Invoice ${inv.invoiceNumber} marked as Paid!`);
-                                    refetch();
-                                  } catch (err: any) {
-                                    toast.error(err.response?.data?.message || err.message || "Failed to update status");
-                                  }
-                                }}
+                                onClick={() => void handleStatusUpdate(inv, "Outstanding")}
+                                disabled={updateStatusMutation.isPending}
+                                className="cursor-pointer gap-2 text-xs font-medium text-blue-600 dark:text-blue-400"
+                              >
+                                <Send className="size-3.5" />
+                                Finalize Invoice
+                              </DropdownMenuItem>
+                            )}
+
+                            {inv.status !== "Paid" && (
+                              <DropdownMenuItem
+                                onClick={() => void handleStatusUpdate(inv, "Paid")}
+                                disabled={updateStatusMutation.isPending}
                                 className="cursor-pointer gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400"
                               >
                                 <Check className="size-3.5" />
@@ -689,14 +709,30 @@ export function Invoices() {
         totalCount={filteredInvoices.length}
         onClearSelection={() => setSelectedIds(new Set())}
       >
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleBulkMarkPaid}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <Check className="size-3.5 text-emerald-500" /> Mark Paid
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={bulkUpdateStatusMutation.isPending}
+              className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
+            >
+              Status
+              <ChevronRight className="size-3.5 rotate-90 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-40 rounded-xl p-1 shadow-xl">
+            <DropdownMenuItem onClick={() => void handleBulkStatus("Draft")} className="text-xs cursor-pointer">
+              Mark as Draft
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleBulkStatus("Outstanding")} className="text-xs cursor-pointer">
+              Mark as Outstanding
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => void handleBulkStatus("Paid")} className="text-xs cursor-pointer">
+              Mark as Paid
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button
           size="sm"
           variant="outline"

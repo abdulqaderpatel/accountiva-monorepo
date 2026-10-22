@@ -130,6 +130,36 @@ describe("invoice requests", () => {
       { ids: ["invoice-1", "invoice-2"], status: "Paid" },
     );
   });
+
+  it("propagates a duplicate conflict and only fetches a replacement number when asked", async () => {
+    const completeFormPayload: InvoicePayload = {
+      ...invoice,
+      referenceNumber: "PO-2026-17",
+      billingAddress: "1 Market Road",
+      shippingAddress: "2 Delivery Lane",
+      terms: "Net 30",
+      discountType: "percentage",
+      discountValue: 5,
+      discountAmount: 5,
+      shippingCharges: 10,
+      adjustment: 0,
+      notes: "Thank you for your business.",
+      termsConditions: "Payment is due within 30 days.",
+      taxPercent: 18,
+      taxAmount: 18,
+      customFields: { purchaseOrder: "PO-2026-17" },
+    };
+    const conflict = { response: { status: 409, data: { error: "Number already exists" } } };
+    mockedPost.mockRejectedValueOnce(conflict);
+    mockedGet.mockResolvedValueOnce({ data: { nextNumber: "INV-0002" } } as never);
+
+    await expect(createInvoice(completeFormPayload)).rejects.toBe(conflict);
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+    expect(mockedGet).not.toHaveBeenCalled();
+
+    await expect(fetchNextInvoiceNumber()).resolves.toBe("INV-0002");
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("estimate requests", () => {

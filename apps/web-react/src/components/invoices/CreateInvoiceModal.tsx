@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,16 +16,28 @@ import {
   Trash2,
   Package,
   ChevronDown,
-  ExternalLink,
-  Check,
 } from "lucide-react";
-import { formatCurrency, getCurrencySymbol } from "@accountiva/shared";
-import { useCreateInvoice, useUpdateInvoice, useCustomers, useItems } from "@accountiva/api";
+import {
+  formatCurrency,
+  getCurrencySymbol,
+  isDuplicateDocumentNumberError,
+  validateFinancialDocumentDates,
+  validateFinancialLineItems,
+  type InvoicePayload,
+} from "@accountiva/shared";
+import {
+  fetchNextInvoiceNumber,
+  useCreateInvoice,
+  useUpdateInvoice,
+  useCustomers,
+  useItems,
+} from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface InvoiceItemRow {
+  id?: string;
   itemId?: string;
   itemName: string;
   description: string;
@@ -46,6 +58,10 @@ const DISCOUNT_TYPE_OPTIONS = [
   { id: "percentage", name: "Percentage (%)" },
   { id: "fixed", name: "Fixed Amount" },
 ];
+
+const today = () => new Date().toISOString().split("T")[0];
+const defaultDueDate = () =>
+  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
 export function CreateInvoiceModal({
   isOpen,
@@ -77,14 +93,15 @@ export function CreateInvoiceModal({
   const [isEditing, setIsEditing] = useState(false);
   const [autoGenerateNumber, setAutoGenerateNumber] = useState(true);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [isNumberLoading, setIsNumberLoading] = useState(false);
+  const [numberError, setNumberError] = useState("");
+  const numberRequestRef = useRef(0);
   const [manualAmount, setManualAmount] = useState<number | string>(0);
   const [customerId, setCustomerId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [dueDate, setDueDate] = useState(
-    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-  );
+  const [date, setDate] = useState(today());
+  const [dueDate, setDueDate] = useState(defaultDueDate());
   const [items, setItems] = useState<InvoiceItemRow[]>([]);
-  const [status, setStatus] = useState<"Draft" | "Outstanding" | "Paid">("Outstanding");
+  const [status, setStatus] = useState<"Draft" | "Outstanding" | "Paid">("Draft");
   const [notes, setNotes] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -106,16 +123,46 @@ export function CreateInvoiceModal({
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
 
+  const loadNextInvoiceNumber = useCallback(async () => {
+    const requestId = ++numberRequestRef.current;
+    setIsNumberLoading(true);
+    setNumberError("");
+    try {
+      const nextNumber = await fetchNextInvoiceNumber();
+      if (numberRequestRef.current === requestId) {
+        setInvoiceNumber(nextNumber);
+      }
+      return nextNumber;
+    } catch (error: any) {
+      if (numberRequestRef.current === requestId) {
+        setInvoiceNumber("");
+        setNumberError(
+          error.response?.data?.error ||
+            error.message ||
+            "Could not load the next invoice number.",
+        );
+      }
+      return null;
+    } finally {
+      if (numberRequestRef.current === requestId) {
+        setIsNumberLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       if (invoiceToEdit) {
+        numberRequestRef.current += 1;
+        setIsNumberLoading(false);
+        setNumberError("");
         setIsEditing(true);
         setAutoGenerateNumber(false);
         setInvoiceNumber(invoiceToEdit.invoiceNumber || "");
         setManualAmount(Number(invoiceToEdit.amount) || 0);
         setCustomerId(invoiceToEdit.customerId || invoiceToEdit.customers?.id || "");
-        setDate(invoiceToEdit.date || invoiceToEdit.issueDate || new Date().toISOString().split("T")[0]);
-        setDueDate(invoiceToEdit.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+        setDate(invoiceToEdit.date || invoiceToEdit.issueDate || today());
+        setDueDate(invoiceToEdit.dueDate || defaultDueDate());
         setStatus(
           invoiceToEdit.status === "Paid"
             ? "Paid"
@@ -139,7 +186,8 @@ export function CreateInvoiceModal({
         if (Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0) {
           setItems(
             invoiceToEdit.items.map((it: any) => ({
-              itemId: it.itemId || it.id,
+              id: it.id,
+              itemId: it.itemId,
               itemName: it.itemName || it.name || "Item",
               description: it.description || "",
               quantity: Number(it.quantity) || 1,
@@ -154,12 +202,13 @@ export function CreateInvoiceModal({
         setIsEditing(false);
         setAutoGenerateNumber(true);
         setInvoiceNumber("");
+        setNumberError("");
         setManualAmount(0);
         setCustomerId("");
-        setDate(new Date().toISOString().split("T")[0]);
-        setDueDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+        setDate(today());
+        setDueDate(defaultDueDate());
         setItems([]);
-        setStatus("Outstanding");
+        setStatus("Draft");
         setNotes("");
         setTermsConditions("");
         setReferenceNumber("");
@@ -174,9 +223,13 @@ export function CreateInvoiceModal({
         setShippingCharges(0);
         setAdjustment(0);
         setCustomFields({});
+        void loadNextInvoiceNumber();
       }
     }
-  }, [isOpen, invoiceToEdit]);
+    return () => {
+      numberRequestRef.current += 1;
+    };
+  }, [isOpen, invoiceToEdit, loadNextInvoiceNumber]);
 
   // When customer is selected, auto-fill address if available
   const handleCustomerChange = (cId: string) => {
@@ -273,18 +326,32 @@ export function CreateInvoiceModal({
       return;
     }
 
-    if (!autoGenerateNumber && !invoiceNumber.trim()) {
+    if (!invoiceNumber.trim()) {
       toast.error("Invoice number is required");
       return;
     }
 
-    const selectedCust = customerList.find((c) => c.id === customerId);
-    const payload = {
+    const itemError = validateFinancialLineItems(items);
+    if (itemError) {
+      toast.error(itemError);
+      return;
+    }
+
+    const dateError = validateFinancialDocumentDates(date, dueDate, "Due date");
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
+
+    if (!Number.isFinite(grandTotal) || grandTotal <= 0) {
+      toast.error("Invoice total must be greater than zero");
+      return;
+    }
+
+    const payload: InvoicePayload = {
       customerId,
-      customerName: selectedCust?.name || "Customer",
-      invoiceNumber: autoGenerateNumber && !isEditing ? undefined : invoiceNumber.trim(),
+      invoiceNumber: invoiceNumber.trim(),
       amount: grandTotal,
-      subtotal,
       taxPercent: Number(taxPercent) || 0,
       taxAmount,
       discountType,
@@ -303,6 +370,7 @@ export function CreateInvoiceModal({
       shippingAddress: shippingAddress.trim(),
       customFields,
       items: items.map((i) => ({
+        id: i.id,
         itemId: i.itemId,
         itemName: i.itemName,
         description: i.description,
@@ -328,11 +396,28 @@ export function CreateInvoiceModal({
       onSuccess?.(result);
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to save invoice");
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to save invoice";
+      if (!isEditing && isDuplicateDocumentNumberError(err)) {
+        toast.error(message, {
+          description: "Your entries were kept and a fresh invoice number is being loaded.",
+        });
+        if (autoGenerateNumber) {
+          await loadNextInvoiceNumber();
+        } else {
+          setNumberError(message);
+        }
+        return;
+      }
+      toast.error(message);
     }
   };
 
   const isSaving = createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
+  const isNumberUnresolved = !isEditing && autoGenerateNumber &&
+    (isNumberLoading || !invoiceNumber.trim());
 
   return (
     <>
@@ -358,7 +443,7 @@ export function CreateInvoiceModal({
             <Button
               type="button"
               size="sm"
-              disabled={isSaving}
+              disabled={isSaving || isNumberUnresolved}
               onClick={handleSubmit}
               className="gap-2 font-bold cursor-pointer"
             >
@@ -381,7 +466,17 @@ export function CreateInvoiceModal({
                     <Checkbox
                       id="autoGenNumber"
                       checked={autoGenerateNumber}
-                      onCheckedChange={(val) => setAutoGenerateNumber(Boolean(val))}
+                      onCheckedChange={(val) => {
+                        const enabled = Boolean(val);
+                        setAutoGenerateNumber(enabled);
+                        setNumberError("");
+                        if (enabled) {
+                          void loadNextInvoiceNumber();
+                        } else {
+                          numberRequestRef.current += 1;
+                          setIsNumberLoading(false);
+                        }
+                      }}
                     />
                     <Label htmlFor="autoGenNumber" className="text-[11px] text-muted-foreground font-normal cursor-pointer select-none">
                       Auto-generate
@@ -394,9 +489,29 @@ export function CreateInvoiceModal({
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 disabled={autoGenerateNumber && !isEditing}
-                placeholder={autoGenerateNumber && !isEditing ? "Auto-generated sequence" : "INV-001"}
+                placeholder={
+                  autoGenerateNumber && !isEditing
+                    ? isNumberLoading
+                      ? "Loading next number..."
+                      : "Auto-generated"
+                    : "INV-001"
+                }
                 className="font-mono text-xs"
               />
+              {numberError && (
+                <div className="flex items-center justify-between gap-3 text-[11px] text-destructive">
+                  <span>{numberError}</span>
+                  {autoGenerateNumber && !isEditing && (
+                    <button
+                      type="button"
+                      className="font-semibold underline underline-offset-2 cursor-pointer"
+                      onClick={() => void loadNextInvoiceNumber()}
+                    >
+                      Retry
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -806,7 +921,7 @@ export function CreateInvoiceModal({
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {s}
+                  {s === "Outstanding" ? "Finalize" : s}
                 </button>
               ))}
             </div>

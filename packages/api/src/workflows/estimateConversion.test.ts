@@ -55,9 +55,10 @@ describe("convertEstimateToInvoice", () => {
       }),
     });
 
-    await expect(convertEstimateToInvoice(input, deps)).resolves.toMatchObject({
+    await expect(convertEstimateToInvoice(input, deps)).resolves.toEqual({
       status: "complete",
       invoiceNumber: "INV-0008",
+      invoice: { id: "invoice-8", invoiceNumber: "INV-0008" },
     });
     expect(order).toEqual(["number", "create", "status"]);
   });
@@ -74,9 +75,10 @@ describe("convertEstimateToInvoice", () => {
     const statusError = new Error("status failed");
     const deps = dependencies({ updateEstimateStatus: vi.fn().mockRejectedValue(statusError) });
 
-    await expect(convertEstimateToInvoice(input, deps)).resolves.toMatchObject({
+    await expect(convertEstimateToInvoice(input, deps)).resolves.toEqual({
       status: "invoice-created-status-pending",
       invoiceNumber: "INV-0008",
+      invoice: { id: "invoice-8", invoiceNumber: "INV-0008" },
       error: statusError,
     });
   });

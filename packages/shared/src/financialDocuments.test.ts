@@ -144,6 +144,25 @@ describe("buildInvoiceFromEstimate", () => {
       ),
     ).toThrow(/customer/i);
   });
+
+  it("rejects reversed invoice dates during conversion", () => {
+    expect(() =>
+      buildInvoiceFromEstimate(estimate, {
+        invoiceNumber: "INV-0101",
+        date: "2026-11-21",
+        dueDate: "2026-10-22",
+      }),
+    ).toThrow(/due date/i);
+  });
+
+  it("rejects invalid estimate line items during conversion", () => {
+    expect(() =>
+      buildInvoiceFromEstimate(
+        { ...estimate, items: [{ ...validItems[0], quantity: 0 }] },
+        { invoiceNumber: "INV-0101", date: "2026-10-22", dueDate: "2026-11-21" },
+      ),
+    ).toThrow(/quantity/i);
+  });
 });
 
 describe("isDuplicateDocumentNumberError", () => {

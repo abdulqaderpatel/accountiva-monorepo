@@ -15,7 +15,9 @@ import {
   FileSpreadsheet,
   ArrowRight,
   Check,
+  Send,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,12 +42,18 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
-import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
 import {
+  formatCurrency,
+  formatDate,
+  exportToCsv,
+  type EstimateConversionSource,
+  type EstimateStatus,
+} from "@accountiva/shared";
+import {
+  convertEstimateToInvoice,
   useEstimates,
   useDeleteEstimate,
-  useUpdateEstimate,
-  useCreateInvoice,
+  useUpdateEstimateStatus,
 } from "@accountiva/api";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 import { toast } from "sonner";
@@ -53,8 +61,9 @@ import { quickCreate } from "@/lib/quickCreate";
 
 interface EstimateRecord {
   id: string;
+  customerId?: string;
   customerName?: string;
-  customers?: { name: string; email?: string };
+  customers?: { id?: string; name: string; email?: string };
   estimateNumber: string;
   date?: string;
   expiryDate?: string;
@@ -62,13 +71,25 @@ interface EstimateRecord {
   subtotal?: number;
   taxPercent?: number;
   taxAmount?: number;
+  discountType?: string;
+  discountValue?: number;
+  discountAmount?: number;
+  shippingCharges?: number;
+  adjustment?: number;
   items?: any[];
   notes?: string;
+  termsConditions?: string;
+  referenceNumber?: string;
+  terms?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
   status: string;
   customFields?: Record<string, any>;
+  custom_fields?: Record<string, any>;
 }
 
 export function Estimates() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -81,6 +102,7 @@ export function Estimates() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [statusLoadingAction, setStatusLoadingAction] = useState("");
 
   React.useEffect(() => {
     if (quickCreate.consume("estimate")) {
@@ -98,8 +120,7 @@ export function Estimates() {
 
   const { data: apiEstimates, isLoading, refetch } = useEstimates();
   const deleteEstimateMutation = useDeleteEstimate();
-  const updateEstimateMutation = useUpdateEstimate();
-  const createInvoiceMutation = useCreateInvoice();
+  const updateEstimateStatusMutation = useUpdateEstimateStatus();
 
   const rawEstimates: EstimateRecord[] = useMemo(() => {
     if (Array.isArray(apiEstimates)) return apiEstimates;
@@ -226,40 +247,94 @@ export function Estimates() {
   };
 
   const handleConvertToInvoice = async (est: EstimateRecord) => {
+    setStatusLoadingAction(`${est.id}-converting`);
     try {
-      const invNumber = `INV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-      await createInvoiceMutation.mutateAsync({
-        invoiceNumber: invNumber,
-        customerName: est.customerName || est.customers?.name || "Customer",
-        date: new Date().toISOString().split("T")[0],
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      const invoiceDate = new Date().toISOString().split("T")[0];
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+      const estimate: EstimateConversionSource = {
+        estimateNumber: est.estimateNumber,
+        customerId: est.customerId || est.customers?.id,
         amount: Number(est.amount) || 0,
-        subtotal: Number(est.subtotal) || Number(est.amount) * 0.847,
-        taxPercent: Number(est.taxPercent) || 18,
-        taxAmount: Number(est.taxAmount) || Number(est.amount) * 0.153,
-        status: "Draft",
-        notes: `Converted from Estimate ${est.estimateNumber}. ${est.notes || ""}`.trim(),
-        items: est.items || [
-          {
-            itemName: `Quote items from ${est.estimateNumber}`,
-            quantity: 1,
-            rate: Number(est.amount) || 0,
-            amount: Number(est.amount) || 0,
-          },
-        ],
+        items: (est.items || []).map((item) => ({
+          id: item.id,
+          itemId: item.itemId,
+          itemName: item.itemName || item.name || "",
+          description: item.description || "",
+          quantity: Number(item.quantity),
+          rate: Number(item.rate ?? item.unitPrice),
+          amount: Number(item.amount),
+        })),
+        referenceNumber: est.referenceNumber,
+        billingAddress: est.billingAddress,
+        shippingAddress: est.shippingAddress,
+        terms: est.terms,
+        discountType: est.discountType,
+        discountValue: Number(est.discountValue) || 0,
+        discountAmount: Number(est.discountAmount) || 0,
+        shippingCharges: Number(est.shippingCharges) || 0,
+        adjustment: Number(est.adjustment) || 0,
+        notes: est.notes,
+        termsConditions: est.termsConditions,
+        taxPercent: Number(est.taxPercent) || 0,
+        taxAmount: Number(est.taxAmount) || 0,
+        customFields: est.customFields || est.custom_fields,
+      };
+
+      const result = await convertEstimateToInvoice({
+        estimateId: est.id,
+        estimate,
+        invoiceDate,
+        dueDate,
       });
 
-      await updateEstimateMutation.mutateAsync({
-        id: est.id,
-        payload: { status: "Invoiced" },
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["estimates"] }),
+        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
+      ]);
 
-      toast.success(`Estimate converted to Invoice ${invNumber}!`, {
-        description: "Draft invoice created and estimate marked as Invoiced.",
-      });
-      refetch();
+      if (result.status === "complete") {
+        toast.success(`Estimate converted to Invoice ${result.invoiceNumber}!`, {
+          description: "Draft invoice created and estimate marked as Invoiced.",
+        });
+      } else {
+        const statusError = result.error as any;
+        const reason =
+          statusError?.response?.data?.message ||
+          statusError?.response?.data?.error ||
+          statusError?.message ||
+          "The estimate status could not be updated.";
+        toast.warning(`Invoice ${result.invoiceNumber} was created`, {
+          description: `${reason} The estimate still needs status recovery.`,
+        });
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to convert estimate");
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          "Failed to convert estimate",
+      );
+    } finally {
+      setStatusLoadingAction("");
+    }
+  };
+
+  const handleStatusUpdate = async (est: EstimateRecord, status: EstimateStatus) => {
+    setStatusLoadingAction(`${est.id}-${status}`);
+    try {
+      await updateEstimateStatusMutation.mutateAsync({ id: est.id, status });
+      toast.success(`Estimate marked as ${status}`);
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          err.message ||
+          "Failed to update status",
+      );
+    } finally {
+      setStatusLoadingAction("");
     }
   };
 
@@ -592,6 +667,36 @@ export function Estimates() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl">
                             <DropdownMenuItem
+                              disabled={Boolean(statusLoadingAction)}
+                              onClick={() => handleStatusUpdate(est, "Sent")}
+                              className="cursor-pointer gap-2 text-xs font-medium"
+                            >
+                              <Send className="size-3.5 text-muted-foreground" />
+                              {statusLoadingAction === `${est.id}-Sent` ? "Processing..." : "Mark as Sent"}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              disabled={Boolean(statusLoadingAction)}
+                              onClick={() => handleStatusUpdate(est, "Accepted")}
+                              className="cursor-pointer gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+                            >
+                              <Check className="size-3.5" />
+                              {statusLoadingAction === `${est.id}-Accepted` ? "Processing..." : "Mark as Accepted"}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              disabled={Boolean(statusLoadingAction)}
+                              onClick={() => handleStatusUpdate(est, "Declined")}
+                              className="cursor-pointer gap-2 text-xs font-medium text-destructive"
+                            >
+                              <X className="size-3.5" />
+                              {statusLoadingAction === `${est.id}-Declined` ? "Processing..." : "Mark as Declined"}
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator className="my-1 bg-border/60" />
+
+                            <DropdownMenuItem
+                              disabled={Boolean(statusLoadingAction)}
                               onClick={() => {
                                 setEditingEstimate(est);
                                 setIsCreateOpen(true);
@@ -602,40 +707,19 @@ export function Estimates() {
                               Edit Estimate
                             </DropdownMenuItem>
 
-                            {String(est.status).toLowerCase() !== "invoiced" && (
+                            {String(est.status).toLowerCase() === "accepted" && (
                               <DropdownMenuItem
+                                disabled={Boolean(statusLoadingAction)}
                                 onClick={() => handleConvertToInvoice(est)}
                                 className="cursor-pointer gap-2 text-xs font-semibold text-primary"
                               >
                                 <ArrowRight className="size-3.5" />
-                                Convert to Invoice
+                                {statusLoadingAction === `${est.id}-converting` ? "Converting..." : "Convert to Invoice"}
                               </DropdownMenuItem>
                             )}
-
-                            {String(est.status).toLowerCase() !== "accepted" && String(est.status).toLowerCase() !== "invoiced" && (
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  try {
-                                    await updateEstimateMutation.mutateAsync({
-                                      id: est.id,
-                                      payload: { status: "Accepted" },
-                                    });
-                                    toast.success(`Estimate ${est.estimateNumber} marked as Accepted!`);
-                                    refetch();
-                                  } catch (err: any) {
-                                    toast.error(err.response?.data?.message || err.message || "Failed to update status");
-                                  }
-                                }}
-                                className="cursor-pointer gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400"
-                              >
-                                <Check className="size-3.5" />
-                                Mark as Accepted
-                              </DropdownMenuItem>
-                            )}
-
-                            <DropdownMenuSeparator className="my-1 bg-border/60" />
 
                             <DropdownMenuItem
+                              disabled={Boolean(statusLoadingAction)}
                               onClick={() => handleDeleteEstimate(est.id, est.estimateNumber)}
                               className="cursor-pointer gap-2 text-xs font-medium text-destructive hover:bg-destructive/10"
                             >

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,13 +16,29 @@ import {
   Package,
   ChevronDown,
 } from "lucide-react";
-import { formatCurrency, getCurrencySymbol } from "@accountiva/shared";
-import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from "@accountiva/api";
+import {
+  ESTIMATE_STATUSES,
+  formatCurrency,
+  getCurrencySymbol,
+  isDuplicateDocumentNumberError,
+  validateFinancialDocumentDates,
+  validateFinancialLineItems,
+  type EstimatePayload,
+  type EstimateStatus,
+} from "@accountiva/shared";
+import {
+  fetchNextEstimateNumber,
+  useCreateEstimate,
+  useUpdateEstimate,
+  useCustomers,
+  useItems,
+} from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface EstimateItemRow {
+  id?: string;
   itemId?: string;
   itemName: string;
   description: string;
@@ -43,6 +59,10 @@ const DISCOUNT_TYPE_OPTIONS = [
   { id: "percentage", name: "Percentage (%)" },
   { id: "fixed", name: "Fixed Amount" },
 ];
+
+const today = () => new Date().toISOString().split("T")[0];
+const defaultExpiryDate = () =>
+  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
 export function CreateEstimateModal({
   isOpen,
@@ -73,14 +93,15 @@ export function CreateEstimateModal({
 
   const [isEditing, setIsEditing] = useState(false);
   const [estimateNumber, setEstimateNumber] = useState("");
+  const [isNumberLoading, setIsNumberLoading] = useState(false);
+  const [numberError, setNumberError] = useState("");
+  const numberRequestRef = useRef(0);
   const [manualAmount, setManualAmount] = useState<number | string>(0);
   const [customerId, setCustomerId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [expiryDate, setExpiryDate] = useState(
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-  );
+  const [date, setDate] = useState(today());
+  const [expiryDate, setExpiryDate] = useState(defaultExpiryDate());
   const [items, setItems] = useState<EstimateItemRow[]>([]);
-  const [status, setStatus] = useState<"Draft" | "Sent" | "Accepted">("Draft");
+  const [status, setStatus] = useState<EstimateStatus>("Draft");
   const [notes, setNotes] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -102,21 +123,49 @@ export function CreateEstimateModal({
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
 
+  const loadNextEstimateNumber = useCallback(async () => {
+    const requestId = ++numberRequestRef.current;
+    setIsNumberLoading(true);
+    setNumberError("");
+    try {
+      const nextNumber = await fetchNextEstimateNumber();
+      if (numberRequestRef.current === requestId) {
+        setEstimateNumber(nextNumber);
+      }
+      return nextNumber;
+    } catch (error: any) {
+      if (numberRequestRef.current === requestId) {
+        setEstimateNumber("");
+        setNumberError(
+          error.response?.data?.error ||
+            error.message ||
+            "Could not load the next estimate number.",
+        );
+      }
+      return null;
+    } finally {
+      if (numberRequestRef.current === requestId) {
+        setIsNumberLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       if (estimateToEdit) {
+        numberRequestRef.current += 1;
+        setIsNumberLoading(false);
+        setNumberError("");
         setIsEditing(true);
         setEstimateNumber(estimateToEdit.estimateNumber || estimateToEdit.number || "");
         setManualAmount(Number(estimateToEdit.amount) || 0);
         setCustomerId(estimateToEdit.customerId || estimateToEdit.customers?.id || "");
-        setDate(estimateToEdit.date || estimateToEdit.issueDate || new Date().toISOString().split("T")[0]);
-        setExpiryDate(estimateToEdit.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+        setDate(estimateToEdit.date || estimateToEdit.issueDate || today());
+        setExpiryDate(estimateToEdit.expiryDate || defaultExpiryDate());
         setStatus(
-          estimateToEdit.status === "Accepted"
-            ? "Accepted"
-            : estimateToEdit.status === "Sent"
-            ? "Sent"
-            : "Draft"
+          ESTIMATE_STATUSES.includes(estimateToEdit.status as EstimateStatus)
+            ? estimateToEdit.status
+            : "Draft",
         );
         setNotes(estimateToEdit.notes || "");
         setTermsConditions(estimateToEdit.termsConditions || "");
@@ -134,7 +183,8 @@ export function CreateEstimateModal({
         if (Array.isArray(estimateToEdit.items) && estimateToEdit.items.length > 0) {
           setItems(
             estimateToEdit.items.map((it: any) => ({
-              itemId: it.itemId || it.id,
+              id: it.id,
+              itemId: it.itemId,
               itemName: it.itemName || it.name || "Item",
               description: it.description || "",
               quantity: Number(it.quantity) || 1,
@@ -147,12 +197,12 @@ export function CreateEstimateModal({
         }
       } else {
         setIsEditing(false);
-        const randomNum = Math.floor(100 + Math.random() * 900);
-        setEstimateNumber(`EST-${new Date().getFullYear()}-${randomNum}`);
+        setEstimateNumber("");
+        setNumberError("");
         setManualAmount(0);
         setCustomerId("");
-        setDate(new Date().toISOString().split("T")[0]);
-        setExpiryDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+        setDate(today());
+        setExpiryDate(defaultExpiryDate());
         setItems([]);
         setStatus("Draft");
         setNotes("");
@@ -169,9 +219,13 @@ export function CreateEstimateModal({
         setShippingCharges(0);
         setAdjustment(0);
         setCustomFields({});
+        void loadNextEstimateNumber();
       }
     }
-  }, [isOpen, estimateToEdit]);
+    return () => {
+      numberRequestRef.current += 1;
+    };
+  }, [isOpen, estimateToEdit, loadNextEstimateNumber]);
 
   // When customer changes, auto-fill address
   const handleCustomerChange = (cId: string) => {
@@ -273,13 +327,27 @@ export function CreateEstimateModal({
       return;
     }
 
-    const selectedCust = customerList.find((c) => c.id === customerId);
-    const payload = {
+    const itemError = validateFinancialLineItems(items);
+    if (itemError) {
+      toast.error(itemError);
+      return;
+    }
+
+    const dateError = validateFinancialDocumentDates(date, expiryDate, "Expiry date");
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
+
+    if (!Number.isFinite(grandTotal) || grandTotal <= 0) {
+      toast.error("Estimate total must be greater than zero");
+      return;
+    }
+
+    const payload: EstimatePayload = {
       customerId,
-      customerName: selectedCust?.name || "Customer",
       estimateNumber: estimateNumber.trim(),
       amount: grandTotal,
-      subtotal,
       taxPercent: Number(taxPercent) || 0,
       taxAmount,
       discountType,
@@ -298,6 +366,7 @@ export function CreateEstimateModal({
       shippingAddress: shippingAddress.trim(),
       customFields,
       items: items.map((i) => ({
+        id: i.id,
         itemId: i.itemId,
         itemName: i.itemName,
         description: i.description,
@@ -323,11 +392,23 @@ export function CreateEstimateModal({
       onSuccess?.(result);
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to save estimate");
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to save estimate";
+      if (!isEditing && isDuplicateDocumentNumberError(err)) {
+        toast.error(message, {
+          description: "Your entries were kept and a fresh estimate number is being loaded.",
+        });
+        await loadNextEstimateNumber();
+        return;
+      }
+      toast.error(message);
     }
   };
 
   const isSaving = createEstimateMutation.isPending || updateEstimateMutation.isPending;
+  const isNumberUnresolved = !isEditing && (isNumberLoading || !estimateNumber.trim());
 
   return (
     <>
@@ -353,7 +434,7 @@ export function CreateEstimateModal({
             <Button
               type="button"
               size="sm"
-              disabled={isSaving}
+              disabled={isSaving || isNumberUnresolved}
               onClick={handleSubmit}
               className="gap-2 font-bold cursor-pointer"
             >
@@ -378,6 +459,21 @@ export function CreateEstimateModal({
                 className="font-mono text-xs"
                 required
               />
+              {!isEditing && isNumberLoading && (
+                <p className="text-[10px] text-muted-foreground">Loading the next estimate number...</p>
+              )}
+              {!isEditing && numberError && (
+                <div className="flex items-center justify-between gap-2 text-[10px] text-destructive">
+                  <span>{numberError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void loadNextEstimateNumber()}
+                    className="font-semibold underline underline-offset-2"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -775,7 +871,7 @@ export function CreateEstimateModal({
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Quotation Status</Label>
             <div className="flex p-1 bg-muted/60 border border-border/80 rounded-xl text-xs font-medium gap-1">
-              {(["Draft", "Sent", "Accepted"] as const).map((s) => (
+              {ESTIMATE_STATUSES.map((s) => (
                 <button
                   key={s}
                   type="button"

@@ -5,6 +5,8 @@ import {
   ESTIMATE_STATUSES,
   INVOICE_STATUSES,
   buildInvoiceFromEstimate,
+  calculateFinancialDocumentSubtotal,
+  calculateInvoiceOutstandingAmount,
   isDuplicateDocumentNumberError,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
@@ -53,6 +55,45 @@ describe("validateFinancialLineItems", () => {
     expect(validateFinancialLineItems(items as FinancialLineItemInput[])).toEqual(
       expect.any(String),
     );
+  });
+});
+
+describe("calculateFinancialDocumentSubtotal", () => {
+  it("uses persisted line amounts instead of inferring a subtotal from the total", () => {
+    expect(
+      calculateFinancialDocumentSubtotal([
+        { quantity: 1, rate: 1000, amount: 1000 },
+        { quantity: 2, rate: 125, amount: 250 },
+      ]),
+    ).toBe(1250);
+  });
+
+  it("falls back to quantity times rate when a persisted line amount is unavailable", () => {
+    expect(calculateFinancialDocumentSubtotal([{ quantity: 3, rate: 20 }])).toBe(60);
+  });
+});
+
+describe("calculateInvoiceOutstandingAmount", () => {
+  it("subtracts camel-case and backend snake-case credit applications", () => {
+    expect(
+      calculateInvoiceOutstandingAmount({
+        amount: 1180,
+        credit_note_applications: [
+          { amount_applied: 75 },
+          { amountApplied: 25 },
+        ],
+      }),
+    ).toBe(1080);
+  });
+
+  it("prefers an explicit server balance and never returns a negative amount", () => {
+    expect(calculateInvoiceOutstandingAmount({ amount: 1180, balanceDue: 400 })).toBe(400);
+    expect(
+      calculateInvoiceOutstandingAmount({
+        amount: 100,
+        creditNoteApplications: [{ amountApplied: 125 }],
+      }),
+    ).toBe(0);
   });
 });
 

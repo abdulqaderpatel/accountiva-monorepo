@@ -22,6 +22,27 @@ export interface FinancialLineItemInput {
   amount: number;
 }
 
+export interface FinancialLineItemAmounts {
+  quantity?: number | string | null;
+  rate?: number | string | null;
+  amount?: number | string | null;
+}
+
+export interface InvoiceBalanceSource {
+  amount?: number | string | null;
+  remainingAmount?: number | string | null;
+  outstandingAmount?: number | string | null;
+  balanceDue?: number | string | null;
+  creditNoteApplications?: Array<{
+    amountApplied?: number | string | null;
+    amount_applied?: number | string | null;
+  }>;
+  credit_note_applications?: Array<{
+    amountApplied?: number | string | null;
+    amount_applied?: number | string | null;
+  }>;
+}
+
 interface FinancialDocumentFields {
   customerId: string;
   date: string;
@@ -90,6 +111,47 @@ export function validateFinancialLineItems(items: FinancialLineItemInput[]): str
   }
 
   return null;
+}
+
+export function calculateFinancialDocumentSubtotal(
+  items: FinancialLineItemAmounts[],
+): number {
+  if (!Array.isArray(items)) return 0;
+
+  const subtotal = items.reduce((sum, item) => {
+    const persistedAmount = Number(item?.amount);
+    if (item?.amount !== null && item?.amount !== undefined && Number.isFinite(persistedAmount)) {
+      return sum + persistedAmount;
+    }
+
+    const quantity = Number(item?.quantity);
+    const rate = Number(item?.rate);
+    if (!Number.isFinite(quantity) || !Number.isFinite(rate)) return sum;
+    return sum + quantity * rate;
+  }, 0);
+
+  return Number(subtotal.toFixed(2));
+}
+
+export function calculateInvoiceOutstandingAmount(invoice: InvoiceBalanceSource): number {
+  const explicitBalance = [
+    invoice.remainingAmount,
+    invoice.outstandingAmount,
+    invoice.balanceDue,
+  ]
+    .filter((value) => value !== null && value !== undefined && value !== "")
+    .map(Number)
+    .find(Number.isFinite);
+  if (explicitBalance !== undefined) return Math.max(0, explicitBalance);
+
+  const applications =
+    invoice.creditNoteApplications || invoice.credit_note_applications || [];
+  const applied = applications.reduce((sum, application) => {
+    const amount = Number(application.amountApplied ?? application.amount_applied ?? 0);
+    return sum + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+  const total = Number(invoice.amount);
+  return Math.max(0, (Number.isFinite(total) ? total : 0) - applied);
 }
 
 function parseDocumentDate(value: string): number | null {

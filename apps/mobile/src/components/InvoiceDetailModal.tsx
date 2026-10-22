@@ -13,7 +13,7 @@ import { X, Share2, CircleCheck, Users, Send, Trash, Pencil } from 'lucide-react
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import { formatCurrency } from '@accountiva/shared';
+import { calculateFinancialDocumentSubtotal, formatCurrency } from '@accountiva/shared';
 import { useUpdateInvoiceStatus, useDeleteInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
@@ -37,12 +37,16 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
 
   const rawAmount = Number(invoice.amount) || 0;
   const lineItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
-  const calculatedSubtotal = lineItems.reduce((sum, item) => {
-    const lineAmount = Number(item.amount ?? (Number(item.quantity) * Number(item.rate)));
-    return sum + (Number.isFinite(lineAmount) ? lineAmount : 0);
-  }, 0);
-  const rawSubtotal = Number(invoice.subtotal) || calculatedSubtotal;
+  const calculatedSubtotal = calculateFinancialDocumentSubtotal(lineItems);
+  const explicitSubtotal = Number(invoice.subtotal);
+  const rawSubtotal =
+    invoice.subtotal !== null &&
+    invoice.subtotal !== undefined &&
+    Number.isFinite(explicitSubtotal)
+      ? explicitSubtotal
+      : calculatedSubtotal;
   const rawTax = Number(invoice.taxAmount) || Number(invoice.tax_amount) || 0;
+  const taxPercent = Number(invoice.taxPercent) || 0;
   const status = String(invoice.status || 'Draft').toUpperCase();
 
   const clientName = typeof invoice.customer === 'string'
@@ -58,6 +62,12 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
   const invoiceNum = String(invoice.number || invoice.invoiceNumber || 'INV-000');
   const invoiceDate = String(invoice.date || 'Recent');
   const invoiceDueDate = String(invoice.dueDate || 'Upon Receipt');
+  const paymentTerms =
+    typeof invoice.terms === 'string' && invoice.terms.trim()
+      ? invoice.terms.trim()
+      : 'Not specified';
+  const clientEmail = [invoice.email, invoice.customer?.email, invoice.customers?.email]
+    .find((value) => typeof value === 'string' && value.trim());
 
   const isPaid = status === 'PAID';
   const isDraft = status === 'DRAFT';
@@ -175,7 +185,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>Payment Terms</Text>
-                  <Text style={[styles.metaValue, { color: colors.foreground }]}>Net 15 Days</Text>
+                  <Text style={[styles.metaValue, { color: colors.foreground }]}>{paymentTerms}</Text>
                 </View>
               </View>
             </Card>
@@ -192,7 +202,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                     {clientName}
                   </Text>
                   <Text style={[styles.clientSub, { color: colors.mutedForeground }]}>
-                    {typeof invoice.email === 'string' ? invoice.email : 'accounts@client.in'}
+                    {clientEmail || 'No email provided'}
                   </Text>
                 </View>
               </View>
@@ -220,7 +230,12 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                       </Text>
                     </View>
                     <Text style={[styles.itemTotal, { color: colors.foreground }]}>
-                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), currency)}
+                      {formatCurrency(
+                        Number.isFinite(Number(item.amount))
+                          ? Number(item.amount)
+                          : (item.quantity || 1) * (Number(item.rate) || 0),
+                        currency,
+                      )}
                     </Text>
                   </View>
                   {idx < lineItems.length - 1 ? (
@@ -248,7 +263,9 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
               ) : null}
 
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
+                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+                  GST ({taxPercent}%)
+                </Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
                   {formatCurrency(rawTax, currency)}
                 </Text>

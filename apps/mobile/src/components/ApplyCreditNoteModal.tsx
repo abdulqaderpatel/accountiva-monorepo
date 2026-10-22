@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Check, FileText, Link, X } from 'lucide-react-native';
-import { formatCurrency } from '@accountiva/shared';
-import { useApplyCreditNote, useInvoices } from '@accountiva/api';
+import { calculateInvoiceOutstandingAmount, formatCurrency } from '@accountiva/shared';
+import { useApplyCreditNote, useCustomer, useInvoices } from '@accountiva/api';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../context/FeedbackContext';
@@ -39,25 +39,6 @@ interface InvoiceOption {
   outstandingAmount: number;
 }
 
-function reportedOutstandingAmount(invoice: any): number {
-  const explicitBalance = [
-    invoice.remainingAmount,
-    invoice.outstandingAmount,
-    invoice.balanceDue,
-  ].map(Number).find(Number.isFinite);
-  if (explicitBalance !== undefined) return Math.max(0, explicitBalance);
-
-  const applications = invoice.creditNoteApplications || invoice.credit_note_applications || [];
-  const applied = Array.isArray(applications)
-    ? applications.reduce(
-        (sum: number, application: any) =>
-          sum + Number(application.amountApplied ?? application.amount_applied ?? 0),
-        0,
-      )
-    : 0;
-  return Math.max(0, Number(invoice.amount) - applied);
-}
-
 export function ApplyCreditNoteModal({
   visible,
   creditNote,
@@ -71,35 +52,48 @@ export function ApplyCreditNoteModal({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState('');
   const [amount, setAmount] = useState('');
   const [availableCredit, setAvailableCredit] = useState(0);
-  const { data: apiInvoices, refetch: refetchInvoices, isLoading } = useInvoices({
-    status: 'Outstanding',
-    limit: 100,
-  });
+  const {
+    data: apiInvoices,
+    refetch: refetchInvoices,
+    isLoading: areInvoicesLoading,
+  } = useInvoices(
+    { status: 'Outstanding', limit: 100 },
+    { enabled: visible && Boolean(creditNote) },
+  );
+  const {
+    data: customerDetail,
+    refetch: refetchCustomer,
+    isLoading: isCustomerLoading,
+  } = useCustomer(creditNote?.customerId || '');
   const applyMutation = useApplyCreditNote();
+  const isLoading = areInvoicesLoading || isCustomerLoading;
 
   const invoices = useMemo<InvoiceOption[]>(() => {
-    const raw = Array.isArray(apiInvoices)
+    const customerInvoices = Array.isArray(customerDetail?.invoices)
+      ? customerDetail.invoices
+      : null;
+    const raw = customerInvoices ?? (Array.isArray(apiInvoices)
       ? apiInvoices
       : Array.isArray(apiInvoices?.data)
         ? apiInvoices.data
         : Array.isArray(apiInvoices?.invoices)
           ? apiInvoices.invoices
-          : [];
+          : []);
 
     return raw
       .filter(
         (invoice: any) =>
           creditNote &&
-          invoice.customerId === creditNote.customerId &&
-          String(invoice.status || '').toLowerCase() !== 'paid',
+          (invoice.customerId || invoice.customer_id || creditNote.customerId) === creditNote.customerId &&
+          String(invoice.status || '').toLowerCase() === 'outstanding',
       )
       .map((invoice: any): InvoiceOption => ({
         id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber || 'Invoice',
-        outstandingAmount: reportedOutstandingAmount(invoice),
+        invoiceNumber: invoice.invoiceNumber || invoice.invoice_number || 'Invoice',
+        outstandingAmount: calculateInvoiceOutstandingAmount(invoice),
       }))
       .filter((invoice: InvoiceOption) => invoice.outstandingAmount > 0);
-  }, [apiInvoices, creditNote]);
+  }, [apiInvoices, creditNote, customerDetail]);
 
   const selectedInvoice = invoices.find((invoice: InvoiceOption) => invoice.id === selectedInvoiceId);
   const maximumAmount = selectedInvoice
@@ -139,8 +133,8 @@ export function ApplyCreditNoteModal({
         id: creditNote.id,
         payload: { invoiceId: selectedInvoice.id, amountApplied },
       });
+      await Promise.allSettled([onApplied(), refetchCustomer()]);
       toast.success('Credit Applied', `${formatCurrency(amountApplied, currency)} was applied successfully.`);
-      await onApplied();
       onClose();
     } catch (error: any) {
       const message =
@@ -149,11 +143,14 @@ export function ApplyCreditNoteModal({
         error.message ||
         'Failed to apply credit note.';
       if (error.response?.status === 409) {
-        const [, refreshedBalance] = await Promise.all([
+        const [, , refreshedBalance] = await Promise.allSettled([
           refetchInvoices(),
+          refetchCustomer(),
           refreshCreditBalance(),
         ]);
-        setAvailableCredit(Number(refreshedBalance) || 0);
+        if (refreshedBalance.status === 'fulfilled') {
+          setAvailableCredit(Number(refreshedBalance.value) || 0);
+        }
         toast.warning('Balances Changed', `${message} Review the retained amount and try again.`);
         return;
       }

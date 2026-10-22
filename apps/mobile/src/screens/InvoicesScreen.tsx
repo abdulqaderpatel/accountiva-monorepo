@@ -90,7 +90,10 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     date: item.date || item.dueDate || 'Recent',
     dueDate: item.dueDate || item.date || 'Upon Receipt',
     amount: Number(item.amount) || 0,
-    subtotal: Number(item.subtotal) || 0,
+    subtotal:
+      item.subtotal === null || item.subtotal === undefined
+        ? undefined
+        : Number(item.subtotal),
     taxAmount: Number(item.taxAmount) || Number(item.tax_amount) || 0,
     status: (item.status || 'Draft').toUpperCase(),
     variant: getStatusVariant(item.status || 'Draft'),

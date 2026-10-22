@@ -54,13 +54,17 @@ export async function bulkUpdateInvoiceStatus(
   return data;
 }
 
-export function useInvoices(filters?: InvoiceFilters) {
+export function useInvoices(
+  filters?: InvoiceFilters,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: ['invoices', filters],
     queryFn: async () => {
       const { data } = await api.get('/invoices', { params: filters });
       return data;
     },
+    enabled: options?.enabled,
   });
 }
 

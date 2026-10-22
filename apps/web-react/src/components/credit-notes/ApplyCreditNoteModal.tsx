@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Link } from "lucide-react";
-import { useApplyCreditNote, useInvoices } from "@accountiva/api";
-import { formatCurrency } from "@accountiva/shared";
+import { useApplyCreditNote, useCustomer, useInvoices } from "@accountiva/api";
+import { calculateInvoiceOutstandingAmount, formatCurrency } from "@accountiva/shared";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,25 +33,6 @@ interface InvoiceOption {
   outstandingAmount: number;
 }
 
-function reportedOutstandingAmount(invoice: any): number {
-  const explicitBalance = [
-    invoice.remainingAmount,
-    invoice.outstandingAmount,
-    invoice.balanceDue,
-  ].map(Number).find(Number.isFinite);
-  if (explicitBalance !== undefined) return Math.max(0, explicitBalance);
-
-  const applications = invoice.creditNoteApplications || invoice.credit_note_applications || [];
-  const applied = Array.isArray(applications)
-    ? applications.reduce(
-        (sum: number, application: any) =>
-          sum + Number(application.amountApplied ?? application.amount_applied ?? 0),
-        0,
-      )
-    : 0;
-  return Math.max(0, Number(invoice.amount) - applied);
-}
-
 export function ApplyCreditNoteModal({
   open,
   creditNote,
@@ -64,35 +45,48 @@ export function ApplyCreditNoteModal({
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [amount, setAmount] = useState<number | string>("");
   const [availableCredit, setAvailableCredit] = useState(0);
-  const { data: apiInvoices, refetch: refetchInvoices, isLoading } = useInvoices({
-    status: "Outstanding",
-    limit: 100,
-  });
+  const {
+    data: apiInvoices,
+    refetch: refetchInvoices,
+    isLoading: areInvoicesLoading,
+  } = useInvoices(
+    { status: "Outstanding", limit: 100 },
+    { enabled: open && Boolean(creditNote) },
+  );
+  const {
+    data: customerDetail,
+    refetch: refetchCustomer,
+    isLoading: isCustomerLoading,
+  } = useCustomer(creditNote?.customerId || "");
   const applyMutation = useApplyCreditNote();
+  const isLoading = areInvoicesLoading || isCustomerLoading;
 
   const invoices = useMemo(() => {
-    const raw = Array.isArray(apiInvoices)
+    const customerInvoices = Array.isArray(customerDetail?.invoices)
+      ? customerDetail.invoices
+      : null;
+    const raw = customerInvoices ?? (Array.isArray(apiInvoices)
       ? apiInvoices
       : Array.isArray(apiInvoices?.data)
         ? apiInvoices.data
         : Array.isArray(apiInvoices?.invoices)
           ? apiInvoices.invoices
-          : [];
+          : []);
 
     return raw
       .filter(
         (invoice: any) =>
           creditNote &&
-          invoice.customerId === creditNote.customerId &&
-          String(invoice.status || "").toLowerCase() !== "paid",
+          (invoice.customerId || invoice.customer_id || creditNote.customerId) === creditNote.customerId &&
+          String(invoice.status || "").toLowerCase() === "outstanding",
       )
       .map((invoice: any): InvoiceOption => ({
         id: invoice.id,
-        invoiceNumber: invoice.invoiceNumber || "Invoice",
-        outstandingAmount: reportedOutstandingAmount(invoice),
+        invoiceNumber: invoice.invoiceNumber || invoice.invoice_number || "Invoice",
+        outstandingAmount: calculateInvoiceOutstandingAmount(invoice),
       }))
       .filter((invoice: InvoiceOption) => invoice.outstandingAmount > 0);
-  }, [apiInvoices, creditNote]);
+  }, [apiInvoices, creditNote, customerDetail]);
 
   const selectedInvoice = invoices.find((invoice) => invoice.id === selectedInvoiceId);
   const maximumAmount = selectedInvoice
@@ -135,8 +129,8 @@ export function ApplyCreditNoteModal({
         id: creditNote.id,
         payload: { invoiceId: selectedInvoice.id, amountApplied },
       });
+      await Promise.allSettled([onApplied(), refetchCustomer()]);
       toast.success("Credit applied successfully");
-      await onApplied();
       onClose();
     } catch (error: any) {
       const message =
@@ -145,11 +139,14 @@ export function ApplyCreditNoteModal({
         error.message ||
         "Failed to apply credit note";
       if (error.response?.status === 409) {
-        const [, refreshedBalance] = await Promise.all([
+        const [, , refreshedBalance] = await Promise.allSettled([
           refetchInvoices(),
+          refetchCustomer(),
           refreshCreditBalance(),
         ]);
-        setAvailableCredit(Number(refreshedBalance) || 0);
+        if (refreshedBalance.status === "fulfilled") {
+          setAvailableCredit(Number(refreshedBalance.value) || 0);
+        }
         toast.error(message, {
           description: "Balances were refreshed. Review the retained amount and try again.",
         });
@@ -221,7 +218,7 @@ export function ApplyCreditNoteModal({
               Maximum {formatCurrency(maximumAmount, currencyCode)} based on both available balances.
             </p>
           </div>
-        ) : (
+        ) : invoices.length === 0 ? (
           <div className="p-3 bg-muted/20 border border-border rounded-lg flex gap-3 text-xs text-muted-foreground">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <span>
@@ -229,6 +226,11 @@ export function ApplyCreditNoteModal({
                 ? "Loading outstanding invoices for this customer."
                 : "No outstanding invoices found for this customer. Credit notes can only be applied to unpaid invoices."}
             </span>
+          </div>
+        ) : (
+          <div className="p-3 bg-muted/20 border border-border rounded-lg flex gap-3 text-xs text-muted-foreground">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <span>Select an outstanding invoice to enter the credit amount.</span>
           </div>
         )}
       </div>

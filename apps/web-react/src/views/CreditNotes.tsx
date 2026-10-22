@@ -13,6 +13,8 @@ import {
   Pencil,
   FileSpreadsheet,
   IndianRupee,
+  Eye,
+  Link as LinkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,20 +34,31 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
+import { Modal } from "@/components/ui/modal";
+import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
-import { useCreditNotes, useDeleteCreditNote } from "@accountiva/api";
+import {
+  fetchCreditNote,
+  useCreditNotes,
+  useDeleteCreditNote,
+  useUpdateCreditNoteStatus,
+} from "@accountiva/api";
 import { CreateCreditNoteModal } from "@/components/credit-notes/CreateCreditNoteModal";
+import {
+  ApplyCreditNoteModal,
+  type ApplicableCreditNote,
+} from "@/components/credit-notes/ApplyCreditNoteModal";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 
 interface CreditNoteRecord {
   id: string;
+  customerId?: string;
   customerName?: string;
   customers?: { name: string; email?: string };
   creditNoteNumber: string;
@@ -55,6 +68,34 @@ interface CreditNoteRecord {
   remainingAmount?: number;
   reason?: string;
   notes?: string;
+  referenceNumber?: string;
+  referenceInvoiceId?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  termsConditions?: string;
+  subtotal?: number;
+  discountType?: string;
+  discountValue?: number;
+  discountAmount?: number;
+  adjustment?: number;
+  taxPercent?: number;
+  taxAmount?: number;
+  items?: Array<{
+    id?: string;
+    itemId?: string;
+    itemName?: string;
+    description?: string;
+    quantity: number;
+    rate: number;
+    amount: number;
+  }>;
+  applications?: Array<{
+    id: string;
+    invoiceId?: string;
+    invoiceNumber?: string;
+    appliedAt?: string;
+    amountApplied: number;
+  }>;
   status: string;
   customFields?: Record<string, any>;
 }
@@ -72,6 +113,11 @@ export function CreditNotes() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [actionLoading, setActionLoading] = useState("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [selectedDetail, setSelectedDetail] = useState<CreditNoteRecord | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [creditNoteToApply, setCreditNoteToApply] = useState<ApplicableCreditNote | null>(null);
 
   React.useEffect(() => {
     if (quickCreate.consume("creditNote" as any)) {
@@ -82,6 +128,7 @@ export function CreditNotes() {
 
   const { data: apiCreditNotes, isLoading, refetch } = useCreditNotes();
   const deleteCreditNoteMutation = useDeleteCreditNote();
+  const updateCreditNoteStatusMutation = useUpdateCreditNoteStatus();
 
   const creditNoteList: CreditNoteRecord[] = useMemo(() => {
     if (Array.isArray(apiCreditNotes)) return apiCreditNotes;
@@ -190,18 +237,109 @@ export function CreditNotes() {
     setSelectedIds(next);
   };
 
-  const handleDelete = async (id: string, num: string) => {
-    if (!window.confirm(`Move credit note ${num} to trash?`)) return;
+  const isApplied = (creditNote: CreditNoteRecord) =>
+    String(creditNote.status).toLowerCase() === "closed" ||
+    Number(creditNote.remainingAmount ?? creditNote.amount) < Number(creditNote.amount) ||
+    Boolean(creditNote.applications?.length);
+
+  const handleDelete = async (creditNote: CreditNoteRecord) => {
+    const warning = isApplied(creditNote)
+      ? "This credit note is applied to invoice(s). Moving it to trash will release those credits and increase the related invoice balances. Proceed?"
+      : `Credit Note ${creditNote.creditNoteNumber} will be moved to Recently Deleted. Proceed?`;
+    if (!window.confirm(warning)) return;
     try {
-      await deleteCreditNoteMutation.mutateAsync(id);
-      toast.success(`Credit Note ${num} deleted`);
+      await deleteCreditNoteMutation.mutateAsync(creditNote.id);
+      toast.success(`Credit Note ${creditNote.creditNoteNumber} moved to Trash`);
       const next = new Set(selectedIds);
-      next.delete(id);
+      next.delete(creditNote.id);
       setSelectedIds(next);
+      if (selectedDetail?.id === creditNote.id) {
+        setIsPreviewOpen(false);
+        setSelectedDetail(null);
+      }
       refetch();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to delete credit note");
     }
+  };
+
+  const loadCreditNoteDetail = async (creditNote: CreditNoteRecord) => {
+    const detail = await fetchCreditNote(creditNote.id) as CreditNoteRecord;
+    return { ...creditNote, ...detail };
+  };
+
+  const handleViewPreview = async (creditNote: CreditNoteRecord) => {
+    setSelectedDetail(creditNote);
+    setIsPreviewOpen(true);
+    setIsPreviewLoading(true);
+    try {
+      setSelectedDetail(await loadCreditNoteDetail(creditNote));
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to load credit note details");
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleEdit = async (creditNote: CreditNoteRecord) => {
+    setActionLoading(`${creditNote.id}-edit`);
+    try {
+      const detail = await loadCreditNoteDetail(creditNote);
+      setEditingCreditNote(detail);
+      setIsCreateOpen(true);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to load credit note details");
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const handleVoid = async (creditNote: CreditNoteRecord) => {
+    if (!window.confirm(`Are you sure you want to void Credit Note ${creditNote.creditNoteNumber}?`)) {
+      return;
+    }
+    setActionLoading(`${creditNote.id}-void`);
+    try {
+      await updateCreditNoteStatusMutation.mutateAsync({ id: creditNote.id, status: "Void" });
+      toast.success("Credit Note voided successfully");
+      if (selectedDetail?.id === creditNote.id) {
+        setSelectedDetail({ ...selectedDetail, status: "Void" });
+      }
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to void Credit Note",
+      );
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const openApplyModal = (creditNote: CreditNoteRecord) => {
+    if (!creditNote.customerId) {
+      toast.error("This credit note is missing its customer reference");
+      return;
+    }
+    setCreditNoteToApply({
+      id: creditNote.id,
+      creditNoteNumber: creditNote.creditNoteNumber,
+      customerId: creditNote.customerId,
+      amount: Number(creditNote.amount),
+      remainingAmount: Number(creditNote.remainingAmount ?? creditNote.amount),
+    });
+  };
+
+  const refreshAppliedCreditNote = async () => {
+    if (!creditNoteToApply) return 0;
+    const detail = await fetchCreditNote(creditNoteToApply.id) as CreditNoteRecord;
+    const remainingAmount = Number(detail.remainingAmount) || 0;
+    setCreditNoteToApply((current) => current ? { ...current, remainingAmount } : current);
+    if (selectedDetail?.id === detail.id) {
+      setSelectedDetail((current) => current ? { ...current, ...detail } : current);
+    }
+    await refetch();
+    return remainingAmount;
   };
 
   const handleBulkDeleteConfirm = async () => {
@@ -482,6 +620,7 @@ export function CreditNotes() {
                       className={`hover:bg-muted/40 transition-colors group cursor-pointer ${
                         isRowSelected ? "bg-primary/5" : ""
                       }`}
+                      onClick={() => void handleViewPreview(cn)}
                     >
                       <TableCell className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                         <Checkbox
@@ -535,27 +674,65 @@ export function CreditNotes() {
                               <MoreHorizontal className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 rounded-xl p-1 shadow-xl">
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl">
                             <DropdownMenuItem
-                              onClick={() => {
-                                setEditingCreditNote(cn);
-                                setIsCreateOpen(true);
-                              }}
+                              disabled={Boolean(actionLoading)}
+                              onClick={() => void handleViewPreview(cn)}
                               className="cursor-pointer gap-2 text-xs font-semibold"
                             >
-                              <Pencil className="size-3.5 text-muted-foreground" />
-                              Edit Credit Note
+                              <Eye className="size-3.5 text-muted-foreground" />
+                              View Preview
                             </DropdownMenuItem>
 
-                            <DropdownMenuSeparator className="my-1 bg-border/60" />
+                            {String(cn.status).toLowerCase() === "draft" && (
+                              <DropdownMenuItem
+                                disabled={Boolean(actionLoading)}
+                                onClick={() => void handleEdit(cn)}
+                                className="cursor-pointer gap-2 text-xs font-semibold"
+                              >
+                                {actionLoading === `${cn.id}-edit` ? (
+                                  <Spinner className="size-3.5" />
+                                ) : (
+                                  <Pencil className="size-3.5 text-muted-foreground" />
+                                )}
+                                Edit Credit Note
+                              </DropdownMenuItem>
+                            )}
+
+                            {String(cn.status).toLowerCase() === "open" && Number(rem) > 0 && (
+                              <DropdownMenuItem
+                                disabled={Boolean(actionLoading)}
+                                onClick={() => openApplyModal(cn)}
+                                className="cursor-pointer gap-2 text-xs font-bold text-primary"
+                              >
+                                <LinkIcon className="size-3.5" />
+                                Apply to Invoice
+                              </DropdownMenuItem>
+                            )}
 
                             <DropdownMenuItem
-                              onClick={() => handleDelete(cn.id, cn.creditNoteNumber)}
+                              disabled={Boolean(actionLoading)}
+                              onClick={() => void handleDelete(cn)}
                               className="cursor-pointer gap-2 text-xs font-semibold text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="size-3.5" />
-                              Delete
+                              Move to Trash
                             </DropdownMenuItem>
+
+                            {String(cn.status).toLowerCase() === "open" && Number(rem) === Number(cn.amount) && (
+                              <DropdownMenuItem
+                                disabled={Boolean(actionLoading)}
+                                onClick={() => void handleVoid(cn)}
+                                className="cursor-pointer gap-2 text-xs font-semibold text-destructive"
+                              >
+                                {actionLoading === `${cn.id}-void` ? (
+                                  <Spinner className="size-3.5" />
+                                ) : (
+                                  <X className="size-3.5" />
+                                )}
+                                Void
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -645,6 +822,143 @@ export function CreditNotes() {
           setEditingCreditNote(null);
         }}
         onSuccess={() => refetch()}
+      />
+
+      <Modal
+        open={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        maxWidthClass="max-w-4xl"
+        title="Credit Note Details"
+        description={selectedDetail?.creditNoteNumber}
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <div className="flex items-center gap-2">
+              {selectedDetail &&
+                String(selectedDetail.status).toLowerCase() === "open" &&
+                Number(selectedDetail.remainingAmount) > 0 && (
+                  <Button type="button" size="sm" onClick={() => openApplyModal(selectedDetail)}>
+                    <LinkIcon className="size-3.5 mr-1.5" /> Apply credit
+                  </Button>
+                )}
+              {selectedDetail && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => void handleDelete(selectedDetail)}
+                >
+                  <Trash2 className="size-3.5 mr-1.5" /> Move to Trash
+                </Button>
+              )}
+            </div>
+            <Button type="button" variant="ghost" onClick={() => setIsPreviewOpen(false)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {selectedDetail && (
+          <div className="space-y-6">
+            {isPreviewLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Spinner className="size-3.5" /> Refreshing details...
+              </div>
+            )}
+            <div className="flex justify-end">{renderStatusBadge(selectedDetail.status)}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 bg-muted/20 p-6 rounded-2xl border border-border/50">
+              <div>
+                <span className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Customer</span>
+                <span className="text-xs font-bold">{selectedDetail.customerName || selectedDetail.customers?.name || "Unknown Client"}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Date</span>
+                <span className="text-xs font-semibold">{formatDate(selectedDetail.date)}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Total Credit</span>
+                <span className="text-xs font-bold font-mono">{formatCurrency(selectedDetail.amount)}</span>
+              </div>
+              <div>
+                <span className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Remaining Balance</span>
+                <span className="text-xs font-bold font-mono text-primary">{formatCurrency(selectedDetail.remainingAmount ?? selectedDetail.amount)}</span>
+              </div>
+            </div>
+
+            {selectedDetail.items && selectedDetail.items.length > 0 && (
+              <div>
+                <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground mb-3">Item details</h4>
+                <div className="border border-border/50 rounded-2xl overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs min-w-[560px]">
+                    <thead>
+                      <tr className="bg-muted/30 border-b border-border/50 font-bold uppercase tracking-wider text-muted-foreground">
+                        <th className="p-3">Item / Service</th>
+                        <th className="p-3 text-center w-16">Qty</th>
+                        <th className="p-3 text-right w-32">Rate</th>
+                        <th className="p-3 text-right w-32">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetail.items.map((item, index) => (
+                        <tr key={item.id || index} className="border-b border-border/30 last:border-0">
+                          <td className="p-3">
+                            <span className="font-bold">{item.itemName || item.description || "Item"}</span>
+                            {item.description && <span className="block text-[10px] text-muted-foreground mt-1">{item.description}</span>}
+                          </td>
+                          <td className="p-3 text-center">{item.quantity}</td>
+                          <td className="p-3 text-right font-mono">{formatCurrency(item.rate)}</td>
+                          <td className="p-3 text-right font-mono font-semibold">{formatCurrency(item.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {selectedDetail.applications && selectedDetail.applications.length > 0 && (
+              <div>
+                <h4 className="text-xs uppercase font-bold tracking-widest text-muted-foreground mb-3">Applied To Invoices</h4>
+                <div className="border border-border/50 rounded-2xl overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs min-w-[500px]">
+                    <thead>
+                      <tr className="bg-muted/30 border-b border-border/50 font-bold uppercase tracking-wider text-muted-foreground">
+                        <th className="p-3">Invoice Number</th>
+                        <th className="p-3">Applied Date</th>
+                        <th className="p-3 text-right">Amount Applied</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedDetail.applications.map((application) => (
+                        <tr key={application.id} className="border-b border-border/30 last:border-0">
+                          <td className="p-3 font-semibold font-mono">{application.invoiceNumber || "Invoice"}</td>
+                          <td className="p-3 text-muted-foreground">{formatDate(application.appliedAt)}</td>
+                          <td className="p-3 text-right font-bold font-mono text-emerald-600">{formatCurrency(application.amountApplied)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {selectedDetail.notes && (
+              <div>
+                <span className="block text-[10px] uppercase font-bold tracking-widest text-muted-foreground mb-1">Notes</span>
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{selectedDetail.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <ApplyCreditNoteModal
+        open={Boolean(creditNoteToApply)}
+        creditNote={creditNoteToApply}
+        onClose={() => setCreditNoteToApply(null)}
+        onApplied={async () => {
+          await refreshAppliedCreditNote();
+        }}
+        refreshCreditBalance={refreshAppliedCreditNote}
       />
     </div>
   );

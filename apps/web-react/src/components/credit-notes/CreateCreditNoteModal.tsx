@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +9,30 @@ import { Select } from "@/components/ui/Select";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { Trash2, Plus } from "lucide-react";
-import { formatCurrency, getCurrencySymbol } from "@accountiva/shared";
-import { useCreateCreditNote, useUpdateCreditNote, useCustomers, useInvoices, useItems } from "@accountiva/api";
+import {
+  formatCurrency,
+  getCurrencySymbol,
+  isDuplicateDocumentNumberError,
+  validateFinancialDocumentDates,
+  validateFinancialLineItems,
+  type CreditNotePayload,
+  type CreditNoteStatus,
+} from "@accountiva/shared";
+import {
+  fetchNextCreditNoteNumber,
+  useCreateCreditNote,
+  useUpdateCreditNote,
+  useCustomers,
+  useInvoices,
+  useItems,
+} from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 interface LineItemRow {
+  id?: string;
   itemId: string;
+  itemName: string;
   description: string;
   quantity: number;
   rate: number;
@@ -34,6 +51,15 @@ const DISCOUNT_TYPE_OPTIONS = [
   { id: "fixed", name: "Fixed Amount" },
 ];
 
+const today = () => new Date().toISOString().split("T")[0];
+const emptyLineItem = (): LineItemRow => ({
+  itemId: "",
+  itemName: "",
+  description: "",
+  quantity: 1,
+  rate: 0,
+});
+
 export function CreateCreditNoteModal({
   isOpen,
   onClose,
@@ -47,7 +73,7 @@ export function CreateCreditNoteModal({
   const createCreditNoteMutation = useCreateCreditNote();
   const updateCreditNoteMutation = useUpdateCreditNote();
   const { data: apiCustomers } = useCustomers();
-  const { data: apiInvoices } = useInvoices();
+  const { data: apiInvoices } = useInvoices({ status: "Outstanding", limit: 100 });
   const { data: apiItems } = useItems();
 
   const customerList: any[] = useMemo(() => {
@@ -72,32 +98,69 @@ export function CreateCreditNoteModal({
   const [isEditing, setIsEditing] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [creditNoteNumber, setCreditNoteNumber] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [isNumberLoading, setIsNumberLoading] = useState(false);
+  const [numberError, setNumberError] = useState("");
+  const numberRequestRef = useRef(0);
+  const [date, setDate] = useState(today());
+  const [status, setStatus] = useState<CreditNoteStatus>("Draft");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [referenceInvoiceId, setReferenceInvoiceId] = useState("");
   const [billingAddress, setBillingAddress] = useState("");
+  const [shippingAddress, setShippingAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [termsConditions, setTermsConditions] = useState("");
   const [discountType, setDiscountType] = useState("");
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [taxPercent, setTaxPercent] = useState<number>(0);
   const [adjustment, setAdjustment] = useState<number>(0);
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
-  const [items, setItems] = useState<LineItemRow[]>([
-    { itemId: "", description: "", quantity: 1, rate: 0 },
-  ]);
+  const [items, setItems] = useState<LineItemRow[]>([emptyLineItem()]);
+
+  const loadNextCreditNoteNumber = useCallback(async () => {
+    const requestId = ++numberRequestRef.current;
+    setIsNumberLoading(true);
+    setNumberError("");
+    try {
+      const nextNumber = await fetchNextCreditNoteNumber();
+      if (numberRequestRef.current === requestId) {
+        setCreditNoteNumber(nextNumber);
+      }
+      return nextNumber;
+    } catch (error: any) {
+      if (numberRequestRef.current === requestId) {
+        setCreditNoteNumber("");
+        setNumberError(
+          error.response?.data?.error ||
+            error.message ||
+            "Could not load the next credit note number.",
+        );
+      }
+      return null;
+    } finally {
+      if (numberRequestRef.current === requestId) {
+        setIsNumberLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       if (creditNoteToEdit) {
+        numberRequestRef.current += 1;
+        setIsNumberLoading(false);
+        setNumberError("");
         setIsEditing(true);
         setCustomerId(creditNoteToEdit.customerId || "");
         setCreditNoteNumber(creditNoteToEdit.creditNoteNumber || creditNoteToEdit.number || "");
-        setDate(creditNoteToEdit.date || new Date().toISOString().split("T")[0]);
+        setDate(creditNoteToEdit.date || today());
+        setStatus(creditNoteToEdit.status || "Draft");
         setReferenceNumber(creditNoteToEdit.referenceNumber || "");
         setReferenceInvoiceId(creditNoteToEdit.referenceInvoiceId || creditNoteToEdit.invoiceId || "");
         setBillingAddress(creditNoteToEdit.billingAddress || "");
+        setShippingAddress(creditNoteToEdit.shippingAddress || "");
         setNotes(creditNoteToEdit.notes || "");
+        setTermsConditions(creditNoteToEdit.termsConditions || "");
         setDiscountType(creditNoteToEdit.discountType || "");
         setDiscountValue(Number(creditNoteToEdit.discountValue) || 0);
         setTaxPercent(Number(creditNoteToEdit.taxPercent) || 0);
@@ -107,34 +170,43 @@ export function CreateCreditNoteModal({
         if (Array.isArray(creditNoteToEdit.items) && creditNoteToEdit.items.length > 0) {
           setItems(
             creditNoteToEdit.items.map((it: any) => ({
-              itemId: it.itemId || it.id || "",
+              id: it.id,
+              itemId: it.itemId || "",
+              itemName: it.itemName || "",
               description: it.description || it.itemName || "",
               quantity: Number(it.quantity) || 1,
               rate: Number(it.rate) || 0,
             }))
           );
         } else {
-          setItems([{ itemId: "", description: "", quantity: 1, rate: 0 }]);
+          setItems([emptyLineItem()]);
         }
       } else {
         setIsEditing(false);
-        const randomNum = Math.floor(100 + Math.random() * 900);
-        setCreditNoteNumber(`CN-${new Date().getFullYear()}-${randomNum}`);
+        setCreditNoteNumber("");
+        setNumberError("");
         setCustomerId("");
-        setDate(new Date().toISOString().split("T")[0]);
+        setDate(today());
+        setStatus("Draft");
         setReferenceNumber("");
         setReferenceInvoiceId("");
         setBillingAddress("");
+        setShippingAddress("");
         setNotes("");
+        setTermsConditions("");
         setDiscountType("");
         setDiscountValue(0);
         setTaxPercent(0);
         setAdjustment(0);
         setCustomFields({});
-        setItems([{ itemId: "", description: "", quantity: 1, rate: 0 }]);
+        setItems([emptyLineItem()]);
+        void loadNextCreditNoteNumber();
       }
     }
-  }, [isOpen, creditNoteToEdit]);
+    return () => {
+      numberRequestRef.current += 1;
+    };
+  }, [isOpen, creditNoteToEdit, loadNextCreditNoteNumber]);
 
   // Customer Invoices for dropdown
   const customerInvoices = useMemo(() => {
@@ -161,6 +233,7 @@ export function CreateCreditNoteModal({
     const updated = [...items];
     if (found) {
       updated[idx].itemId = found.id;
+      updated[idx].itemName = found.name;
       updated[idx].description = found.name;
       updated[idx].rate = Number(found.sellingPrice ?? found.unitPrice ?? 0);
     } else {
@@ -170,7 +243,7 @@ export function CreateCreditNoteModal({
   };
 
   const addLineItem = () => {
-    setItems([...items, { itemId: "", description: "", quantity: 1, rate: 0 }]);
+    setItems([...items, emptyLineItem()]);
   };
 
   const removeLineItem = (idx: number) => {
@@ -195,8 +268,7 @@ export function CreateCreditNoteModal({
   const taxAmount = (taxableAmount * Number(taxPercent || 0)) / 100;
   const grandTotal = Math.max(0, taxableAmount + taxAmount + Number(adjustment || 0));
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (nextStatus: "Draft" | "Open") => {
 
     if (!customerId) {
       toast.error("Please select a customer");
@@ -208,14 +280,48 @@ export function CreateCreditNoteModal({
       return;
     }
 
-    const payload = {
+    const payloadItems = items.map((i) => {
+      const found = catalogItems.find((it) => it.id === i.itemId);
+      const itemName = found?.name || i.itemName || i.description.trim();
+      return {
+        id: i.id,
+        itemId: i.itemId || undefined,
+        itemName,
+        description: i.description,
+        quantity: Number(i.quantity),
+        rate: Number(i.rate),
+        amount: Number(i.quantity) * Number(i.rate),
+      };
+    });
+
+    const itemError = validateFinancialLineItems(payloadItems);
+    if (itemError) {
+      toast.error(itemError);
+      return;
+    }
+
+    const dateError = validateFinancialDocumentDates(date);
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
+
+    if (!Number.isFinite(grandTotal) || grandTotal <= 0) {
+      toast.error("Credit note total must be greater than zero");
+      return;
+    }
+
+    const payload: CreditNotePayload = {
       customerId,
       creditNoteNumber: creditNoteNumber.trim(),
       date,
+      status: nextStatus,
       referenceNumber: referenceNumber.trim(),
       referenceInvoiceId: referenceInvoiceId || undefined,
       billingAddress: billingAddress.trim(),
+      shippingAddress: shippingAddress.trim(),
       notes: notes.trim(),
+      termsConditions: termsConditions.trim(),
       amount: grandTotal,
       subtotal,
       discountType,
@@ -224,17 +330,7 @@ export function CreateCreditNoteModal({
       taxAmount,
       adjustment: Number(adjustment) || 0,
       customFields,
-      items: items.map((i) => {
-        const found = catalogItems.find((it) => it.id === i.itemId);
-        return {
-          itemId: i.itemId || undefined,
-          itemName: found?.name || i.description || "Credit Item",
-          description: i.description,
-          quantity: Number(i.quantity) || 1,
-          rate: Number(i.rate) || 0,
-          amount: (Number(i.quantity) || 1) * (Number(i.rate) || 0),
-        };
-      }),
+      items: payloadItems,
     };
 
     try {
@@ -250,14 +346,27 @@ export function CreateCreditNoteModal({
         toast.success(`Credit Note created successfully!`);
       }
 
+      setStatus(nextStatus);
       onSuccess?.(result);
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to save credit note");
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        "Failed to save credit note";
+      if (!isEditing && isDuplicateDocumentNumberError(err)) {
+        toast.error(message, {
+          description: "Your entries were kept and a fresh credit note number is being loaded.",
+        });
+        await loadNextCreditNoteNumber();
+        return;
+      }
+      toast.error(message);
     }
   };
 
   const isSaving = createCreditNoteMutation.isPending || updateCreditNoteMutation.isPending;
+  const isNumberUnresolved = !isEditing && (isNumberLoading || !creditNoteNumber.trim());
 
   return (
     <Modal
@@ -281,18 +390,29 @@ export function CreateCreditNoteModal({
           </Button>
           <Button
             type="button"
+            variant="outline"
             size="sm"
-            disabled={isSaving}
-            onClick={handleSubmit}
+            disabled={isSaving || isNumberUnresolved}
+            onClick={() => void handleSubmit("Draft")}
             className="gap-2 font-bold cursor-pointer"
           >
             {isSaving && <Spinner className="size-3.5" />}
-            <span>{isEditing ? "Update Credit Note" : "Save Credit Note"}</span>
+            <span>Save as Draft</span>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isSaving || isNumberUnresolved}
+            onClick={() => void handleSubmit("Open")}
+            className="gap-2 font-bold cursor-pointer"
+          >
+            {isSaving && <Spinner className="size-3.5" />}
+            <span>{isEditing && status === "Open" ? "Update & Keep Open" : "Save & Open"}</span>
           </Button>
         </div>
       }
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={(event) => event.preventDefault()} className="space-y-6">
         {/* Header Form Fields (grid of 3) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className="space-y-1.5">
@@ -315,6 +435,21 @@ export function CreateCreditNoteModal({
               className="text-xs font-mono"
               required
             />
+            {!isEditing && isNumberLoading && (
+              <p className="text-[10px] text-muted-foreground">Loading the next credit note number...</p>
+            )}
+            {!isEditing && numberError && (
+              <div className="flex items-center justify-between gap-2 text-[10px] text-destructive">
+                <span>{numberError}</span>
+                <button
+                  type="button"
+                  onClick={() => void loadNextCreditNoteNumber()}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">

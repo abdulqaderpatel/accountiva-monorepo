@@ -37,6 +37,11 @@ export async function fetchNextCreditNoteNumber(): Promise<string> {
   return readNextNumber(data);
 }
 
+export async function fetchCreditNote(id: string): Promise<CreditNoteRecord> {
+  const { data } = await api.get(`/credit-notes/${id}`);
+  return data;
+}
+
 export async function createCreditNote(payload: CreditNotePayload): Promise<CreditNoteRecord> {
   const { data } = await api.post('/credit-notes', payload);
   return data;
@@ -79,10 +84,7 @@ export function useCreditNotes(filters?: CreditNoteFilters) {
 export function useCreditNote(id: string) {
   return useQuery({
     queryKey: ['creditNotes', id],
-    queryFn: async () => {
-      const { data } = await api.get(`/credit-notes/${id}`);
-      return data;
-    },
+    queryFn: () => fetchCreditNote(id),
     enabled: Boolean(id),
   });
 }

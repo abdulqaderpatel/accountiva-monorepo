@@ -26,6 +26,7 @@ import {
 import {
   applyCreditNote,
   createCreditNote,
+  fetchCreditNote,
   fetchNextCreditNoteNumber,
   updateCreditNote,
   updateCreditNoteStatus,
@@ -182,20 +183,44 @@ describe("estimate requests", () => {
 });
 
 describe("credit-note requests", () => {
-  it("uses POST, PATCH, and the dedicated status endpoint", async () => {
+  it("fetches full credit-note details", async () => {
+    mockedGet.mockResolvedValueOnce({ data: { id: "credit-note-1", items: [item] } } as never);
+
+    await expect(fetchCreditNote("credit-note-1")).resolves.toMatchObject({
+      id: "credit-note-1",
+      items: [item],
+    });
+    expect(mockedGet).toHaveBeenCalledWith("/credit-notes/credit-note-1");
+  });
+
+  it("sends dated line-item payloads through POST and PATCH", async () => {
     mockedPost.mockResolvedValueOnce({ data: { id: "credit-note-1" } } as never);
     mockedPatch.mockResolvedValue({ data: { id: "credit-note-1" } } as never);
 
     await createCreditNote(creditNote);
     await updateCreditNote("credit-note-1", creditNote);
-    await updateCreditNoteStatus("credit-note-1", "Open");
 
     expect(mockedPost).toHaveBeenCalledWith("/credit-notes", creditNote);
     expect(mockedPatch).toHaveBeenNthCalledWith(1, "/credit-notes/credit-note-1", creditNote);
+    expect(creditNote.date).toBe("2026-10-22");
+    expect(creditNote.items).toHaveLength(1);
+  });
+
+  it("uses the dedicated status endpoint for the direct Open and Void actions", async () => {
+    mockedPatch.mockResolvedValue({ data: { id: "credit-note-1" } } as never);
+
+    await updateCreditNoteStatus("credit-note-1", "Open");
+    await updateCreditNoteStatus("credit-note-1", "Void");
+
+    expect(mockedPatch).toHaveBeenNthCalledWith(
+      1,
+      "/credit-notes/credit-note-1/status",
+      { status: "Open" },
+    );
     expect(mockedPatch).toHaveBeenNthCalledWith(
       2,
       "/credit-notes/credit-note-1/status",
-      { status: "Open" },
+      { status: "Void" },
     );
   });
 
@@ -208,5 +233,16 @@ describe("credit-note requests", () => {
       invoiceId: "invoice-1",
       amountApplied: 75,
     });
+  });
+
+  it("propagates an application conflict unchanged", async () => {
+    const conflict = {
+      response: { status: 409, data: { error: "Credit or invoice balance changed" } },
+    };
+    mockedPost.mockRejectedValueOnce(conflict);
+
+    await expect(
+      applyCreditNote("credit-note-1", { invoiceId: "invoice-1", amountApplied: 75 }),
+    ).rejects.toBe(conflict);
   });
 });

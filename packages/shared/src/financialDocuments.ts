@@ -58,6 +58,7 @@ export interface EstimatePayload extends FinancialDocumentFields {
 export interface CreditNotePayload extends Omit<FinancialDocumentFields, "shippingCharges" | "terms"> {
   creditNoteNumber: string;
   status: CreditNoteStatus;
+  subtotal?: number;
   referenceInvoiceId?: string;
 }
 

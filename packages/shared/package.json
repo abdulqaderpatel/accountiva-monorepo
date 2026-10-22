@@ -10,7 +10,8 @@
     "./formatters": "./src/formatters.ts",
     "./features": "./src/features.ts",
     "./countries": "./src/countries.ts",
-    "./organization": "./src/organization.ts"
+    "./organization": "./src/organization.ts",
+    "./financialDocuments": "./src/financialDocuments.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"
@@ -19,4 +20,3 @@
     "typescript": "^5.9.3"
   }
 }
-

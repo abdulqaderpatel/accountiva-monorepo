@@ -8,9 +8,8 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
-import { Search, Plus, Calculator, ArrowRight, CircleCheck } from 'lucide-react-native';
+import { Search, Plus, Calculator } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,6 +19,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { EstimateDetailModal } from '../components/EstimateDetailModal';
 import { CreateEstimateModal } from '../components/CreateEstimateModal';
+import { useAuth } from '../context/AuthContext';
 
 interface EstimatesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -36,19 +36,25 @@ interface EstimateRecord {
   status: string;
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
   items?: any[];
+  customerId?: string;
+  [key: string]: any;
 }
 
 export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted'>('all');
+  const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted' | 'declined' | 'invoiced'>('all');
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateRecord | null>(null);
   const [editingEstimate, setEditingEstimate] = useState<any | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: apiEstimates, isLoading, refetch, isRefetching } = useEstimates({
     search: search || undefined,
-    status: filter === 'all' ? undefined : filter,
+    status: filter === 'all'
+      ? undefined
+      : `${filter.charAt(0).toUpperCase()}${filter.slice(1)}`,
   });
 
   const getStatusVariant = (status: string): EstimateRecord['variant'] => {
@@ -74,6 +80,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     : [];
 
   const estimates: EstimateRecord[] = rawList.map((item: any) => ({
+    ...item,
     id: item.id,
     customer:
       typeof item.customer === 'string'
@@ -82,8 +89,10 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     number: item.estimateNumber || item.number || 'EST-000',
     date: item.date || item.estimateDate || 'Recent',
     amount: Number(item.amount) || 0,
-    subtotal: Number(item.subtotal) || (Number(item.amount) || 0) * 0.847,
-    taxAmount: Number(item.taxAmount) || (Number(item.amount) || 0) * 0.153,
+    subtotal: Number(item.subtotal) || (Array.isArray(item.items)
+      ? item.items.reduce((sum: number, line: any) => sum + Number(line.amount || 0), 0)
+      : 0),
+    taxAmount: Number(item.taxAmount) || 0,
     status: item.status || 'Draft',
     variant: getStatusVariant(item.status || 'Draft'),
     items: item.items || [],
@@ -129,7 +138,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
       {/* Filter Tabs */}
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {(['all', 'draft', 'sent', 'accepted'] as const).map((key) => {
+          {(['all', 'draft', 'sent', 'accepted', 'declined', 'invoiced'] as const).map((key) => {
             const isSelected = filter === key;
             return (
               <TouchableOpacity
@@ -227,7 +236,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
               <View style={styles.cardBottomRow}>
                 <Text style={[styles.label, { color: colors.mutedForeground }]}>Estimated Amount</Text>
                 <Text style={[styles.amount, { color: colors.foreground }]}>
-                  {formatCurrency(est.amount, 'INR')}
+                  {formatCurrency(est.amount, currency)}
                 </Text>
               </View>
             </TouchableOpacity>

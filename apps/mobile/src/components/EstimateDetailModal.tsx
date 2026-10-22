@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,13 @@ import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { formatCurrency } from '@accountiva/shared';
-import { useUpdateEstimate, useDeleteEstimate, useCreateInvoice } from '@accountiva/api';
+import {
+  convertEstimateToInvoice,
+  useUpdateEstimateStatus,
+  useDeleteEstimate,
+} from '@accountiva/api';
 import { fonts } from '../theme/typography';
+import { useAuth } from '../context/AuthContext';
 
 interface EstimateDetailModalProps {
   visible: boolean;
@@ -35,15 +40,23 @@ export function EstimateDetailModal({
   onConvertToInvoice,
 }: EstimateDetailModalProps) {
   const { colors } = useTheme();
-  const updateEstimateMutation = useUpdateEstimate();
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
+  const updateEstimateStatusMutation = useUpdateEstimateStatus();
   const deleteEstimateMutation = useDeleteEstimate();
-  const createInvoiceMutation = useCreateInvoice();
+  const [isConverting, setIsConverting] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<'Accepted' | 'Declined' | null>(null);
 
   if (!estimate) return null;
 
   const rawAmount = Number(estimate.amount) || 0;
-  const rawSubtotal = Number(estimate.subtotal) || rawAmount * 0.847;
-  const rawTax = Number(estimate.taxAmount) || rawAmount - rawSubtotal;
+  const lineItems: any[] = Array.isArray(estimate.items) ? estimate.items : [];
+  const calculatedSubtotal = lineItems.reduce((sum, item) => {
+    const lineAmount = Number(item.amount ?? (Number(item.quantity) * Number(item.rate)));
+    return sum + (Number.isFinite(lineAmount) ? lineAmount : 0);
+  }, 0);
+  const rawSubtotal = Number(estimate.subtotal) || calculatedSubtotal;
+  const rawTax = Number(estimate.taxAmount) || 0;
   const status = String(estimate.status || 'Draft').toUpperCase();
 
   const clientName = typeof estimate.customer === 'string'
@@ -61,12 +74,13 @@ export function EstimateDetailModal({
 
   const isAccepted = status === 'ACCEPTED';
   const isDeclined = status === 'DECLINED';
-  const variant = isAccepted ? 'success' : isDeclined ? 'destructive' : 'warning';
+  const isInvoiced = status === 'INVOICED';
+  const variant = isAccepted || isInvoiced ? 'success' : isDeclined ? 'destructive' : 'warning';
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Accountiva Quote ${estimate.number || estimate.estimateNumber} for ${estimate.customer || estimate.customerName} - Total: ${formatCurrency(rawAmount, 'INR')}`,
+        message: `Accountiva Quote ${estimateNum} for ${clientName} - Total: ${formatCurrency(rawAmount, currency)}`,
         title: `Quote ${estimate.number || estimate.estimateNumber}`,
       });
     } catch (err: any) {
@@ -75,16 +89,22 @@ export function EstimateDetailModal({
   };
 
   const handleStatusChange = async (newStatus: 'Accepted' | 'Declined') => {
+    setPendingStatus(newStatus);
     try {
-      await updateEstimateMutation.mutateAsync({
+      await updateEstimateStatusMutation.mutateAsync({
         id: estimate.id,
-        payload: { status: newStatus },
+        status: newStatus,
       });
       toast.success('Status Updated', `Quote marked as ${newStatus}!`);
       if (onRefresh) onRefresh();
       onClose();
     } catch (err: any) {
-      toast.error('Update Failed', err?.message || 'Could not update quote status');
+      toast.error(
+        'Update Failed',
+        err.response?.data?.error || err.response?.data?.message || err?.message || 'Could not update quote status',
+      );
+    } finally {
+      setPendingStatus(null);
     }
   };
 
@@ -115,60 +135,50 @@ export function EstimateDetailModal({
       confirmText: 'Convert',
       icon: 'check',
       onConfirm: async () => {
+        setIsConverting(true);
         try {
-          await createInvoiceMutation.mutateAsync({
-            customerName: estimate.customer || estimate.customerName,
-            dueDate: 'Upon Receipt',
-            amount: rawAmount,
-            subtotal: rawSubtotal,
-            taxAmount: rawTax,
-            status: 'Draft',
-            items: Array.isArray(estimate.items) && estimate.items.length > 0
-              ? estimate.items.map((i: any) => ({
-                  itemName: i.name || i.itemName,
-                  quantity: i.quantity || 1,
-                  rate: Number(i.rate) || 0,
-                  amount: (i.quantity || 1) * (Number(i.rate) || 0),
-                }))
-              : [
-                  {
-                    itemName: `Converted from Quote ${estimate.number || ''}`,
-                    quantity: 1,
-                    rate: rawSubtotal,
-                    amount: rawSubtotal,
-                  },
-                ],
+          const invoiceDate = new Date().toISOString().split('T')[0];
+          const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0];
+          const result = await convertEstimateToInvoice({
+            estimateId: estimate.id,
+            estimate,
+            invoiceDate,
+            dueDate,
           });
 
-          // Update estimate to Accepted
-          try {
-            await updateEstimateMutation.mutateAsync({
-              id: estimate.id,
-              payload: { status: 'Accepted' },
-            });
-          } catch {}
-
-          toast.success('Invoice Created', 'Quote successfully converted to Invoice Draft!');
           if (onRefresh) onRefresh();
-          onClose();
-          if (onConvertToInvoice) onConvertToInvoice();
+          if (result.status === 'complete') {
+            toast.success(
+              'Invoice Created',
+              `Invoice ${result.invoiceNumber} was created and the estimate was marked Invoiced.`,
+            );
+            onClose();
+            if (onConvertToInvoice) onConvertToInvoice();
+          } else {
+            const statusError = result.error as any;
+            const reason =
+              statusError?.response?.data?.error ||
+              statusError?.response?.data?.message ||
+              statusError?.message ||
+              'The estimate status could not be updated.';
+            toast.warning(
+              `Invoice ${result.invoiceNumber} Created`,
+              `${reason} The estimate still needs status recovery.`,
+            );
+          }
         } catch (err: any) {
-          toast.error('Conversion Failed', err?.message || 'Failed to convert quote to invoice');
+          toast.error(
+            'Conversion Failed',
+            err.response?.data?.error || err.response?.data?.message || err?.message || 'Failed to convert quote to invoice',
+          );
+        } finally {
+          setIsConverting(false);
         }
       },
     });
   };
-
-  const lineItems: any[] = Array.isArray(estimate.items) && estimate.items.length > 0
-    ? estimate.items
-    : [
-        {
-          id: '1',
-          name: estimate.description || 'Estimated Supply & Services',
-          quantity: 1,
-          rate: rawSubtotal,
-        },
-      ];
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -216,7 +226,7 @@ export function EstimateDetailModal({
                 <View>
                   <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>Estimated Total</Text>
                   <Text style={[styles.heroAmount, { color: colors.foreground }]}>
-                    {formatCurrency(rawAmount, 'INR')}
+                    {formatCurrency(rawAmount, currency)}
                   </Text>
                 </View>
                 <Badge variant={variant}>{status}</Badge>
@@ -241,19 +251,26 @@ export function EstimateDetailModal({
             {/* Line Items */}
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Line Items Breakdown</Text>
             <Card style={styles.itemsCard}>
-              {lineItems.map((item, idx) => (
+              {lineItems.length === 0 ? (
+                <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>No line items recorded.</Text>
+              ) : lineItems.map((item, idx) => (
                 <View key={item.id || idx}>
                   <View style={styles.itemRow}>
                     <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={[styles.itemName, { color: colors.foreground }]}>
                         {item.name || item.itemName}
                       </Text>
+                      {item.description ? (
+                        <Text style={[styles.itemDescription, { color: colors.mutedForeground }]}>
+                          {item.description}
+                        </Text>
+                      ) : null}
                       <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>
-                        {item.quantity || 1} × {formatCurrency(Number(item.rate) || 0, 'INR')}
+                        {item.quantity || 1} × {formatCurrency(Number(item.rate) || 0, currency)}
                       </Text>
                     </View>
                     <Text style={[styles.itemTotal, { color: colors.foreground }]}>
-                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), 'INR')}
+                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), currency)}
                     </Text>
                   </View>
                   {idx < lineItems.length - 1 ? (
@@ -267,7 +284,7 @@ export function EstimateDetailModal({
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawSubtotal, 'INR')}
+                  {formatCurrency(rawSubtotal, currency)}
                 </Text>
               </View>
 
@@ -275,7 +292,7 @@ export function EstimateDetailModal({
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
-                    -{formatCurrency(Number(estimate.discountAmount || estimate.discountValue) || 0, 'INR')}
+                    -{formatCurrency(Number(estimate.discountAmount || estimate.discountValue) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -283,7 +300,7 @@ export function EstimateDetailModal({
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawTax, 'INR')}
+                  {formatCurrency(rawTax, currency)}
                 </Text>
               </View>
 
@@ -291,7 +308,7 @@ export function EstimateDetailModal({
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(estimate.shippingCharges) || 0, 'INR')}
+                    {formatCurrency(Number(estimate.shippingCharges) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -300,7 +317,7 @@ export function EstimateDetailModal({
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(estimate.adjustment) || 0, 'INR')}
+                    {formatCurrency(Number(estimate.adjustment) || 0, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -308,17 +325,17 @@ export function EstimateDetailModal({
               <View style={styles.summaryRow}>
                 <Text style={[styles.grandLabel, { color: colors.foreground }]}>Total</Text>
                 <Text style={[styles.grandValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawAmount, 'INR')}
+                  {formatCurrency(rawAmount, currency)}
                 </Text>
               </View>
             </Card>
 
             {/* Quick Actions Row */}
             <View style={styles.actionRow}>
-              {!isAccepted && (
+              {!isAccepted && !isInvoiced && (
                 <TouchableOpacity
                   onPress={() => handleStatusChange('Accepted')}
-                  disabled={updateEstimateMutation.isPending}
+                  disabled={pendingStatus === 'Accepted'}
                   style={[styles.actionBtn, { backgroundColor: colors.success }]}
                   activeOpacity={0.8}
                 >
@@ -327,10 +344,10 @@ export function EstimateDetailModal({
                 </TouchableOpacity>
               )}
 
-              {!isDeclined && (
+              {!isDeclined && !isInvoiced && (
                 <TouchableOpacity
                   onPress={() => handleStatusChange('Declined')}
-                  disabled={updateEstimateMutation.isPending}
+                  disabled={pendingStatus === 'Declined'}
                   style={[styles.actionBtn, { backgroundColor: colors.destructive }]}
                   activeOpacity={0.8}
                 >
@@ -339,17 +356,19 @@ export function EstimateDetailModal({
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                onPress={handleConvert}
-                disabled={createInvoiceMutation.isPending}
-                style={[styles.actionBtnPrimary, { backgroundColor: colors.primary }]}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
-                  Convert to Invoice
-                </Text>
-                <ArrowRight size={15} color={colors.primaryForeground} style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
+              {isAccepted ? (
+                <TouchableOpacity
+                  onPress={handleConvert}
+                  disabled={isConverting}
+                  style={[styles.actionBtnPrimary, { backgroundColor: colors.primary }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
+                    {isConverting ? 'Converting...' : 'Convert to Invoice'}
+                  </Text>
+                  <ArrowRight size={15} color={colors.primaryForeground} style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             {/* Notes & Terms */}
@@ -508,6 +527,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: fonts.semiBold,
   },
+  itemDescription: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    marginTop: 2,
+  },
   itemSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
@@ -576,4 +600,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
   },
 });
-

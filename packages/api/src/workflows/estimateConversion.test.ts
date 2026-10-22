@@ -82,4 +82,55 @@ describe("convertEstimateToInvoice", () => {
       error: statusError,
     });
   });
+
+  it("normalizes a mobile-shaped estimate before creating the invoice", async () => {
+    const deps = dependencies();
+    const mobileInput = {
+      estimateId: "estimate-mobile",
+      estimate: {
+        number: "EST-MOBILE-1",
+        customers: { id: "customer-mobile", name: "Mobile Customer" },
+        amount: 236,
+        taxPercent: 18,
+        taxAmount: 36,
+        notes: "Created on mobile",
+        items: [
+          {
+            id: "line-mobile",
+            itemId: "item-mobile",
+            name: "Mobile service",
+            description: "Native line description",
+            quantity: 2,
+            rate: 100,
+            amount: 200,
+          },
+        ],
+      },
+      invoiceDate: "2026-10-22",
+      dueDate: "2026-11-21",
+    };
+
+    await convertEstimateToInvoice(mobileInput, deps);
+
+    expect(deps.createInvoice).toHaveBeenCalledWith(expect.objectContaining({
+      invoiceNumber: "INV-0008",
+      customerId: "customer-mobile",
+      date: "2026-10-22",
+      dueDate: "2026-11-21",
+      amount: 236,
+      status: "Draft",
+      taxAmount: 36,
+      items: [
+        expect.objectContaining({
+          id: "line-mobile",
+          itemId: "item-mobile",
+          itemName: "Mobile service",
+          description: "Native line description",
+          quantity: 2,
+          rate: 100,
+          amount: 200,
+        }),
+      ],
+    }));
+  });
 });

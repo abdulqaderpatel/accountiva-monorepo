@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildMobileInvoicePayload, type MobileInvoiceFormValues } from "./payloads";
+import {
+  buildMobileEstimatePayload,
+  buildMobileInvoicePayload,
+  type MobileEstimateFormValues,
+  type MobileInvoiceFormValues,
+} from "./payloads";
 
 const values: MobileInvoiceFormValues = {
   invoiceNumber: "INV-0042",
@@ -73,5 +78,67 @@ describe("buildMobileInvoicePayload", () => {
         items: [{ ...values.items[0], quantity: 0 }],
       }),
     ).toThrow(/quantity/i);
+  });
+});
+
+describe("buildMobileEstimatePayload", () => {
+  const estimateValues: MobileEstimateFormValues = {
+    estimateNumber: "EST-0042",
+    customerId: "customer-1",
+    date: "2026-10-22",
+    expiryDate: "2026-11-21",
+    status: "Sent",
+    items: [
+      {
+        id: "estimate-line-1",
+        itemId: "item-1",
+        name: "Mobile implementation",
+        description: "Two implementation sessions",
+        quantity: 2,
+        rate: 100,
+      },
+    ],
+    discountType: "fixed",
+    discountValue: "10",
+    shippingCharges: "5",
+    adjustment: "-1",
+    taxPercent: 18,
+    notes: "Valid for 30 days",
+    customFields: { opportunity: "OPP-42" },
+  };
+
+  it("maps estimate dates, items, totals, status, notes, and custom fields", () => {
+    expect(buildMobileEstimatePayload(estimateValues)).toMatchObject({
+      estimateNumber: "EST-0042",
+      customerId: "customer-1",
+      date: "2026-10-22",
+      expiryDate: "2026-11-21",
+      status: "Sent",
+      amount: 228.2,
+      discountAmount: 10,
+      taxAmount: 34.2,
+      notes: "Valid for 30 days",
+      customFields: { opportunity: "OPP-42" },
+      items: [
+        {
+          id: "estimate-line-1",
+          itemId: "item-1",
+          itemName: "Mobile implementation",
+          description: "Two implementation sessions",
+          quantity: 2,
+          rate: 100,
+          amount: 200,
+        },
+      ],
+    });
+  });
+
+  it("rejects invalid estimate dates and items", () => {
+    expect(() =>
+      buildMobileEstimatePayload({ ...estimateValues, expiryDate: "2026-10-21" }),
+    ).toThrow(/expiry date/i);
+    expect(() =>
+      buildMobileEstimatePayload({ ...estimateValues, items: [] }),
+    ).toThrow(/line item/i);
   });
 });

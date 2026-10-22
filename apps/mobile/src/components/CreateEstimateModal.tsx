@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,11 +26,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from './ui/Card';
-import { formatCurrency } from '@accountiva/shared';
-import { useCreateEstimate, useUpdateEstimate, useCustomers, useItems } from '@accountiva/api';
+import {
+  formatCurrency,
+  isDuplicateDocumentNumberError,
+  type EstimateStatus,
+} from '@accountiva/shared';
+import {
+  fetchNextEstimateNumber,
+  useCreateEstimate,
+  useUpdateEstimate,
+  useCustomers,
+  useItems,
+} from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { AddCustomerModal } from './AddCustomerModal';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
+import { buildMobileEstimatePayload } from '../documents/payloads';
 
 export interface EstimateLineItem {
   id: string;
@@ -90,6 +101,9 @@ export function CreateEstimateModal({
   const [itemSearch, setItemSearch] = useState('');
 
   const [estimateNumber, setEstimateNumber] = useState('');
+  const [isNumberLoading, setIsNumberLoading] = useState(false);
+  const [numberError, setNumberError] = useState<string | null>(null);
+  const numberRequestRef = useRef(0);
   const [date, setDate] = useState(() => formatDateToISO(new Date()));
   const [expiryDate, setExpiryDate] = useState(() => {
     const d = new Date();
@@ -108,10 +122,43 @@ export function CreateEstimateModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const loadNextEstimateNumber = useCallback(async () => {
+    const requestId = ++numberRequestRef.current;
+    setIsNumberLoading(true);
+    setNumberError(null);
+    try {
+      const nextNumber = await fetchNextEstimateNumber();
+      if (numberRequestRef.current === requestId) {
+        setEstimateNumber(nextNumber);
+      }
+      return nextNumber;
+    } catch (error: any) {
+      if (numberRequestRef.current === requestId) {
+        setEstimateNumber('');
+        setNumberError(
+          error.response?.data?.error ||
+            error.message ||
+            'Could not load the next estimate number.',
+        );
+      }
+      return null;
+    } finally {
+      if (numberRequestRef.current === requestId) {
+        setIsNumberLoading(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      numberRequestRef.current += 1;
+      return;
+    }
 
     if (initialEstimate) {
+      numberRequestRef.current += 1;
+      setIsNumberLoading(false);
+      setNumberError(null);
       setCustomer(initialEstimate.customer || initialEstimate.customerName || initialEstimate.customers?.name || '');
       setCustomerId(initialEstimate.customerId || initialEstimate.customer_id || '');
       setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
@@ -164,7 +211,8 @@ export function CreateEstimateModal({
     } else {
       setCustomer('');
       setCustomerId('');
-      setEstimateNumber(`EST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`);
+      setEstimateNumber('');
+      setNumberError(null);
       setDate(formatDateToISO(new Date()));
       const d = new Date();
       d.setDate(d.getDate() + 30);
@@ -177,11 +225,15 @@ export function CreateEstimateModal({
       setTermsConditions('');
       setCustomFields({});
       setItems([]);
+      void loadNextEstimateNumber();
     }
 
     setErrors({});
     setApiError(null);
-  }, [initialEstimate, visible]);
+    return () => {
+      numberRequestRef.current += 1;
+    };
+  }, [initialEstimate, visible, loadNextEstimateNumber]);
 
   // Calculations
   const subtotal = useMemo(() => {
@@ -194,7 +246,7 @@ export function CreateEstimateModal({
     if (discountType === 'percentage') {
       return (subtotal * val) / 100;
     }
-    return val;
+    return Math.min(val, subtotal);
   }, [subtotal, discountValue, discountType]);
 
   const taxableAmount = Math.max(0, subtotal - discountAmount);
@@ -277,6 +329,12 @@ export function CreateEstimateModal({
     );
   };
 
+  const updateDescription = (id: string, description: string) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, description } : item))
+    );
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -315,34 +373,43 @@ export function CreateEstimateModal({
     setApiError(null);
     if (!validateForm()) return;
 
-    const payload = {
-      estimateNumber: estimateNumber.trim(),
-      customerId,
-      customerName: customer,
-      date,
-      expiryDate,
-      amount: grandTotal,
-      subtotal,
-      taxAmount: tax,
-      taxPercent: 18,
-      discountType,
-      discountValue: Number(discountValue) || undefined,
-      discountAmount,
-      shippingCharges: shipping || undefined,
-      adjustment: adj || undefined,
-      notes: notes.trim() || undefined,
-      termsConditions: termsConditions.trim() || undefined,
-      customFields,
-      status: initialEstimate?.status || 'Draft',
-      items: items.map((i) => ({
-        itemId: i.itemId || undefined,
-        itemName: i.name.trim(),
-        description: i.description || undefined,
-        quantity: Number(i.quantity) || 1,
-        rate: Number(i.rate) || 0,
-        amount: (Number(i.quantity) || 1) * (Number(i.rate) || 0),
-      })),
-    };
+    const rawStatus = String(initialEstimate?.status || 'Draft').toLowerCase();
+    const status: EstimateStatus = rawStatus === 'sent'
+      ? 'Sent'
+      : rawStatus === 'accepted'
+        ? 'Accepted'
+        : rawStatus === 'declined'
+          ? 'Declined'
+          : rawStatus === 'invoiced'
+            ? 'Invoiced'
+            : 'Draft';
+
+    let payload;
+    try {
+      payload = buildMobileEstimatePayload({
+        estimateNumber,
+        customerId,
+        date,
+        expiryDate,
+        status,
+        items,
+        referenceNumber: initialEstimate?.referenceNumber,
+        billingAddress: initialEstimate?.billingAddress,
+        shippingAddress: initialEstimate?.shippingAddress,
+        terms: initialEstimate?.terms,
+        discountType,
+        discountValue,
+        shippingCharges,
+        adjustment,
+        taxPercent: 18,
+        notes,
+        termsConditions,
+        customFields,
+      });
+    } catch (error: any) {
+      setApiError(error.message || 'Please correct the estimate details.');
+      return;
+    }
 
     try {
       if (initialEstimate?.id) {
@@ -361,6 +428,11 @@ export function CreateEstimateModal({
         err.response?.data?.message ||
         err.message ||
         'Failed to save quote. Please check all fields.';
+      if (!initialEstimate?.id && isDuplicateDocumentNumberError(err)) {
+        setApiError(`${msg} Your entries were kept while a fresh number is loaded.`);
+        await loadNextEstimateNumber();
+        return;
+      }
       setApiError(msg);
     }
   };
@@ -378,8 +450,16 @@ export function CreateEstimateModal({
           </Text>
           <TouchableOpacity
             onPress={handleSave}
-            disabled={createEstimateMutation.isPending || updateEstimateMutation.isPending}
-            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            disabled={
+              createEstimateMutation.isPending ||
+              updateEstimateMutation.isPending ||
+              (!initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()))
+            }
+            style={[
+              styles.saveBtn,
+              { backgroundColor: colors.primary },
+              !initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()) ? styles.disabledBtn : null,
+            ]}
             activeOpacity={0.8}
           >
             {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
@@ -460,6 +540,17 @@ export function CreateEstimateModal({
               />
               {errors.estimateNumber ? (
                 <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.estimateNumber}</Text>
+              ) : null}
+              {!initialEstimate?.id && isNumberLoading ? (
+                <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>Loading next number...</Text>
+              ) : null}
+              {!initialEstimate?.id && numberError ? (
+                <View style={styles.numberErrorRow}>
+                  <Text style={[styles.inlineError, { color: colors.destructive, flex: 1 }]}>{numberError}</Text>
+                  <TouchableOpacity onPress={() => void loadNextEstimateNumber()} activeOpacity={0.7}>
+                    <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
               ) : null}
             </View>
 
@@ -614,6 +705,22 @@ export function CreateEstimateModal({
                       <Trash size={16} color={colors.destructive} />
                     </TouchableOpacity>
                   </View>
+
+                  <TextInput
+                    value={item.description || ''}
+                    onChangeText={(value) => updateDescription(item.id, value)}
+                    placeholder="Line-item description..."
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    style={[
+                      styles.itemDescriptionInput,
+                      {
+                        backgroundColor: colors.surfaceSubtle,
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                      },
+                    ]}
+                  />
 
                   <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
 
@@ -1025,6 +1132,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.bold,
   },
+  disabledBtn: {
+    opacity: 0.55,
+  },
   content: {
     padding: 16,
     paddingBottom: 40,
@@ -1053,6 +1163,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  fieldHint: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    marginTop: 2,
+  },
+  numberErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  retryText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
   },
   selectBox: {
     flexDirection: 'row',
@@ -1176,6 +1300,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: fonts.regular,
     marginTop: 2,
+  },
+  itemDescriptionInput: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 10,
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    textAlignVertical: 'top',
   },
   deleteBtn: {
     padding: 4,

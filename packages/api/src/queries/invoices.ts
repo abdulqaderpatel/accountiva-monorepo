@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { InvoicePayload, InvoiceStatus } from '@accountiva/shared';
 import api from '../client';
 
 export interface InvoiceFilters {
@@ -6,6 +7,51 @@ export interface InvoiceFilters {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+export type InvoiceRecord = Partial<InvoicePayload> & {
+  id?: string;
+  invoiceNumber?: string;
+  [key: string]: unknown;
+};
+
+function readNextNumber(data: unknown): string {
+  if (!data || typeof data !== 'object') {
+    throw new Error('The next invoice number response was invalid.');
+  }
+  const nextNumber = (data as { nextNumber?: unknown }).nextNumber;
+  if (typeof nextNumber !== 'string' || nextNumber.trim() === '') {
+    throw new Error('The next invoice number response was invalid.');
+  }
+  return nextNumber.trim();
+}
+
+export async function fetchNextInvoiceNumber(): Promise<string> {
+  const { data } = await api.get('/invoices/next-number');
+  return readNextNumber(data);
+}
+
+export async function createInvoice(payload: InvoicePayload): Promise<InvoiceRecord> {
+  const { data } = await api.post('/invoices', payload);
+  return data;
+}
+
+export async function updateInvoice(id: string, payload: InvoicePayload): Promise<InvoiceRecord> {
+  const { data } = await api.patch(`/invoices/${id}`, payload);
+  return data;
+}
+
+export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<InvoiceRecord> {
+  const { data } = await api.patch(`/invoices/${id}/status`, { status });
+  return data;
+}
+
+export async function bulkUpdateInvoiceStatus(
+  ids: string[],
+  status: InvoiceStatus,
+): Promise<InvoiceRecord[]> {
+  const { data } = await api.patch('/invoices/bulk-status', { ids, status });
+  return data;
 }
 
 export function useInvoices(filters?: InvoiceFilters) {
@@ -32,10 +78,7 @@ export function useInvoice(id: string) {
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: any) => {
-      const { data } = await api.post('/invoices', payload);
-      return data;
-    },
+    mutationFn: createInvoice,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
     },
@@ -45,13 +88,35 @@ export function useCreateInvoice() {
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
-      const { data } = await api.put(`/invoices/${id}`, payload);
-      return data;
-    },
+    mutationFn: ({ id, payload }: { id: string; payload: InvoicePayload }) =>
+      updateInvoice(id, payload),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoices', id] });
+    },
+  });
+}
+
+export function useUpdateInvoiceStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: InvoiceStatus }) =>
+      updateInvoiceStatus(id, status),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', id] });
+    },
+  });
+}
+
+export function useBulkUpdateInvoiceStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: InvoiceStatus }) =>
+      bulkUpdateInvoiceStatus(ids, status),
+    onSuccess: (_, { ids }) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      ids.forEach((id) => queryClient.invalidateQueries({ queryKey: ['invoices', id] }));
     },
   });
 }
@@ -77,10 +142,9 @@ export function useDeleteInvoice() {
       const { data } = await api.delete(`/invoices/${id}`);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', id] });
     },
   });
 }
-
-

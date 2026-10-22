@@ -1,0 +1,182 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../client", () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    put: vi.fn(),
+  },
+}));
+
+import api from "../client";
+import {
+  bulkUpdateInvoiceStatus,
+  createInvoice,
+  fetchNextInvoiceNumber,
+  updateInvoice,
+  updateInvoiceStatus,
+} from "./invoices";
+import {
+  createEstimate,
+  fetchNextEstimateNumber,
+  updateEstimate,
+  updateEstimateStatus,
+} from "./estimates";
+import {
+  applyCreditNote,
+  createCreditNote,
+  fetchNextCreditNoteNumber,
+  updateCreditNote,
+  updateCreditNoteStatus,
+} from "./creditNotes";
+import type { CreditNotePayload, EstimatePayload, InvoicePayload } from "@accountiva/shared";
+
+const mockedGet = vi.mocked(api.get);
+const mockedPost = vi.mocked(api.post);
+const mockedPatch = vi.mocked(api.patch);
+const mockedPut = vi.mocked(api.put);
+
+const item = {
+  itemId: "item-1",
+  itemName: "Consulting",
+  quantity: 1,
+  rate: 100,
+  amount: 100,
+};
+
+const invoice: InvoicePayload = {
+  invoiceNumber: "INV-0001",
+  customerId: "customer-1",
+  date: "2026-10-22",
+  dueDate: "2026-11-21",
+  amount: 100,
+  status: "Draft",
+  items: [item],
+};
+
+const estimate: EstimatePayload = {
+  estimateNumber: "EST-0001",
+  customerId: "customer-1",
+  date: "2026-10-22",
+  expiryDate: "2026-11-21",
+  amount: 100,
+  status: "Draft",
+  items: [item],
+};
+
+const creditNote: CreditNotePayload = {
+  creditNoteNumber: "CN-0001",
+  customerId: "customer-1",
+  date: "2026-10-22",
+  amount: 100,
+  status: "Draft",
+  items: [item],
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("next document numbers", () => {
+  it.each([
+    ["invoice", fetchNextInvoiceNumber, "/invoices/next-number", "INV-0002"],
+    ["estimate", fetchNextEstimateNumber, "/estimates/next-number", "EST-0002"],
+    ["credit note", fetchNextCreditNoteNumber, "/credit-notes/next-number", "CN-0002"],
+  ] as const)("fetches and normalizes the next %s number", async (_label, fetchNumber, url, number) => {
+    mockedGet.mockResolvedValueOnce({ data: { nextNumber: ` ${number} ` } } as never);
+
+    await expect(fetchNumber()).resolves.toBe(number);
+    expect(mockedGet).toHaveBeenCalledWith(url);
+  });
+
+  it.each([
+    [fetchNextInvoiceNumber, { nextNumber: "" }],
+    [fetchNextEstimateNumber, { number: "EST-0002" }],
+    [fetchNextCreditNoteNumber, null],
+  ] as const)("rejects a malformed next-number response", async (fetchNumber, data) => {
+    mockedGet.mockResolvedValueOnce({ data } as never);
+    await expect(fetchNumber()).rejects.toThrow(/next/i);
+  });
+});
+
+describe("invoice requests", () => {
+  it("uses POST for create and PATCH for full update", async () => {
+    mockedPost.mockResolvedValueOnce({ data: { id: "invoice-1" } } as never);
+    mockedPatch.mockResolvedValueOnce({ data: { id: "invoice-1" } } as never);
+
+    await createInvoice(invoice);
+    await updateInvoice("invoice-1", invoice);
+
+    expect(mockedPost).toHaveBeenCalledWith("/invoices", invoice);
+    expect(mockedPatch).toHaveBeenCalledWith("/invoices/invoice-1", invoice);
+    expect(mockedPut).not.toHaveBeenCalled();
+  });
+
+  it("uses dedicated single and bulk status endpoints", async () => {
+    mockedPatch.mockResolvedValue({ data: { ok: true } } as never);
+
+    await updateInvoiceStatus("invoice-1", "Outstanding");
+    await bulkUpdateInvoiceStatus(["invoice-1", "invoice-2"], "Paid");
+
+    expect(mockedPatch).toHaveBeenNthCalledWith(
+      1,
+      "/invoices/invoice-1/status",
+      { status: "Outstanding" },
+    );
+    expect(mockedPatch).toHaveBeenNthCalledWith(
+      2,
+      "/invoices/bulk-status",
+      { ids: ["invoice-1", "invoice-2"], status: "Paid" },
+    );
+  });
+});
+
+describe("estimate requests", () => {
+  it("uses POST, PATCH, and the dedicated status endpoint", async () => {
+    mockedPost.mockResolvedValueOnce({ data: { id: "estimate-1" } } as never);
+    mockedPatch.mockResolvedValue({ data: { id: "estimate-1" } } as never);
+
+    await createEstimate(estimate);
+    await updateEstimate("estimate-1", estimate);
+    await updateEstimateStatus("estimate-1", "Invoiced");
+
+    expect(mockedPost).toHaveBeenCalledWith("/estimates", estimate);
+    expect(mockedPatch).toHaveBeenNthCalledWith(1, "/estimates/estimate-1", estimate);
+    expect(mockedPatch).toHaveBeenNthCalledWith(
+      2,
+      "/estimates/estimate-1/status",
+      { status: "Invoiced" },
+    );
+  });
+});
+
+describe("credit-note requests", () => {
+  it("uses POST, PATCH, and the dedicated status endpoint", async () => {
+    mockedPost.mockResolvedValueOnce({ data: { id: "credit-note-1" } } as never);
+    mockedPatch.mockResolvedValue({ data: { id: "credit-note-1" } } as never);
+
+    await createCreditNote(creditNote);
+    await updateCreditNote("credit-note-1", creditNote);
+    await updateCreditNoteStatus("credit-note-1", "Open");
+
+    expect(mockedPost).toHaveBeenCalledWith("/credit-notes", creditNote);
+    expect(mockedPatch).toHaveBeenNthCalledWith(1, "/credit-notes/credit-note-1", creditNote);
+    expect(mockedPatch).toHaveBeenNthCalledWith(
+      2,
+      "/credit-notes/credit-note-1/status",
+      { status: "Open" },
+    );
+  });
+
+  it("posts an application to the credit-note apply endpoint", async () => {
+    mockedPost.mockResolvedValueOnce({ data: { ok: true } } as never);
+
+    await applyCreditNote("credit-note-1", { invoiceId: "invoice-1", amountApplied: 75 });
+
+    expect(mockedPost).toHaveBeenCalledWith("/credit-notes/credit-note-1/apply", {
+      invoiceId: "invoice-1",
+      amountApplied: 75,
+    });
+  });
+});

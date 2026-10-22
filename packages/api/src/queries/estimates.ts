@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { EstimatePayload, EstimateStatus } from '@accountiva/shared';
 import api from '../client';
 
 export interface EstimateFilters {
@@ -6,6 +7,43 @@ export interface EstimateFilters {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+export type EstimateRecord = Partial<EstimatePayload> & {
+  id?: string;
+  estimateNumber?: string;
+  [key: string]: unknown;
+};
+
+function readNextNumber(data: unknown): string {
+  if (!data || typeof data !== 'object') {
+    throw new Error('The next estimate number response was invalid.');
+  }
+  const nextNumber = (data as { nextNumber?: unknown }).nextNumber;
+  if (typeof nextNumber !== 'string' || nextNumber.trim() === '') {
+    throw new Error('The next estimate number response was invalid.');
+  }
+  return nextNumber.trim();
+}
+
+export async function fetchNextEstimateNumber(): Promise<string> {
+  const { data } = await api.get('/estimates/next-number');
+  return readNextNumber(data);
+}
+
+export async function createEstimate(payload: EstimatePayload): Promise<EstimateRecord> {
+  const { data } = await api.post('/estimates', payload);
+  return data;
+}
+
+export async function updateEstimate(id: string, payload: EstimatePayload): Promise<EstimateRecord> {
+  const { data } = await api.patch(`/estimates/${id}`, payload);
+  return data;
+}
+
+export async function updateEstimateStatus(id: string, status: EstimateStatus): Promise<EstimateRecord> {
+  const { data } = await api.patch(`/estimates/${id}/status`, { status });
+  return data;
 }
 
 export function useEstimates(filters?: EstimateFilters) {
@@ -32,10 +70,7 @@ export function useEstimate(id: string) {
 export function useCreateEstimate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: any) => {
-      const { data } = await api.post('/estimates', payload);
-      return data;
-    },
+    mutationFn: createEstimate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
     },
@@ -45,10 +80,20 @@ export function useCreateEstimate() {
 export function useUpdateEstimate() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
-      const { data } = await api.put(`/estimates/${id}`, payload);
-      return data;
+    mutationFn: ({ id, payload }: { id: string; payload: EstimatePayload }) =>
+      updateEstimate(id, payload),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['estimates', id] });
     },
+  });
+}
+
+export function useUpdateEstimateStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: EstimateStatus }) =>
+      updateEstimateStatus(id, status),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       queryClient.invalidateQueries({ queryKey: ['estimates', id] });
@@ -63,8 +108,9 @@ export function useDeleteEstimate() {
       const { data } = await api.delete(`/estimates/${id}`);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['estimates', id] });
     },
   });
 }

@@ -1,4 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreditNotePayload, CreditNoteStatus } from '@accountiva/shared';
 import api from '../client';
 
 export interface CreditNoteFilters {
@@ -6,6 +7,63 @@ export interface CreditNoteFilters {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+export interface ApplyCreditNoteInput {
+  invoiceId: string;
+  amountApplied: number;
+}
+
+export type CreditNoteRecord = Partial<CreditNotePayload> & {
+  id?: string;
+  creditNoteNumber?: string;
+  remainingAmount?: number;
+  [key: string]: unknown;
+};
+
+function readNextNumber(data: unknown): string {
+  if (!data || typeof data !== 'object') {
+    throw new Error('The next credit note number response was invalid.');
+  }
+  const nextNumber = (data as { nextNumber?: unknown }).nextNumber;
+  if (typeof nextNumber !== 'string' || nextNumber.trim() === '') {
+    throw new Error('The next credit note number response was invalid.');
+  }
+  return nextNumber.trim();
+}
+
+export async function fetchNextCreditNoteNumber(): Promise<string> {
+  const { data } = await api.get('/credit-notes/next-number');
+  return readNextNumber(data);
+}
+
+export async function createCreditNote(payload: CreditNotePayload): Promise<CreditNoteRecord> {
+  const { data } = await api.post('/credit-notes', payload);
+  return data;
+}
+
+export async function updateCreditNote(
+  id: string,
+  payload: CreditNotePayload,
+): Promise<CreditNoteRecord> {
+  const { data } = await api.patch(`/credit-notes/${id}`, payload);
+  return data;
+}
+
+export async function updateCreditNoteStatus(
+  id: string,
+  status: CreditNoteStatus,
+): Promise<CreditNoteRecord> {
+  const { data } = await api.patch(`/credit-notes/${id}/status`, { status });
+  return data;
+}
+
+export async function applyCreditNote(
+  id: string,
+  payload: ApplyCreditNoteInput,
+): Promise<CreditNoteRecord> {
+  const { data } = await api.post(`/credit-notes/${id}/apply`, payload);
+  return data;
 }
 
 export function useCreditNotes(filters?: CreditNoteFilters) {
@@ -32,10 +90,7 @@ export function useCreditNote(id: string) {
 export function useCreateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: any) => {
-      const { data } = await api.post('/credit-notes', payload);
-      return data;
-    },
+    mutationFn: createCreditNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
     },
@@ -45,13 +100,37 @@ export function useCreateCreditNote() {
 export function useUpdateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
-      const { data } = await api.put(`/credit-notes/${id}`, payload);
-      return data;
-    },
+    mutationFn: ({ id, payload }: { id: string; payload: CreditNotePayload }) =>
+      updateCreditNote(id, payload),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
       queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });
+    },
+  });
+}
+
+export function useUpdateCreditNoteStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: CreditNoteStatus }) =>
+      updateCreditNoteStatus(id, status),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });
+    },
+  });
+}
+
+export function useApplyCreditNote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: ApplyCreditNoteInput }) =>
+      applyCreditNote(id, payload),
+    onSuccess: (_, { id, payload }) => {
+      queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', payload.invoiceId] });
     },
   });
 }
@@ -63,9 +142,9 @@ export function useDeleteCreditNote() {
       const { data } = await api.delete(`/credit-notes/${id}`);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['creditNotes', id] });
     },
   });
 }
-

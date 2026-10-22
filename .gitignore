@@ -11,6 +11,7 @@ dist/
 build/
 .output/
 .turbo/
+.worktrees/
 
 # Expo / React Native
 .expo/
@@ -29,4 +30,3 @@ ios/
 *.njsproj
 *.sln
 *.sw?
-

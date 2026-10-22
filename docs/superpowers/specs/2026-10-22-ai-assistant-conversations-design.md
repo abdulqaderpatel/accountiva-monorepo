@@ -1,7 +1,7 @@
 # Accountiva Conversational AI Upgrade Design
 
 **Date:** 2026-10-22  
-**Status:** Conversational design approved; written specification awaiting review  
+**Status:** Approved for implementation
 **Repositories:** `accountiva-backend` and the `accountiva` monorepo  
 
 ## Summary
@@ -66,9 +66,9 @@ The request path is:
 4. Backend loads organization settings and a bounded recent conversation context.
 5. Gemini interprets the request and may call tools.
 6. Read tools execute immediately and their results are sent back to Gemini.
-7. Write tools are validated and stored as pending actions; no business row is created.
-8. Gemini receives the pending-action result and writes a concise review message.
-9. Backend stores and returns the assistant message, structured data, and pending action cards.
+7. Write tools are validated into in-memory prepared writes; no business row or pending-action row is created yet.
+8. Gemini receives the prepared-write preview and writes a concise review message.
+9. Backend atomically stores the assistant message and its pending actions, then returns the assistant message, structured data, and pending-action cards.
 10. A separate Confirm request revalidates and atomically executes one pending action.
 
 The Gemini loop is capped at four model rounds and eight total tool calls per user turn. If the cap is reached, the assistant asks the user to narrow the request rather than continuing indefinitely.
@@ -94,7 +94,10 @@ Retain the existing table and add:
 
 - `conversation_id` UUID foreign key;
 - `client_request_id` nullable string for send idempotency;
+- `in_reply_to_id` nullable self-reference used by assistant messages to identify the user message they answer;
+- `processing_token` nullable string and `processing_started_at` nullable timestamp used to claim an unfinished user turn;
 - a unique index on `(conversation_id, client_request_id)` when the client request ID is present.
+- a unique index on `in_reply_to_id` when it is present, ensuring at most one assistant response per user message.
 
 Existing `role`, `content`, `data`, `data_type`, and timestamps remain. Structured query results and attachment metadata may stay in `data`; binary attachment data must not be stored.
 
@@ -117,7 +120,7 @@ Pending actions expire 24 hours after creation. Expiry is enforced when actions 
 The migration is additive:
 
 1. Create conversation and pending-action structures.
-2. Add nullable conversation and request-ID fields to chat messages.
+2. Add nullable conversation, request-ID, reply, and processing-claim fields to chat messages.
 3. Create one active conversation for every existing `(user_id, organization_id)` pair with messages.
 4. Assign existing messages to the matching conversation in their original order.
 5. Keep `conversation_id` nullable for rollback compatibility, while the new application code always sets it and adopts any legacy null rows into the active conversation on first load.
@@ -324,8 +327,11 @@ Web and native share API shapes and behavior, not UI component code.
 Each client send includes a stable `clientRequestId`. If the same request is retried:
 
 - an existing completed assistant response is returned;
-- an existing stored user message without a completed response is processed again without duplicating the user message;
+- an existing stored user message without a completed response is claimed with a unique processing token before Gemini is called;
+- a simultaneous retry receives a retryable `409`, while a claim older than two minutes may be replaced so a crashed request does not block the turn forever;
 - another user message is never inserted for that request ID.
+
+Prepared writes remain in request memory while Gemini is running. The final assistant message and all pending-action rows are inserted together in one transaction guarded by the same processing token. A worker whose stale token was replaced cannot commit or clear the newer worker's claim. Provider failure clears only the matching claim and creates no pending action; a retry can then process the existing user message safely. The unique assistant `in_reply_to_id` constraint is the final database backstop against duplicate responses.
 
 Confirmation uses a conditional state claim inside the same transaction as tool execution. Concurrent confirmations therefore create at most one business record. A caller arriving after completion receives the stored result.
 
@@ -391,7 +397,7 @@ Cover:
 - active conversation creation and retrieval;
 - New chat closure and pending-action cancellation;
 - user and organization isolation;
-- send idempotency;
+- send idempotency, simultaneous retry conflict, stale-claim recovery, and obsolete-worker rejection;
 - confirm, cancel, expiry, validation failure, and double-confirm behavior;
 - transaction rollback on write failure;
 - existing release-control enforcement;

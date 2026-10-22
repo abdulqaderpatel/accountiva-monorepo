@@ -244,5 +244,24 @@ describe("credit-note requests", () => {
     await expect(
       applyCreditNote("credit-note-1", { invoiceId: "invoice-1", amountApplied: 75 }),
     ).rejects.toBe(conflict);
+    expect(conflict.response.status).toBe(409);
+  });
+
+  it("keeps validation and network application failures distinct from stale-balance conflicts", async () => {
+    const validation = {
+      response: { status: 400, data: { error: "Applied amount must be greater than zero" } },
+    };
+    const network = new Error("Network unavailable");
+    mockedPost.mockRejectedValueOnce(validation).mockRejectedValueOnce(network);
+
+    await expect(
+      applyCreditNote("credit-note-1", { invoiceId: "invoice-1", amountApplied: 0 }),
+    ).rejects.toBe(validation);
+    await expect(
+      applyCreditNote("credit-note-1", { invoiceId: "invoice-1", amountApplied: 10 }),
+    ).rejects.toBe(network);
+
+    expect(validation.response.status).not.toBe(409);
+    expect((network as any).response?.status).toBeUndefined();
   });
 });

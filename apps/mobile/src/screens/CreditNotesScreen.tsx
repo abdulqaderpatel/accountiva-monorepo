@@ -8,9 +8,8 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
-import { Search, Plus, FileMinus, ArrowRight, CircleCheck } from 'lucide-react-native';
+import { Search, Plus, FileMinus } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,6 +19,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { CreditNoteDetailModal } from '../components/CreditNoteDetailModal';
 import { CreateCreditNoteModal } from '../components/CreateCreditNoteModal';
+import { useAuth } from '../context/AuthContext';
 
 interface CreditNotesScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -31,21 +31,29 @@ interface CreditNoteRecord {
   number: string;
   date: string;
   amount: number;
+  remainingAmount: number;
+  customerId?: string;
   reason?: string;
   status: string;
   variant: 'default' | 'warning' | 'success' | 'destructive' | 'outline';
+  [key: string]: any;
 }
 
 export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currency = currentOrg?.currency || 'INR';
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'open' | 'closed'>('all');
+  const [filter, setFilter] = useState<'all' | 'draft' | 'open' | 'closed' | 'void'>('all');
   const [selectedNote, setSelectedNote] = useState<CreditNoteRecord | null>(null);
+  const [editingNote, setEditingNote] = useState<any | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const { data: apiNotes, isLoading, refetch, isRefetching } = useCreditNotes({
     search: search || undefined,
-    status: filter === 'all' ? undefined : filter,
+    status: filter === 'all'
+      ? undefined
+      : `${filter.charAt(0).toUpperCase()}${filter.slice(1)}`,
   });
 
   const getStatusVariant = (status: string): CreditNoteRecord['variant'] => {
@@ -56,6 +64,8 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
         return 'success';
       case 'open':
         return 'warning';
+      case 'void':
+        return 'destructive';
       default:
         return 'outline';
     }
@@ -68,6 +78,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
     : [];
 
   const notes: CreditNoteRecord[] = rawList.map((item: any) => ({
+    ...item,
     id: item.id,
     customer:
       typeof item.customer === 'string'
@@ -76,9 +87,10 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
     number: item.creditNoteNumber || item.number || 'CN-000',
     date: item.date || item.createdAt || 'Recent',
     amount: Number(item.amount) || 0,
-    reason: item.reason || 'Goods returned / pricing adjustment',
-    status: item.status || 'Open',
-    variant: getStatusVariant(item.status || 'Open'),
+    remainingAmount: Number(item.remainingAmount ?? item.amount) || 0,
+    reason: item.notes || item.reason,
+    status: item.status || 'Draft',
+    variant: getStatusVariant(item.status || 'Draft'),
   }));
 
   const filteredNotes = notes.filter((cn) => {
@@ -121,7 +133,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
       {/* Filter Tabs */}
       <View style={styles.filterWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {(['all', 'open', 'closed'] as const).map((key) => {
+          {(['all', 'draft', 'open', 'closed', 'void'] as const).map((key) => {
             const isSelected = filter === key;
             return (
               <TouchableOpacity
@@ -219,7 +231,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
               <View style={styles.cardBottomRow}>
                 <Text style={[styles.label, { color: colors.mutedForeground }]}>Credit Amount</Text>
                 <Text style={[styles.amount, { color: colors.foreground }]}>
-                  {formatCurrency(cn.amount, 'INR')}
+                  {formatCurrency(cn.amount, currency)}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -232,14 +244,27 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
         visible={Boolean(selectedNote)}
         creditNote={selectedNote}
         onClose={() => setSelectedNote(null)}
-        onRefresh={() => refetch()}
+        onRefresh={async () => {
+          await refetch();
+        }}
+        onEdit={(note) => {
+          setSelectedNote(null);
+          setEditingNote(note);
+        }}
       />
 
       {/* Create Credit Note Modal */}
       <CreateCreditNoteModal
-        visible={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={() => refetch()}
+        visible={isCreateModalOpen || Boolean(editingNote)}
+        initialCreditNote={editingNote}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setEditingNote(null);
+        }}
+        onSuccess={() => {
+          refetch();
+          setEditingNote(null);
+        }}
       />
     </View>
   );

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMobileCreditNotePayload,
   buildMobileEstimatePayload,
   buildMobileInvoicePayload,
+  type MobileCreditNoteFormValues,
   type MobileEstimateFormValues,
   type MobileInvoiceFormValues,
 } from "./payloads";
@@ -139,6 +141,72 @@ describe("buildMobileEstimatePayload", () => {
     ).toThrow(/expiry date/i);
     expect(() =>
       buildMobileEstimatePayload({ ...estimateValues, items: [] }),
+    ).toThrow(/line item/i);
+  });
+});
+
+describe("buildMobileCreditNotePayload", () => {
+  const creditNoteValues: MobileCreditNoteFormValues = {
+    creditNoteNumber: "CN-0042",
+    customerId: "customer-1",
+    date: "2026-10-22",
+    status: "Open",
+    items: [
+      {
+        id: "credit-line-1",
+        itemId: "item-1",
+        name: "Returned implementation",
+        description: "Unused implementation session",
+        quantity: 2,
+        rate: 100,
+      },
+    ],
+    referenceInvoiceId: "invoice-1",
+    discountType: "fixed",
+    discountValue: "10",
+    adjustment: "-1",
+    taxPercent: 18,
+    notes: "Customer requested credit",
+    customFields: { returnAuthorization: "RA-42" },
+  };
+
+  it("maps a dated native credit note with valid lines, totals, references, and metadata", () => {
+    expect(buildMobileCreditNotePayload(creditNoteValues)).toEqual({
+      creditNoteNumber: "CN-0042",
+      customerId: "customer-1",
+      date: "2026-10-22",
+      status: "Open",
+      items: [
+        {
+          id: "credit-line-1",
+          itemId: "item-1",
+          itemName: "Returned implementation",
+          description: "Unused implementation session",
+          quantity: 2,
+          rate: 100,
+          amount: 200,
+        },
+      ],
+      amount: 223.2,
+      subtotal: 200,
+      referenceInvoiceId: "invoice-1",
+      discountType: "fixed",
+      discountValue: 10,
+      discountAmount: 10,
+      adjustment: -1,
+      taxPercent: 18,
+      taxAmount: 34.2,
+      notes: "Customer requested credit",
+      customFields: { returnAuthorization: "RA-42" },
+    });
+  });
+
+  it("rejects invalid dates and line items", () => {
+    expect(() =>
+      buildMobileCreditNotePayload({ ...creditNoteValues, date: "not-a-date" }),
+    ).toThrow(/date/i);
+    expect(() =>
+      buildMobileCreditNotePayload({ ...creditNoteValues, items: [] }),
     ).toThrow(/line item/i);
   });
 });

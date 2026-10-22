@@ -1,6 +1,8 @@
 import {
   validateFinancialDocumentDates,
   validateFinancialLineItems,
+  type CreditNotePayload,
+  type CreditNoteStatus,
   type EstimatePayload,
   type EstimateStatus,
   type InvoicePayload,
@@ -51,6 +53,25 @@ export interface MobileEstimateFormValues {
   discountType?: string;
   discountValue?: number | string;
   shippingCharges?: number | string;
+  adjustment?: number | string;
+  taxPercent?: number | string;
+  notes?: string;
+  termsConditions?: string;
+  customFields?: Record<string, unknown>;
+}
+
+export interface MobileCreditNoteFormValues {
+  creditNoteNumber: string;
+  customerId: string;
+  date: string;
+  status: CreditNoteStatus;
+  items: MobileDocumentLineItem[];
+  referenceNumber?: string;
+  referenceInvoiceId?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  discountType?: string;
+  discountValue?: number | string;
   adjustment?: number | string;
   taxPercent?: number | string;
   notes?: string;
@@ -193,6 +214,72 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
     discountValue,
     discountAmount,
     shippingCharges,
+    adjustment,
+    taxPercent,
+    taxAmount,
+    notes: values.notes?.trim() || undefined,
+    termsConditions: values.termsConditions?.trim() || undefined,
+    customFields: values.customFields,
+  };
+}
+
+export function buildMobileCreditNotePayload(
+  values: MobileCreditNoteFormValues,
+): CreditNotePayload {
+  const creditNoteNumber = values.creditNoteNumber.trim();
+  if (!creditNoteNumber) throw new Error("Credit note number is required.");
+
+  const customerId = values.customerId.trim();
+  if (!customerId) throw new Error("Please select a customer.");
+
+  const items = values.items.map((item) => ({
+    id: item.id,
+    itemId: item.itemId,
+    itemName: item.name.trim(),
+    description: item.description?.trim() || undefined,
+    quantity: Number(item.quantity),
+    rate: Number(item.rate),
+    amount: roundMoney(Number(item.quantity) * Number(item.rate)),
+  }));
+
+  const itemError = validateFinancialLineItems(items);
+  if (itemError) throw new Error(itemError);
+
+  const dateError = validateFinancialDocumentDates(values.date);
+  if (dateError) throw new Error(dateError);
+
+  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.amount, 0));
+  const discountValue = Math.max(0, asFiniteNumber(values.discountValue));
+  const discountAmount = roundMoney(
+    values.discountType === "percentage"
+      ? subtotal * (discountValue / 100)
+      : values.discountType === "fixed"
+        ? Math.min(discountValue, subtotal)
+        : 0,
+  );
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const taxPercent = Math.max(0, asFiniteNumber(values.taxPercent));
+  const taxAmount = roundMoney(taxableAmount * (taxPercent / 100));
+  const adjustment = asFiniteNumber(values.adjustment);
+  const amount = roundMoney(Math.max(0, taxableAmount + taxAmount + adjustment));
+
+  if (amount <= 0) throw new Error("Credit note total must be greater than zero.");
+
+  return {
+    creditNoteNumber,
+    customerId,
+    date: values.date,
+    status: values.status,
+    items,
+    amount,
+    subtotal,
+    referenceNumber: values.referenceNumber?.trim() || undefined,
+    referenceInvoiceId: values.referenceInvoiceId?.trim() || undefined,
+    billingAddress: values.billingAddress?.trim() || undefined,
+    shippingAddress: values.shippingAddress?.trim() || undefined,
+    discountType: values.discountType || undefined,
+    discountValue,
+    discountAmount,
     adjustment,
     taxPercent,
     taxAmount,

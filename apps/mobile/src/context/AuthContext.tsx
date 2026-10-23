@@ -1,15 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import type { AxiosResponse } from 'axios';
 import api from '@accountiva/api';
-import { extractAuthToken } from '../auth/session';
+import { extractAuthToken, normalizeAuthenticatedUser, type MobileUser } from '../auth/session';
 
-export interface MobileUser {
-  id: string;
-  email: string;
-  name: string;
-}
+export type { MobileUser } from '../auth/session';
 
 export interface MobileOrganization {
   id: string;
@@ -41,16 +38,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function normalizeAuthenticatedUser(value: unknown): MobileUser | null {
-  if (!value || typeof value !== 'object') return null;
-  const candidate = value as { id?: unknown; email?: unknown; name?: unknown };
-  const id = typeof candidate.id === 'string' ? candidate.id.trim() : '';
-  const email = typeof candidate.email === 'string' ? candidate.email.trim() : '';
-  const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
-  if (!id || !email) return null;
-  return { id, email, name: name || email.split('@')[0] || email };
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MobileUser | null>(null);
@@ -107,6 +94,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Fetch fresh organization list if authenticated
         if (storedToken) {
           refreshOrganizations().catch(() => {});
+        } else if (Platform.OS === 'web') {
+          // If on web and no stored token, check active session cookie (e.g. from social redirect)
+          try {
+            const { data: sessionData } = await api.get('/auth/get-session');
+            const sessionToken = sessionData?.session?.token;
+            const sessionUser = normalizeAuthenticatedUser(sessionData?.user);
+            if (sessionToken && sessionUser) {
+              setToken(sessionToken);
+              setUser(sessionUser);
+              await Promise.all([
+                AsyncStorage.setItem('accountiva_token', sessionToken),
+                AsyncStorage.setItem('accountiva_user', JSON.stringify(sessionUser)),
+              ]);
+              refreshOrganizations().catch(() => {});
+            }
+          } catch {}
         }
       } catch (err) {
         console.error('Failed to restore mobile auth:', err);
@@ -179,17 +182,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      if (Platform.OS === 'web') {
+        const callbackURL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081';
+        const { data } = await api.post('/auth/sign-in/social', {
+          provider: 'google',
+          callbackURL,
+        });
+        if (data?.url && typeof window !== 'undefined') {
+          window.location.href = data.url;
+          return null;
+        }
+        throw new Error(data?.message || 'Failed to initiate Google sign-in.');
+      }
+
+      // Check if GoogleSignin native module is available
+      if (!GoogleSignin || typeof GoogleSignin.signIn !== 'function') {
+        throw new Error('Google Sign-In native module is not available in this environment.');
+      }
+
+      GoogleSignin.configure({
+        webClientId:
+          process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+          '971420250309-1509bhvqfo791mfhqlmpp9bgq48ksohe.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      });
+
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const signInResult = await GoogleSignin.signIn();
 
-      if (signInResult.type === 'cancelled') {
+      if (
+        !signInResult ||
+        signInResult.type === 'cancelled' ||
+        (signInResult as any).type === 'noSavedCredentialFound'
+      ) {
         return null;
       }
 
-      const idToken = signInResult.data?.idToken;
+      const idToken =
+        signInResult.data?.idToken ??
+        (signInResult as any)?.idToken ??
+        (signInResult as any)?.data?.idToken;
+
       if (!idToken) {
         throw new Error('Google Sign-In did not return an ID token.');
       }
+
+      const fallbackUser =
+        signInResult.data?.user ??
+        (signInResult as any)?.user ??
+        signInResult.data ??
+        signInResult;
 
       const response = await api.post('/auth/sign-in/social', {
         provider: 'google',
@@ -197,11 +239,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           token: idToken,
         },
       });
-      return persistAuthenticatedSession(response, signInResult.data?.user);
+
+      return persistAuthenticatedSession(response, fallbackUser);
     } catch (err: any) {
-      if (err?.code === 'SIGN_IN_CANCELLED' || err?.code === '12501') {
+      const codeStr = String(err?.code || '');
+      const msg = String(err?.message || '');
+
+      // Check for user cancellation
+      if (
+        codeStr === 'SIGN_IN_CANCELLED' ||
+        codeStr === '12501' ||
+        msg.includes('12501') ||
+        msg.toLowerCase().includes('cancel')
+      ) {
         return null;
       }
+
+      // Check for Google Play Services Developer Error (code 10)
+      if (codeStr === '10' || msg.includes('DEVELOPER_ERROR') || msg.includes('10:')) {
+        throw new Error(
+          'Google Sign-In configuration error (Developer Error 10). The Android package name (com.accountiva.app) and signing SHA-1 fingerprint (5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25) must be registered in the Google Cloud Console.',
+        );
+      }
+
+      // Check for missing Play Services
+      if (codeStr === 'PLAY_SERVICES_NOT_AVAILABLE' || msg.includes('Play Services not available')) {
+        throw new Error('Google Play Services is not available or outdated on this device.');
+      }
+
+      // Check for Expo Go / unlinked native module
+      if (msg.includes('TurboModuleRegistry') || msg.includes('RNGoogleSignin') || msg.includes('NativeModule')) {
+        throw new Error('Google Sign-In native module is not available in Expo Go. Please use a development build.');
+      }
+
       throw err;
     }
   };
@@ -287,9 +357,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Local sign-out must still complete if the server session is already gone.
     } finally {
-      try {
-        await GoogleSignin.signOut();
-      } catch {}
+      if (Platform.OS !== 'web') {
+        try {
+          await GoogleSignin.signOut();
+        } catch {}
+      }
       setUser(null);
       setToken(null);
       setCurrentOrgState(null);

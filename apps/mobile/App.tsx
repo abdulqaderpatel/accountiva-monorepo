@@ -187,7 +187,7 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
               setPendingEmail(email);
               setAuthView('verify_email');
             }}
-            onSuccess={() => setAuthView('login')}
+            onSuccess={() => {}}
           />
         )}
         {authView === 'forgot_password' && (

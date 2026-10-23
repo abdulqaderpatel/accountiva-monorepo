@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Check,
   Send,
+  Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ import {
   useUpdateEstimateStatus,
 } from "@accountiva/api";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
+import { useBookmarks } from "@/context/BookmarkContext";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 
@@ -121,6 +123,24 @@ export function Estimates() {
   const { data: apiEstimates, isLoading, refetch } = useEstimates();
   const deleteEstimateMutation = useDeleteEstimate();
   const updateEstimateStatusMutation = useUpdateEstimateStatus();
+  const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  const handleToggleBookmark = (est: EstimateRecord, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    toggleBookmark({
+      entity_type: "estimate",
+      entity_id: est.id,
+      title: est.estimateNumber,
+      subtitle: est.customerName || est.customers?.name || null,
+      route: "/estimates",
+      metadata: {
+        amount: est.amount,
+        status: est.status,
+        date: est.date,
+        customerName: est.customerName || est.customers?.name,
+      },
+    });
+  };
 
   const rawEstimates: EstimateRecord[] = useMemo(() => {
     if (Array.isArray(apiEstimates)) return apiEstimates;
@@ -655,25 +675,55 @@ export function Estimates() {
                       </TableCell>
 
                       <TableCell className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
-                            >
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl">
-                            <DropdownMenuItem
-                              disabled={Boolean(statusLoadingAction)}
-                              onClick={() => handleStatusUpdate(est, "Sent")}
-                              className="cursor-pointer gap-2 text-xs font-medium"
-                            >
-                              <Send className="size-3.5 text-muted-foreground" />
-                              {statusLoadingAction === `${est.id}-Sent` ? "Processing..." : "Mark as Sent"}
-                            </DropdownMenuItem>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleBookmark(est, e)}
+                            className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
+                            title={isBookmarked("estimate", est.id) ? "Remove Bookmark" : "Bookmark Estimate"}
+                          >
+                            <BookmarkIcon
+                              className={`size-3.5 transition-colors ${
+                                isBookmarked("estimate", est.id)
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground/40 hover:text-foreground"
+                              }`}
+                            />
+                          </button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl">
+                              <DropdownMenuItem
+                                onClick={(e) => handleToggleBookmark(est, e)}
+                                className="cursor-pointer gap-2 text-xs font-medium"
+                              >
+                                <BookmarkIcon
+                                  className={`size-3.5 ${
+                                    isBookmarked("estimate", est.id)
+                                      ? "fill-primary text-primary"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                                {isBookmarked("estimate", est.id) ? "Remove Bookmark" : "Bookmark Estimate"}
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                disabled={Boolean(statusLoadingAction)}
+                                onClick={() => handleStatusUpdate(est, "Sent")}
+                                className="cursor-pointer gap-2 text-xs font-medium"
+                              >
+                                <Send className="size-3.5 text-muted-foreground" />
+                                {statusLoadingAction === `${est.id}-Sent` ? "Processing..." : "Mark as Sent"}
+                              </DropdownMenuItem>
 
                             <DropdownMenuItem
                               disabled={Boolean(statusLoadingAction)}
@@ -728,7 +778,8 @@ export function Estimates() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
+                      </div>
+                    </TableCell>
                     </TableRow>
                   );
                 })

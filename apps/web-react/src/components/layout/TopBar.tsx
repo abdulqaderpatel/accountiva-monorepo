@@ -26,6 +26,7 @@ import { isFeatureEnabled } from "@accountiva/shared";
 import { useTheme } from "@/context/ThemeContext";
 import { quickCreate } from "@/lib/quickCreate";
 import { UserProfile } from "./UserProfile";
+import { BookmarksCenter } from "./BookmarksCenter";
 import lightLogo from "@/assets/accountiva_logo.png";
 import darkLogo from "@/assets/accountiva_dark_logo.png";
 
@@ -226,6 +227,9 @@ export function TopBar({
         >
           <Keyboard className="size-4" />
         </Button>
+
+        {/* Bookmarks Center Trigger & Popover */}
+        <BookmarksCenter />
 
         {/* Help Tour Trigger */}
         <Button

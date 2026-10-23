@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
+import { BookmarkProvider } from "./context/BookmarkContext";
 import { router } from "./router";
 
 const queryClient = new QueryClient({
@@ -19,8 +20,10 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
-          <Toaster position="top-right" richColors />
+          <BookmarkProvider>
+            <RouterProvider router={router} />
+            <Toaster position="top-right" richColors />
+          </BookmarkProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

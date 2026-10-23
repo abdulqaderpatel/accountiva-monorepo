@@ -17,6 +17,7 @@ import {
   Pencil,
   Check,
   FileSpreadsheet,
+  Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ import {
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
+import { useBookmarks } from "@/context/BookmarkContext";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 
@@ -116,6 +118,24 @@ export function Invoices() {
   const deleteInvoiceMutation = useDeleteInvoice();
   const updateStatusMutation = useUpdateInvoiceStatus();
   const bulkUpdateStatusMutation = useBulkUpdateInvoiceStatus();
+  const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  const handleToggleBookmark = (inv: InvoiceRecord, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    toggleBookmark({
+      entity_type: "invoice",
+      entity_id: inv.id,
+      title: inv.invoiceNumber,
+      subtitle: inv.customerName || inv.customers?.name || null,
+      route: "/invoices",
+      metadata: {
+        amount: inv.amount,
+        status: inv.status,
+        date: inv.issueDate,
+        customerName: inv.customerName || inv.customers?.name,
+      },
+    });
+  };
 
   const rawInvoices: InvoiceRecord[] = useMemo(() => {
     if (Array.isArray(apiInvoices)) return apiInvoices;
@@ -588,24 +608,54 @@ export function Invoices() {
                       </TableCell>
 
                       <TableCell className="py-4 px-6 text-right" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              className="size-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
-                            >
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 rounded-xl p-1 shadow-xl">
-                            <DropdownMenuItem
-                              onClick={() => setSelectedInvoice(inv)}
-                              className="cursor-pointer gap-2 text-xs font-medium"
-                            >
-                              <Eye className="size-3.5 text-muted-foreground" />
-                              View Preview
-                            </DropdownMenuItem>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleBookmark(inv, e)}
+                            className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-foreground transition-colors cursor-pointer"
+                            title={isBookmarked("invoice", inv.id) ? "Remove Bookmark" : "Bookmark Invoice"}
+                          >
+                            <BookmarkIcon
+                              className={`size-3.5 transition-colors ${
+                                isBookmarked("invoice", inv.id)
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground/40 hover:text-foreground"
+                              }`}
+                            />
+                          </button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="size-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl">
+                              <DropdownMenuItem
+                                onClick={(e) => handleToggleBookmark(inv, e)}
+                                className="cursor-pointer gap-2 text-xs font-medium"
+                              >
+                                <BookmarkIcon
+                                  className={`size-3.5 ${
+                                    isBookmarked("invoice", inv.id)
+                                      ? "fill-primary text-primary"
+                                      : "text-muted-foreground"
+                                  }`}
+                                />
+                                {isBookmarked("invoice", inv.id) ? "Remove Bookmark" : "Bookmark Invoice"}
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => setSelectedInvoice(inv)}
+                                className="cursor-pointer gap-2 text-xs font-medium"
+                              >
+                                <Eye className="size-3.5 text-muted-foreground" />
+                                View Preview
+                              </DropdownMenuItem>
 
                             <DropdownMenuItem
                               onClick={() => {
@@ -659,7 +709,8 @@ export function Invoices() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
+                      </div>
+                    </TableCell>
                     </TableRow>
                   );
                 })

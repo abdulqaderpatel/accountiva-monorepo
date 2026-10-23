@@ -20,8 +20,14 @@ export interface Organization {
   logo?: string;
   logo_url?: string;
   small_logo_url?: string;
+  large_logo_url?: string;
   plan?: string;
   plan_id?: string;
+  gstin?: string;
+  is_gst_registered?: boolean;
+  address?: string;
+  created_at?: string;
+  permissions?: Record<string, string[]>;
 }
 
 export interface UserProfileData {
@@ -48,6 +54,8 @@ interface AuthContextType {
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
   createOrganization: (formData: any) => Promise<any>;
+  updateOrganization: (id: string, formData: FormData | Record<string, any>) => Promise<any>;
+  updateOrganizationBranding: (id: string, formData: FormData) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -118,6 +126,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return data;
   }, [fetchOrganizations, setCurrentOrganization]);
+
+  const updateOrganization = useCallback(async (id: string, formData: FormData | Record<string, any>) => {
+    const isFormData = typeof FormData !== "undefined" && formData instanceof FormData;
+    const { data } = await api.put(`/organizations/${id}`, formData, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+    setOrganizations((prev) =>
+      prev.map((org) => (org.id === id ? { ...org, ...data } : org))
+    );
+    setCurrentOrganizationState((prev) => (prev?.id === id ? { ...prev, ...data } : prev));
+    return data;
+  }, []);
+
+  const updateOrganizationBranding = useCallback(async (id: string, formData: FormData) => {
+    const { data } = await api.put(`/organizations/${id}/branding`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    setOrganizations((prev) =>
+      prev.map((org) => (org.id === id ? { ...org, ...data } : org))
+    );
+    setCurrentOrganizationState((prev) => (prev?.id === id ? { ...prev, ...data } : prev));
+    return data;
+  }, []);
 
   // Restore session on mount
   useEffect(() => {
@@ -293,6 +324,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentOrganization,
         fetchOrganizations,
         createOrganization,
+        updateOrganization,
+        updateOrganizationBranding,
       }}
     >
       {children}

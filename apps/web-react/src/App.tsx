@@ -1,6 +1,6 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { BookmarkProvider } from "./context/BookmarkContext";
@@ -22,7 +22,7 @@ export function App() {
         <AuthProvider>
           <BookmarkProvider>
             <RouterProvider router={router} />
-            <Toaster position="top-right" richColors />
+            <Toaster position="bottom-right" />
           </BookmarkProvider>
         </AuthProvider>
       </ThemeProvider>

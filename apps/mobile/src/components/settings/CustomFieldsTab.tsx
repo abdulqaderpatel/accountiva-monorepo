@@ -36,6 +36,7 @@ import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
 import { fonts } from '../../theme/typography';
+import { useAuth } from '../../context/AuthContext';
 
 export interface CustomFieldRecord {
   id: string;
@@ -74,6 +75,8 @@ const DATA_TYPES: Array<{
 
 export function CustomFieldsTab() {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
 
   const [fields, setFields] = useState<CustomFieldRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -106,9 +109,12 @@ export function CustomFieldsTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentOrgId]);
 
   useEffect(() => {
+    setFields([]);
+    setIsModalOpen(false);
+    setEditingField(null);
     fetchFields();
   }, [fetchFields]);
 

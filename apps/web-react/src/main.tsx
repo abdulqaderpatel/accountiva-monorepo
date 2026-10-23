@@ -5,8 +5,13 @@ import "@fontsource-variable/outfit";
 import "@fontsource-variable/jetbrains-mono";
 import "./style.css";
 import App from "./App";
-import { configureApi } from "@accountiva/api";
+import { configureApi, setActiveOrganizationId } from "@accountiva/api";
 import { apiBaseURL } from "./lib/api-base";
+
+const initialOrgId = typeof window !== "undefined" ? localStorage.getItem("accountiva_org_id") : null;
+if (initialOrgId) {
+  setActiveOrganizationId(initialOrgId);
+}
 
 // Configure @accountiva/api to target correct API base URL and forward organization ID
 configureApi({

@@ -45,6 +45,7 @@ import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
+import { useAuth } from "@/context/AuthContext";
 
 interface ItemRecord {
   id: string;
@@ -90,6 +91,19 @@ export function Items() {
       }
     });
   }, []);
+
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
+  // Reset page-level state and selections when workspace changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setEditingItem(null);
+    setIsAddOpen(false);
+    setPage(1);
+    setSearch("");
+    setSelectedFilter("All");
+  }, [currentOrgId]);
 
   const { data: apiItems, isLoading, refetch } = useItems({
     search: search || undefined,

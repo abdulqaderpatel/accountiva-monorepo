@@ -60,6 +60,7 @@ import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
 import { InvoiceFilterBar, InvoiceFiltersState } from "@/components/invoices/InvoiceFilterBar";
 import { useBookmarks } from "@/context/BookmarkContext";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 
@@ -136,6 +137,20 @@ export function Invoices() {
       }
     });
   }, []);
+
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
+  // Reset page-level state and selections when workspace changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setSelectedInvoice(null);
+    setEditingInvoice(null);
+    setEmailInvoice(null);
+    setPage(1);
+    setSearch("");
+    handleResetFilters();
+  }, [currentOrgId]);
 
   const { data: apiInvoices, isLoading, refetch } = useInvoices({
     search: search || undefined,

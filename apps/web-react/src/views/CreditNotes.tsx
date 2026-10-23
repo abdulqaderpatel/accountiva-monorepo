@@ -55,6 +55,7 @@ import {
 } from "@/components/credit-notes/ApplyCreditNoteModal";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
+import { useAuth } from "@/context/AuthContext";
 
 interface CreditNoteRecord {
   id: string;
@@ -125,6 +126,22 @@ export function CreditNotes() {
       setIsCreateOpen(true);
     }
   }, []);
+
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
+  // Reset page-level state and selections when workspace changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setEditingCreditNote(null);
+    setIsCreateOpen(false);
+    setSelectedDetail(null);
+    setCreditNoteToApply(null);
+    setIsPreviewOpen(false);
+    setPage(1);
+    setSearch("");
+    setActiveFilter("All");
+  }, [currentOrgId]);
 
   const { data: apiCreditNotes, isLoading, refetch } = useCreditNotes();
   const deleteCreditNoteMutation = useDeleteCreditNote();

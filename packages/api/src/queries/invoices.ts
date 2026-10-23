@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { InvoicePayload, InvoiceStatus } from '@accountiva/shared';
-import api from '../client';
+import api, { getActiveOrganizationId } from '../client';
 
 export interface InvoiceFilters {
   status?: string;
@@ -58,8 +58,9 @@ export function useInvoices(
   filters?: InvoiceFilters,
   options?: { enabled?: boolean },
 ) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['invoices', filters],
+    queryKey: ['invoices', activeOrgId, filters],
     queryFn: async () => {
       const { data } = await api.get('/invoices', { params: filters });
       return data;
@@ -69,8 +70,9 @@ export function useInvoices(
 }
 
 export function useInvoice(id: string) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['invoices', id],
+    queryKey: ['invoices', activeOrgId, id],
     queryFn: async () => {
       const { data } = await api.get(`/invoices/${id}`);
       return data;

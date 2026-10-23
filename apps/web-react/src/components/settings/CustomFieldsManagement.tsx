@@ -47,6 +47,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { isFeatureEnabled } from "@accountiva/shared";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 
 export interface CustomFieldRecord {
   id: string;
@@ -83,6 +84,9 @@ const DATA_TYPE_OPTIONS: Array<{
 ];
 
 export function CustomFieldsManagement() {
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
   const [fields, setFields] = useState<CustomFieldRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -121,8 +125,11 @@ export function CustomFieldsManagement() {
   };
 
   useEffect(() => {
+    setFields([]);
+    setIsModalOpen(false);
+    setEditingField(null);
     fetchFields();
-  }, []);
+  }, [currentOrgId]);
 
   const openCreateModal = () => {
     setEditingField(null);

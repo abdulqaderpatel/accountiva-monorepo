@@ -89,9 +89,11 @@ export function RecentlyDeleted() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, search]);
+  }, [activeTab, search, currentOrganization?.id]);
 
   useEffect(() => {
+    setItems([]);
+    setSelectedIds([]);
     fetchTrash();
   }, [fetchTrash]);
 

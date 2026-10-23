@@ -121,6 +121,8 @@ export function MemberManagement() {
   }, [currentOrganization?.id]);
 
   useEffect(() => {
+    setMembers([]);
+    setInvitations([]);
     fetchMembers();
   }, [fetchMembers]);
 

@@ -35,6 +35,7 @@ import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
+import { useAuth } from "@/context/AuthContext";
 
 interface CustomerRecord {
   id: string;
@@ -80,6 +81,18 @@ export function Customers() {
       }
     });
   }, []);
+
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
+  // Reset page-level state and selections when workspace changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setEditingCustomer(null);
+    setIsAddOpen(false);
+    setPage(1);
+    setSearch("");
+  }, [currentOrgId]);
 
   const { data: apiCustomers, isLoading, refetch } = useCustomers({
     search: search || undefined,

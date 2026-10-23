@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../client';
+import { api, getActiveOrganizationId } from '../client';
 
 export interface DashboardMetrics {
   receivables: number;
@@ -12,14 +12,15 @@ export interface DashboardMetrics {
 
 export const reportsKeys = {
   all: ['reports'] as const,
-  dashboard: () => [...reportsKeys.all, 'dashboard'] as const,
-  profitLoss: () => [...reportsKeys.all, 'profit-loss'] as const,
-  expenseBreakdown: () => [...reportsKeys.all, 'expense-breakdown'] as const,
+  dashboard: (orgId?: string | null) => [...reportsKeys.all, orgId, 'dashboard'] as const,
+  profitLoss: (orgId?: string | null) => [...reportsKeys.all, orgId, 'profit-loss'] as const,
+  expenseBreakdown: (orgId?: string | null) => [...reportsKeys.all, orgId, 'expense-breakdown'] as const,
 };
 
 export function useDashboardMetrics() {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: reportsKeys.dashboard(),
+    queryKey: reportsKeys.dashboard(activeOrgId),
     queryFn: async () => {
       const { data } = await api.get<DashboardMetrics>('/reports/dashboard');
       return data;

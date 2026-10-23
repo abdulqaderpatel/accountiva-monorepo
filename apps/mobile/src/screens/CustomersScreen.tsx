@@ -20,6 +20,7 @@ import { fonts } from '../theme/typography';
 
 import { AddCustomerModal } from '../components/AddCustomerModal';
 import { CustomerDetailModal, formatAddress } from '../components/CustomerDetailModal';
+import { useAuth } from '../context/AuthContext';
 
 interface CustomersScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -41,10 +42,20 @@ interface CustomerRecord {
 
 export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
+
+  // Reset screen-level selections and modals when switching workspace
+  React.useEffect(() => {
+    setSelectedCustomer(null);
+    setEditingCustomer(null);
+    setIsAddModalOpen(false);
+    setSearch('');
+  }, [currentOrgId]);
 
   const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
     search: search || undefined,

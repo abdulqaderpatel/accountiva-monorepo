@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { EstimatePayload, EstimateStatus } from '@accountiva/shared';
-import api from '../client';
+import api, { getActiveOrganizationId } from '../client';
 
 export interface EstimateFilters {
   status?: string;
@@ -47,8 +47,9 @@ export async function updateEstimateStatus(id: string, status: EstimateStatus): 
 }
 
 export function useEstimates(filters?: EstimateFilters) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['estimates', filters],
+    queryKey: ['estimates', activeOrgId, filters],
     queryFn: async () => {
       const { data } = await api.get('/estimates', { params: filters });
       return data;
@@ -57,8 +58,9 @@ export function useEstimates(filters?: EstimateFilters) {
 }
 
 export function useEstimate(id: string) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['estimates', id],
+    queryKey: ['estimates', activeOrgId, id],
     queryFn: async () => {
       const { data } = await api.get(`/estimates/${id}`);
       return data;

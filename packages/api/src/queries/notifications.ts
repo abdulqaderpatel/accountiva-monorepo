@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../client';
+import api, { getActiveOrganizationId } from '../client';
 
 export interface NotificationItem {
   id: string;
@@ -18,8 +18,9 @@ export interface NotificationItem {
 }
 
 export function useNotifications() {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', activeOrgId],
     queryFn: async () => {
       const { data } = await api.get<NotificationItem[]>('/notifications');
       return data;

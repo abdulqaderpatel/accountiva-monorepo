@@ -76,9 +76,15 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     [bookmarks]
   );
 
+  const orgId = currentOrganization?.id;
+
   const fetchBookmarks = useCallback(
     async (force = false) => {
-      if (!currentOrganization?.id) return;
+      if (!orgId) {
+        setBookmarks([]);
+        setFetched(false);
+        return;
+      }
       if (fetched && !force) return;
       setLoading(true);
       try {
@@ -91,17 +97,43 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       }
     },
-    [currentOrganization?.id, fetched]
+    [orgId, fetched]
   );
 
-  // Re-fetch on workspace change
+  // Re-fetch and reset state immediately on workspace change
   useEffect(() => {
     setBookmarks([]);
     setFetched(false);
-    if (currentOrganization?.id) {
-      fetchBookmarks(true);
+    if (!orgId) {
+      setLoading(false);
+      return;
     }
-  }, [currentOrganization?.id]);
+
+    let isCurrent = true;
+    setLoading(true);
+    api
+      .get("/bookmarks")
+      .then((response) => {
+        if (isCurrent) {
+          setBookmarks(Array.isArray(response.data) ? response.data : response.data?.data || []);
+          setFetched(true);
+        }
+      })
+      .catch((error) => {
+        if (isCurrent) {
+          console.error("[BookmarkContext] Fetch error:", error);
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [orgId]);
 
   const toggleBookmark = useCallback(
     async (payload: ToggleBookmarkPayload) => {

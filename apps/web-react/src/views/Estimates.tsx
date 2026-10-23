@@ -58,6 +58,7 @@ import {
 } from "@accountiva/api";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 import { useBookmarks } from "@/context/BookmarkContext";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 
@@ -119,6 +120,19 @@ export function Estimates() {
       }
     });
   }, []);
+
+  const { currentOrganization } = useAuth();
+  const currentOrgId = currentOrganization?.id;
+
+  // Reset page-level state and selections when workspace changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+    setEditingEstimate(null);
+    setIsCreateOpen(false);
+    setPage(1);
+    setSearch("");
+    setActiveFilter("All");
+  }, [currentOrgId]);
 
   const { data: apiEstimates, isLoading, refetch } = useEstimates();
   const deleteEstimateMutation = useDeleteEstimate();

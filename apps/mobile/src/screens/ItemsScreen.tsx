@@ -20,6 +20,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { AddItemModal } from '../components/AddItemModal';
 import { ItemDetailModal } from '../components/ItemDetailModal';
+import { useAuth } from '../context/AuthContext';
 
 interface ItemsScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -37,11 +38,22 @@ interface ItemRecord {
 
 export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const { colors } = useTheme();
+  const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'Product' | 'Service'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemRecord | null>(null);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+
+  // Reset screen-level selections and modals when switching workspace
+  React.useEffect(() => {
+    setSelectedItem(null);
+    setEditingItem(null);
+    setIsAddModalOpen(false);
+    setSearch('');
+    setFilterType('ALL');
+  }, [currentOrgId]);
 
   const { data: apiItems, isLoading, refetch, isRefetching } = useItems({
     search: search || undefined,

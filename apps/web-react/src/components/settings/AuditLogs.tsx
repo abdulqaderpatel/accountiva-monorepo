@@ -87,6 +87,12 @@ export function AuditLogs() {
   }, [currentOrganization?.id, page, search, actionFilter, entityFilter]);
 
   useEffect(() => {
+    setLogs([]);
+    setPage(1);
+    setExpandedLogId(null);
+  }, [currentOrganization?.id]);
+
+  useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 

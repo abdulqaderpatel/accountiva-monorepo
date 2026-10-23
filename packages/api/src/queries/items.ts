@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../client';
+import api, { getActiveOrganizationId } from '../client';
 
 export interface ItemFilters {
   search?: string;
@@ -9,8 +9,9 @@ export interface ItemFilters {
 }
 
 export function useItems(filters?: ItemFilters) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['items', filters],
+    queryKey: ['items', activeOrgId, filters],
     queryFn: async () => {
       const { data } = await api.get('/items', { params: filters });
       return data;
@@ -19,8 +20,9 @@ export function useItems(filters?: ItemFilters) {
 }
 
 export function useItem(id: string) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['items', id],
+    queryKey: ['items', activeOrgId, id],
     queryFn: async () => {
       const { data } = await api.get(`/items/${id}`);
       return data;

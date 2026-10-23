@@ -42,12 +42,22 @@ interface CreditNoteRecord {
 export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
   const currency = currentOrg?.currency || 'INR';
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'draft' | 'open' | 'closed' | 'void'>('all');
   const [selectedNote, setSelectedNote] = useState<CreditNoteRecord | null>(null);
   const [editingNote, setEditingNote] = useState<any | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Reset screen-level selections and modals when switching workspace
+  React.useEffect(() => {
+    setSelectedNote(null);
+    setEditingNote(null);
+    setIsCreateModalOpen(false);
+    setSearch('');
+    setFilter('all');
+  }, [currentOrgId]);
 
   const { data: apiNotes, isLoading, refetch, isRefetching } = useCreditNotes({
     search: search || undefined,

@@ -2,8 +2,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
-import api from '@accountiva/api';
+import api, { cancelOrganizationRequests, setActiveOrganizationId } from '@accountiva/api';
 import { extractAuthToken, normalizeAuthenticatedUser, type MobileUser } from '../auth/session';
 
 export type { MobileUser } from '../auth/session';
@@ -40,6 +41,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<MobileUser | null>(null);
   const [currentOrg, setCurrentOrgState] = useState<MobileOrganization | null>(null);
   const [organizations, setOrganizations] = useState<MobileOrganization[]>([]);
@@ -54,11 +56,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
       if (list.length > 0) {
         setCurrentOrgState((prev) => {
-          if (!prev) return list[0];
+          if (!prev) {
+            setActiveOrganizationId(list[0].id);
+            return list[0];
+          }
           const matched = list.find((o: any) => o.id === prev.id);
-          return matched || list[0];
+          const chosen = matched || list[0];
+          setActiveOrganizationId(chosen.id);
+          return chosen;
         });
       } else {
+        setActiveOrganizationId(null);
         setCurrentOrgState(null);
         await AsyncStorage.removeItem('accountiva_org_id');
         await AsyncStorage.removeItem('accountiva_current_org');
@@ -84,7 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (storedOrg) {
-          setCurrentOrgState(JSON.parse(storedOrg));
+          const parsed = JSON.parse(storedOrg);
+          setCurrentOrgState(parsed);
+          if (parsed?.id) {
+            setActiveOrganizationId(parsed.id);
+          }
         }
 
         if (storedOrgs) {
@@ -122,15 +134,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshOrganizations]);
 
   const setCurrentOrg = useCallback(async (org: MobileOrganization | null) => {
-    setCurrentOrgState(org);
+    const prevId = currentOrg?.id;
+    const nextId = org?.id;
+
+    if (prevId === nextId) {
+      setCurrentOrgState(org);
+      if (org) {
+        await AsyncStorage.setItem('accountiva_current_org', JSON.stringify(org));
+      }
+      return;
+    }
+
+    // 1. Cancel in-flight HTTP requests for previous organization
+    cancelOrganizationRequests(prevId);
+
+    // 2. Abort running TanStack Query requests and clear cached queries
+    queryClient.cancelQueries();
+    queryClient.clear();
+
+    // 3. Update active organization in storage and client state synchronously
     if (org) {
+      setActiveOrganizationId(org.id);
       await AsyncStorage.setItem('accountiva_org_id', org.id);
       await AsyncStorage.setItem('accountiva_current_org', JSON.stringify(org));
     } else {
+      setActiveOrganizationId(null);
       await AsyncStorage.removeItem('accountiva_org_id');
       await AsyncStorage.removeItem('accountiva_current_org');
     }
-  }, []);
+
+    // 4. Update React state
+    setCurrentOrgState(org);
+  }, [currentOrg?.id, queryClient]);
 
   const persistAuthenticatedSession = useCallback(async (
     response: AxiosResponse<any>,
@@ -362,6 +397,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await GoogleSignin.signOut();
         } catch {}
       }
+      cancelOrganizationRequests(currentOrg?.id);
+      queryClient.cancelQueries();
+      queryClient.clear();
+      setActiveOrganizationId(null);
       setUser(null);
       setToken(null);
       setCurrentOrgState(null);

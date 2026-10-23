@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CreditNotePayload, CreditNoteStatus } from '@accountiva/shared';
-import api from '../client';
+import api, { getActiveOrganizationId } from '../client';
 
 export interface CreditNoteFilters {
   status?: string;
@@ -72,8 +72,9 @@ export async function applyCreditNote(
 }
 
 export function useCreditNotes(filters?: CreditNoteFilters) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['creditNotes', filters],
+    queryKey: ['creditNotes', activeOrgId, filters],
     queryFn: async () => {
       const { data } = await api.get('/credit-notes', { params: filters });
       return data;
@@ -82,8 +83,9 @@ export function useCreditNotes(filters?: CreditNoteFilters) {
 }
 
 export function useCreditNote(id: string) {
+  const activeOrgId = getActiveOrganizationId();
   return useQuery({
-    queryKey: ['creditNotes', id],
+    queryKey: ['creditNotes', activeOrgId, id],
     queryFn: () => fetchCreditNote(id),
     enabled: Boolean(id),
   });

@@ -7,6 +7,43 @@ export interface ApiClientConfig {
   onUnauthorized?: () => void;
 }
 
+let activeOrganizationId: string | null = null;
+
+export function setActiveOrganizationId(orgId: string | null) {
+  activeOrganizationId = orgId;
+}
+
+export function getActiveOrganizationId(): string | null {
+  return activeOrganizationId;
+}
+
+type OrganizationRequestConfig = {
+  organizationId?: string;
+  organizationController?: AbortController;
+};
+
+const organizationRequests = new Map<string, Set<AbortController>>();
+
+const releaseOrganizationRequest = (config: unknown) => {
+  const tracked = config as OrganizationRequestConfig | undefined;
+  if (!tracked?.organizationId || !tracked.organizationController) return;
+  const controllers = organizationRequests.get(tracked.organizationId);
+  controllers?.delete(tracked.organizationController);
+  if (controllers?.size === 0) organizationRequests.delete(tracked.organizationId);
+};
+
+export const cancelOrganizationRequests = (organizationId?: string | null) => {
+  if (!organizationId) return;
+  organizationRequests.get(organizationId)?.forEach((controller) => {
+    try {
+      controller.abort();
+    } catch {
+      // ignore
+    }
+  });
+  organizationRequests.delete(organizationId);
+};
+
 let currentConfig: ApiClientConfig = {
   baseURL: 'http://localhost:3000/api',
 };
@@ -30,10 +67,22 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     config.headers.set('Origin', 'https://accountiva.ai');
   }
 
-  if (currentConfig.getOrganizationId) {
-    const orgId = await currentConfig.getOrganizationId();
-    if (orgId) {
-      config.headers.set('x-organization-id', orgId);
+  let orgId = activeOrganizationId;
+  if (!orgId && currentConfig.getOrganizationId) {
+    orgId = await currentConfig.getOrganizationId();
+  }
+
+  if (orgId) {
+    config.headers.set('x-organization-id', orgId);
+    if (!config.signal) {
+      const controller = new AbortController();
+      config.signal = controller.signal;
+      const trackedConfig = config as typeof config & OrganizationRequestConfig;
+      trackedConfig.organizationId = orgId;
+      trackedConfig.organizationController = controller;
+      const controllers = organizationRequests.get(orgId) || new Set<AbortController>();
+      controllers.add(controller);
+      organizationRequests.set(orgId, controllers);
     }
   }
 
@@ -56,8 +105,12 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    releaseOrganizationRequest(response.config);
+    return response;
+  },
   (error) => {
+    releaseOrganizationRequest(error?.config);
     if (error.response?.status === 401 && currentConfig.onUnauthorized) {
       currentConfig.onUnauthorized();
     }

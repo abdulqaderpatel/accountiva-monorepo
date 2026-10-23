@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import api, { cancelOrganizationRequests } from "@/lib/api";
+import { setActiveOrganizationId, cancelOrganizationRequests as apiCancelRequests } from "@accountiva/api";
 
 export interface User {
   id: string;
@@ -61,6 +63,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
@@ -79,24 +82,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setCurrentOrganization = useCallback((org: Organization | null) => {
     setCurrentOrganizationState((prev) => {
       const prevId = prev?.id;
-      if (prevId === org?.id) {
+      const nextId = org?.id;
+
+      if (prevId === nextId) {
         if (org) {
           localStorage.setItem("accountiva_org_currency", org.currency || "INR");
         }
         return org;
       }
 
+      // 1. Cancel in-flight HTTP requests for previous organization
       cancelOrganizationRequests(prevId);
+      apiCancelRequests(prevId);
+
+      // 2. Abort running TanStack Query requests and clear cached queries
+      queryClient.cancelQueries();
+      queryClient.clear();
+
+      // 3. Update active organization in storage and client state synchronously
       if (org) {
         localStorage.setItem("accountiva_org_id", org.id);
         localStorage.setItem("accountiva_org_currency", org.currency || "INR");
+        setActiveOrganizationId(org.id);
       } else {
         localStorage.removeItem("accountiva_org_id");
         localStorage.removeItem("accountiva_org_currency");
+        setActiveOrganizationId(null);
       }
+
       return org;
     });
-  }, []);
+  }, [queryClient]);
 
   const fetchOrganizations = useCallback(async () => {
     try {

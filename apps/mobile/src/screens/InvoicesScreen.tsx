@@ -45,11 +45,20 @@ interface InvoiceRecord {
 export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
   const currency = currentOrg?.currency || 'INR';
   const [filter, setFilter] = useState<'all' | 'draft' | 'outstanding' | 'paid'>('all');
   const [search, setSearch] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
+
+  // Reset screen-level selections and filters when switching workspace
+  React.useEffect(() => {
+    setSelectedInvoice(null);
+    setEditingInvoice(null);
+    setSearch('');
+    setFilter('all');
+  }, [currentOrgId]);
 
   const { data: apiInvoices, isLoading, refetch, isRefetching } = useInvoices({
     search: search || undefined,

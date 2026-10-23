@@ -73,6 +73,7 @@ export function TeamMembersTab() {
   }, [currentOrg?.id, user]);
 
   useEffect(() => {
+    setMembers([]);
     fetchMembers();
   }, [fetchMembers]);
 

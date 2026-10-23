@@ -43,12 +43,22 @@ interface EstimateRecord {
 export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const currentOrgId = currentOrg?.id;
   const currency = currentOrg?.currency || 'INR';
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'draft' | 'sent' | 'accepted' | 'declined' | 'invoiced'>('all');
   const [selectedEstimate, setSelectedEstimate] = useState<EstimateRecord | null>(null);
   const [editingEstimate, setEditingEstimate] = useState<any | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Reset screen-level selections and filters when switching workspace
+  React.useEffect(() => {
+    setSelectedEstimate(null);
+    setEditingEstimate(null);
+    setIsCreateModalOpen(false);
+    setSearch('');
+    setFilter('all');
+  }, [currentOrgId]);
 
   const { data: apiEstimates, isLoading, refetch, isRefetching } = useEstimates({
     search: search || undefined,

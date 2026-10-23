@@ -52,7 +52,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       ],
     },
     {
-      title: "Inventory",
+      title: "Products & Services",
       items: [
         { name: "Items", icon: Package, route: "/items", shortcut: "G P", feature: "items" },
       ],
@@ -92,34 +92,34 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         isCollapsed ? "w-20" : "w-56"
       )}
     >
-      {/* Collapse Toggle */}
+      {/* Collapse Toggle (Desktop only) positioned at top-20 matching Vue */}
       <button
         type="button"
         onClick={onToggleCollapse}
         className={cn(
-          "absolute -right-3 top-5 w-6 h-6 bg-sidebar border border-sidebar-border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground z-50 transition-transform duration-300 shadow-2xs cursor-pointer",
+          "absolute -right-3 top-20 w-6 h-6 bg-sidebar border border-sidebar-border rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground z-50 transition-transform duration-300 shadow-2xs cursor-pointer",
           isCollapsed && "rotate-180"
         )}
         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
       >
-        <ChevronRight className="size-3.5" />
+        <ChevronRight className="w-3.5 h-3.5" />
       </button>
 
       {/* Organization Switcher at the top of Sidebar */}
-      <div className="py-2.5 px-2 border-b border-sidebar-border/80 transition-all duration-300 shrink-0">
+      <div className="py-2 px-2 border-b border-sidebar-border/80 transition-all duration-300 shrink-0">
         <OrganizationSwitcher isCollapsed={isCollapsed} />
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5 custom-scrollbar">
+      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-5 custom-scrollbar">
         {visibleSections.map((section) => (
           <div key={section.title} className="space-y-1">
             {!isCollapsed ? (
-              <h4 className="px-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em] mb-2 transition-opacity duration-200">
+              <h3 className="px-2 text-[10px] font-bold text-muted-foreground/50 uppercase tracking-[0.2em] mb-2 transition-opacity duration-300">
                 {section.title}
-              </h4>
+              </h3>
             ) : (
-              <div className="h-px bg-sidebar-border/80 mx-2 my-3" />
+              <div className="h-px bg-sidebar-border/80 mx-2 my-4" />
             )}
 
             {section.items.map((item) => {
@@ -143,24 +143,19 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                 >
                   <Icon
                     className={cn(
-                      "size-4 shrink-0 transition-colors",
+                      "w-4 h-4 shrink-0 transition-colors",
                       isActive
                         ? "text-primary"
                         : "text-sidebar-foreground/70 group-hover:text-sidebar-foreground"
                     )}
                   />
                   {!isCollapsed && (
-                    <span className="text-xs font-medium truncate transition-opacity duration-200">
+                    <span className="text-sm font-medium truncate transition-opacity duration-200">
                       {item.name}
                     </span>
                   )}
-                  {item.shortcut && !isCollapsed && !isActive && (
-                    <span className="hidden group-hover:inline-flex ml-auto text-[9px] font-mono text-muted-foreground/80 bg-muted/80 px-1 py-0.5 rounded border border-border/50 transition-all select-none">
-                      {item.shortcut}
-                    </span>
-                  )}
                   {isActive && !isCollapsed && (
-                    <ChevronRight className="size-3.5 ml-auto text-primary/70 shrink-0" />
+                    <ChevronRight className="w-3.5 h-3.5 ml-auto text-primary/70 shrink-0 transition-opacity duration-200" />
                   )}
                 </Link>
               );

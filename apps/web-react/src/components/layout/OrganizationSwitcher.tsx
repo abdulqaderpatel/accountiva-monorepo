@@ -31,41 +31,43 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
           <button
             type="button"
             className={cn(
-              "w-full flex items-center rounded-xl transition-all duration-200 group border select-none h-10 outline-none cursor-pointer",
+              "w-full flex items-center rounded-lg transition-all duration-300 group border select-none h-9 outline-none cursor-pointer",
               isCollapsed
-                ? "justify-center px-0 py-0 border-transparent hover:bg-muted/80"
-                : "gap-2.5 px-2.5 py-1.5 bg-card/60 border-border/60 hover:bg-muted/60 hover:border-border/90 shadow-2xs"
+                ? "justify-center px-0 py-0 gap-0 border-transparent hover:bg-muted/80"
+                : "gap-2 px-2 py-1 bg-surface-subtle border-border/60 hover:bg-surface-interactive hover:border-border/80"
             )}
-            title={isCollapsed ? "Switch Workspace" : "Click to switch organization"}
+            title={isCollapsed ? "Switch Organization" : "Click to switch organization"}
           >
             <div
               className={cn(
-                "shrink-0 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:scale-105 transition-all duration-200 overflow-hidden",
-                isCollapsed ? "w-8 h-8" : "w-7 h-7"
+                "shrink-0 rounded-md bg-primary/10 flex items-center justify-center border border-primary/20 group-hover:bg-primary/20 group-hover:scale-95 transition-all duration-300 overflow-hidden",
+                isCollapsed ? "w-7 h-7" : "w-6 h-6"
               )}
             >
               {currentOrganization?.small_logo_url || currentOrganization?.logo_url ? (
                 <img
                   src={currentOrganization?.small_logo_url || currentOrganization?.logo_url}
-                  alt={currentOrganization.name}
-                  className="w-full h-full object-contain"
+                  alt={`${currentOrganization?.name || "Organization"} logo`}
+                  className="w-full h-full object-contain rounded-md"
                 />
               ) : (
-                <Building2 className={cn("text-primary", isCollapsed ? "size-4" : "size-3.5")} />
+                <Building2
+                  className={cn("text-primary", isCollapsed ? "w-4 h-4" : "w-3.5 h-3.5")}
+                />
               )}
             </div>
 
             {!isCollapsed && (
               <>
                 <div className="flex flex-col items-start min-w-0 flex-1 text-left">
-                  <span className="text-xs font-bold leading-tight truncate w-full text-foreground">
-                    {currentOrganization?.name || "Select Workspace"}
+                  <span className="text-[11px] font-bold leading-tight truncate w-full text-left text-foreground">
+                    {currentOrganization?.name || "Select Org"}
                   </span>
-                  <span className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-wider leading-none mt-0.5">
+                  <span className="text-[8px] text-muted-foreground font-black uppercase tracking-wider leading-none mt-0.5">
                     {currentOrganization?.role || "Organization"}
                   </span>
                 </div>
-                <ChevronsUpDown className="size-3.5 text-muted-foreground/60 group-hover:text-foreground transition-colors shrink-0" />
+                <ChevronsUpDown className="w-3 h-3 text-muted-foreground/60 group-hover:text-foreground/90 group-hover:scale-y-110 transition-all duration-200 shrink-0" />
               </>
             )}
           </button>
@@ -74,7 +76,7 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
         <DropdownMenuContent
           align="start"
           sideOffset={6}
-          className="w-60 rounded-xl p-1.5 shadow-lg border-border/40 bg-popover text-popover-foreground animate-in fade-in slide-in-from-top-2 duration-150"
+          className="w-60 rounded-lg p-1.5 shadow-lg border-border/40 bg-popover text-popover-foreground animate-in fade-in slide-in-from-top-2 duration-150"
         >
           <DropdownMenuLabel className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">
             My Organizations
@@ -99,15 +101,15 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                         : "hover:bg-muted/80 text-foreground/80 hover:text-foreground"
                     )}
                   >
-                    <div className="shrink-0 size-7 rounded-md bg-muted flex items-center justify-center overflow-hidden border border-border/50">
+                    <div className="shrink-0 w-7 h-7 rounded-md bg-surface-muted flex items-center justify-center overflow-hidden border border-border/50">
                       {org.small_logo_url || org.logo_url ? (
                         <img
                           src={org.small_logo_url || org.logo_url}
-                          alt={org.name}
+                          alt={`${org.name} logo`}
                           className="w-full h-full object-contain"
                         />
                       ) : (
-                        <Building2 className="size-3.5 text-muted-foreground" />
+                        <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
                       )}
                     </div>
 
@@ -121,10 +123,10 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
-                      {isSelected && <Check className="size-3.5 text-primary" />}
+                      {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
                       <button
                         type="button"
-                        className="size-6 rounded hover:bg-muted-foreground/15 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center p-0 cursor-pointer"
+                        className="h-6 w-6 rounded hover:bg-muted-foreground/15 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center p-0 cursor-pointer"
                         title="Organization Settings"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -135,7 +137,7 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
                           navigate({ to: "/organization-settings" });
                         }}
                       >
-                        <Settings className="size-3" />
+                        <Settings className="w-3 h-3" />
                       </button>
                     </div>
                   </DropdownMenuItem>
@@ -144,7 +146,7 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
             )}
           </div>
 
-          <DropdownMenuSeparator className="my-1 bg-border/60" />
+          <DropdownMenuSeparator className="my-1 bg-border/40" />
 
           {/* Create New Organization */}
           <DropdownMenuItem asChild>
@@ -152,8 +154,8 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
               to="/onboarding"
               className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md cursor-pointer transition-colors outline-none"
             >
-              <div className="shrink-0 size-7 rounded bg-primary/10 flex items-center justify-center text-primary">
-                <Plus className="size-3.5" />
+              <div className="shrink-0 w-7 h-7 rounded bg-primary/10 flex items-center justify-center text-primary">
+                <Plus className="w-3.5 h-3.5" />
               </div>
               <span>Create New Organization</span>
             </Link>

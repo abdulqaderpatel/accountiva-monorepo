@@ -98,10 +98,10 @@ export function TopBar({
         className={`h-full flex items-center shrink-0 overflow-hidden justify-center transition-all duration-300 ease-in-out ${
           isCollapsed
             ? "w-10 md:w-20 md:border-r border-sidebar-border"
-            : "w-10 md:w-56 md:border-r border-sidebar-border md:justify-start md:pl-4 gap-2.5"
+            : "w-10 md:w-56 md:border-r border-sidebar-border md:justify-start md:pl-5 gap-3"
         }`}
       >
-        <Link to="/dashboard" className="flex items-center gap-2.5 outline-none">
+        <Link to="/dashboard" className="flex items-center gap-3 outline-none">
           <div className="size-8 shrink-0 flex items-center justify-center">
             <img src={logoSrc} alt="Accountiva" className="size-8 object-contain" />
           </div>

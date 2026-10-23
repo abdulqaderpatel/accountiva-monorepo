@@ -58,6 +58,7 @@ import {
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
+import { InvoiceFilterBar, InvoiceFiltersState } from "@/components/invoices/InvoiceFilterBar";
 import { useBookmarks } from "@/context/BookmarkContext";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
@@ -83,9 +84,34 @@ interface InvoiceRecord {
 
 export function Invoices() {
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [filters, setFilters] = useState<InvoiceFiltersState>({
+    status: "All",
+    timeframe: "all",
+    minAmount: null,
+    maxAmount: null,
+    bookmarkedOnly: false,
+  });
   const [page, setPage] = useState(1);
   const pageSize = 10;
+
+  const handleUpdateFilter = <K extends keyof InvoiceFiltersState>(
+    key: K,
+    value: InvoiceFiltersState[K]
+  ) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      status: "All",
+      timeframe: "all",
+      minAmount: null,
+      maxAmount: null,
+      bookmarkedOnly: false,
+    });
+    setPage(1);
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
@@ -201,25 +227,80 @@ export function Invoices() {
     ];
   }, [rawInvoices]);
 
-  // Filtered list based on search and status tabs
+  // Filtered list based on search, status, timeframe, amount, and bookmarks
   const filteredInvoices = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     return rawInvoices.filter((inv) => {
       const custName = inv.customerName || inv.customers?.name || "";
       const matchesSearch =
         custName.toLowerCase().includes(search.toLowerCase()) ||
         (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()));
 
-      const s = String(inv.status || "").toLowerCase();
-      let matchesFilter = true;
-      if (activeFilter === "Draft") matchesFilter = s === "draft";
-      else if (activeFilter === "Due" || activeFilter === "Outstanding") {
-        matchesFilter = s === "outstanding";
-      } else if (activeFilter === "Paid") matchesFilter = s === "paid";
-      else if (activeFilter === "Overdue") matchesFilter = s === "overdue";
+      if (!matchesSearch) return false;
 
-      return matchesSearch && matchesFilter;
+      // 1. Status Filter
+      const s = String(inv.status || "").toLowerCase();
+      if (filters.status && filters.status !== "All") {
+        if (filters.status === "Draft" && s !== "draft") return false;
+        if (
+          (filters.status === "Due" || filters.status === "Outstanding") &&
+          s !== "outstanding" &&
+          s !== "due"
+        )
+          return false;
+        if (filters.status === "Paid" && s !== "paid") return false;
+        if (filters.status === "Overdue" && s !== "overdue") return false;
+      }
+
+      // 2. Timeframe Filter
+      if (filters.timeframe && filters.timeframe !== "all") {
+        const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+        const issueDate = inv.issueDate ? new Date(inv.issueDate) : null;
+        const targetDate = dueDate || issueDate;
+
+        if (filters.timeframe === "overdue") {
+          if (s === "paid" || !dueDate || dueDate >= today) return false;
+        } else if (filters.timeframe === "due_soon") {
+          const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+          if (s === "paid" || !dueDate || dueDate < today || dueDate > sevenDaysFromNow) return false;
+        } else if (filters.timeframe === "this_month") {
+          if (
+            !targetDate ||
+            targetDate.getFullYear() !== now.getFullYear() ||
+            targetDate.getMonth() !== now.getMonth()
+          )
+            return false;
+        } else if (filters.timeframe === "last_month") {
+          const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+          const lastMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+          if (
+            !targetDate ||
+            targetDate.getFullYear() !== lastMonthYear ||
+            targetDate.getMonth() !== lastMonth
+          )
+            return false;
+        }
+      }
+
+      // 3. Amount Range Filter
+      const amount = Number(inv.amount || 0);
+      if (filters.minAmount != null && !isNaN(filters.minAmount) && amount < filters.minAmount) {
+        return false;
+      }
+      if (filters.maxAmount != null && !isNaN(filters.maxAmount) && amount > filters.maxAmount) {
+        return false;
+      }
+
+      // 4. Bookmarked Filter
+      if (filters.bookmarkedOnly && !isBookmarked("invoice", inv.id)) {
+        return false;
+      }
+
+      return true;
     });
-  }, [rawInvoices, search, activeFilter]);
+  }, [rawInvoices, search, filters, isBookmarked]);
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredInvoices.length / pageSize) || 1;
@@ -365,8 +446,6 @@ export function Invoices() {
     }
   };
 
-  const filters = ["All", "Draft", "Due", "Outstanding", "Paid"];
-
   return (
     <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
@@ -475,25 +554,13 @@ export function Invoices() {
               )}
             </div>
 
-            {/* Status Filter Tabs */}
-            <div className="inline-flex h-9 items-center gap-1 bg-muted/45 p-1 rounded-lg border border-border/60 overflow-x-auto shadow-2xs max-w-full">
-              {filters.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => {
-                    setActiveFilter(f);
-                    setPage(1);
-                  }}
-                  className={`px-3 py-1 rounded-md text-xs transition-all duration-150 whitespace-nowrap cursor-pointer ${
-                    activeFilter === f
-                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                      : "text-muted-foreground font-medium hover:text-foreground hover:bg-primary/5"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
+            {/* Invoice Faceted Filter Bar */}
+            <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar justify-start md:justify-end shrink-0 max-w-full py-1.5 -my-1.5">
+              <InvoiceFilterBar
+                filters={filters}
+                onUpdateFilter={handleUpdateFilter}
+                onResetFilters={handleResetFilters}
+              />
             </div>
           </div>
 
@@ -551,7 +618,12 @@ export function Invoices() {
                     <div className="space-y-1 text-center">
                       <h3 className="text-sm font-bold text-foreground">No invoices found</h3>
                       <p className="text-xs text-muted-foreground">
-                        {search || activeFilter !== "All"
+                        {search ||
+                        (filters.status && filters.status !== "All") ||
+                        (filters.timeframe && filters.timeframe !== "all") ||
+                        filters.minAmount != null ||
+                        filters.maxAmount != null ||
+                        filters.bookmarkedOnly
                           ? "No invoices match the selected filter criteria."
                           : "Create and issue your first invoice to get paid faster."}
                       </p>

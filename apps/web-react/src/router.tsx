@@ -274,7 +274,7 @@ const notificationsRoute = createRoute({
 const notificationsRedirectRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/settings/notifications",
-  component: () => <Navigate to="/notifications" replace />,
+  component: () => <Navigate to="/settings" search={{ tab: "notifications" }} replace />,
 });
 
 const adminRoute = createRoute({

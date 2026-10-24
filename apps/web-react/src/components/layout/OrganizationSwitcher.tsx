@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import React, { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Building2, ChevronsUpDown, Check, Plus, Settings } from "lucide-react";
 import {
   DropdownMenu,
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, Organization } from "@/context/AuthContext";
+import { CreateOrganizationModal } from "./CreateOrganizationModal";
 import { cn } from "@/lib/utils";
 
 interface OrganizationSwitcherProps {
@@ -19,6 +20,7 @@ interface OrganizationSwitcherProps {
 export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitcherProps) {
   const { organizations, currentOrganization, setCurrentOrganization } = useAuth();
   const navigate = useNavigate();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const handleSelect = (org: Organization) => {
     setCurrentOrganization(org);
@@ -149,19 +151,22 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
           <DropdownMenuSeparator className="my-1 bg-border/40" />
 
           {/* Create New Organization */}
-          <DropdownMenuItem asChild>
-            <Link
-              to="/onboarding"
-              className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md cursor-pointer transition-colors outline-none"
-            >
-              <div className="shrink-0 w-7 h-7 rounded bg-primary/10 flex items-center justify-center text-primary">
-                <Plus className="w-3.5 h-3.5" />
-              </div>
-              <span>Create New Organization</span>
-            </Link>
+          <DropdownMenuItem
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md cursor-pointer transition-colors outline-none"
+          >
+            <div className="shrink-0 w-7 h-7 rounded bg-primary/10 flex items-center justify-center text-primary">
+              <Plus className="w-3.5 h-3.5" />
+            </div>
+            <span>Create New Organization</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <CreateOrganizationModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 }

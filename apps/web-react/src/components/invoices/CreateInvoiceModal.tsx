@@ -51,6 +51,7 @@ interface CreateInvoiceModalProps {
   onClose: () => void;
   onSuccess?: (invoice?: any) => void;
   invoiceToEdit?: any;
+  initialCustomerId?: string;
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
@@ -68,6 +69,7 @@ export function CreateInvoiceModal({
   onClose,
   onSuccess,
   invoiceToEdit,
+  initialCustomerId,
 }: CreateInvoiceModalProps) {
   const { currentOrganization } = useAuth();
   const currencyCode = currentOrganization?.currency || "INR";
@@ -204,7 +206,7 @@ export function CreateInvoiceModal({
         setInvoiceNumber("");
         setNumberError("");
         setManualAmount(0);
-        setCustomerId("");
+        setCustomerId(initialCustomerId || "");
         setDate(today());
         setDueDate(defaultDueDate());
         setItems([]);
@@ -215,6 +217,13 @@ export function CreateInvoiceModal({
         setTerms("Net 30");
         setBillingAddress("");
         setShippingAddress("");
+        if (initialCustomerId && customerList.length > 0) {
+          const selected = customerList.find((c) => c.id === initialCustomerId);
+          if (selected) {
+            if (selected.billingAddress || selected.address) setBillingAddress(selected.billingAddress || selected.address);
+            if (selected.shippingAddress) setShippingAddress(selected.shippingAddress);
+          }
+        }
         setShowAdvanced(false);
         setShowTaxesDiscounts(false);
         setDiscountType("");
@@ -229,7 +238,7 @@ export function CreateInvoiceModal({
     return () => {
       numberRequestRef.current += 1;
     };
-  }, [isOpen, invoiceToEdit, loadNextInvoiceNumber]);
+  }, [isOpen, invoiceToEdit, initialCustomerId, customerList, loadNextInvoiceNumber]);
 
   // When customer is selected, auto-fill address if available
   const handleCustomerChange = (cId: string) => {

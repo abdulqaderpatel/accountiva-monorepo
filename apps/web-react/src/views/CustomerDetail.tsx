@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { useParams, Link, useNavigate } from "@tanstack/react-router";
+import React, { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   Mail,
@@ -11,35 +11,19 @@ import {
   TrendingUp,
   TrendingDown,
   Plus,
-  Trash2,
-  Download,
-  Calendar,
-  Layers,
-  Pencil,
-  FileSpreadsheet,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  TableEmpty,
-} from "@/components/ui/table";
 import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
 import {
   useCustomer,
-  useDeleteCustomer,
   useInvoices,
   useEstimates,
 } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
-import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 import { toast } from "sonner";
 
 export function CustomerDetail() {
@@ -47,21 +31,27 @@ export function CustomerDetail() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<"Transactions" | "Statements" | "Details">("Transactions");
-  const [transactionFilter, setTransactionFilter] = useState<"All" | "Invoices" | "Estimates">("All");
-
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
-  const [isEstimateOpen, setIsEstimateOpen] = useState(false);
 
-  const { data: customerData, isLoading: isCustLoading, refetch } = useCustomer(id);
+  const { data: customerData, isLoading: isCustLoading, isError, refetch } = useCustomer(id);
   const { data: apiInvoices, refetch: refetchInvoices } = useInvoices();
   const { data: apiEstimates, refetch: refetchEstimates } = useEstimates();
-  const deleteCustomerMutation = useDeleteCustomer();
 
   const customer = customerData?.data || customerData || {};
 
-  // Find invoices & estimates for this customer
+  useEffect(() => {
+    if (isError) {
+      toast.error("Failed to load customer profile");
+      navigate({ to: "/customers" });
+    }
+  }, [isError, navigate]);
+
+  // Find invoices & estimates for this customer (prioritize embedded data from details endpoint)
   const customerInvoices = useMemo(() => {
+    if (Array.isArray(customer?.invoices) && customer.invoices.length > 0) {
+      return customer.invoices;
+    }
     const raw: any[] = Array.isArray(apiInvoices)
       ? apiInvoices
       : Array.isArray(apiInvoices?.data)
@@ -72,11 +62,14 @@ export function CustomerDetail() {
     return raw.filter(
       (inv) =>
         inv.customerId === id ||
-        (customer.name && (inv.customerName === customer.name || inv.customers?.name === customer.name))
+        (customer?.name && (inv.customerName === customer.name || inv.customers?.name === customer.name))
     );
-  }, [apiInvoices, id, customer.name]);
+  }, [customer?.invoices, apiInvoices, id, customer?.name]);
 
   const customerEstimates = useMemo(() => {
+    if (Array.isArray(customer?.estimates) && customer.estimates.length > 0) {
+      return customer.estimates;
+    }
     const raw: any[] = Array.isArray(apiEstimates)
       ? apiEstimates
       : Array.isArray(apiEstimates?.data)
@@ -87,542 +80,631 @@ export function CustomerDetail() {
     return raw.filter(
       (est) =>
         est.customerId === id ||
-        (customer.name && (est.customerName === customer.name || est.customers?.name === customer.name))
+        (customer?.name && (est.customerName === customer.name || est.customers?.name === customer.name))
     );
-  }, [apiEstimates, id, customer.name]);
+  }, [customer?.estimates, apiEstimates, id, customer?.name]);
 
-  // Combined transactions list
-  const transactions = useMemo(() => {
-    const items: any[] = [];
-    customerInvoices.forEach((inv) => {
-      items.push({
-        id: inv.id,
-        type: "Invoice",
-        number: inv.invoiceNumber || `INV-${inv.id}`,
-        date: inv.date || inv.issueDate || inv.createdAt || "",
-        amount: Number(inv.amount) || 0,
-        status: inv.status || "Draft",
-        raw: inv,
-      });
-    });
-    customerEstimates.forEach((est) => {
-      items.push({
-        id: est.id,
-        type: "Estimate",
-        number: est.estimateNumber || `EST-${est.id}`,
-        date: est.date || est.expiryDate || est.createdAt || "",
-        amount: Number(est.amount) || 0,
-        status: est.status || "Draft",
-        raw: est,
-      });
-    });
+  const customerExpenses = useMemo(() => {
+    return Array.isArray(customer?.expenses) ? customer.expenses : [];
+  }, [customer?.expenses]);
 
-    return items.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-  }, [customerInvoices, customerEstimates]);
+  // Combined sorted transactions matching Vue
+  const sortedTransactions = useMemo(() => {
+    const invoices = customerInvoices.map((inv: any) => ({
+      ...inv,
+      type: "Invoice",
+      date: inv.date || inv.issueDate || inv.createdAt || "",
+      amount: Number(inv.amount) || 0,
+    }));
+    const estimates = customerEstimates.map((est: any) => ({
+      ...est,
+      type: "Estimate",
+      date: est.date || est.expiryDate || est.createdAt || "",
+      amount: Number(est.amount) || 0,
+    }));
+    const expenses = customerExpenses.map((exp: any) => ({
+      ...exp,
+      type: "Expense",
+      date: exp.date || exp.createdAt || "",
+      amount: Number(exp.amount) || 0,
+    }));
 
-  const filteredTransactions = useMemo(() => {
-    if (transactionFilter === "Invoices") return transactions.filter((t) => t.type === "Invoice");
-    if (transactionFilter === "Estimates") return transactions.filter((t) => t.type === "Estimate");
-    return transactions;
-  }, [transactions, transactionFilter]);
+    return [...invoices, ...estimates, ...expenses].sort(
+      (a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+    );
+  }, [customerInvoices, customerEstimates, customerExpenses]);
 
-  // Financial calculations
-  const outstanding = useMemo(() => {
+  const statements = useMemo(() => sortedTransactions, [sortedTransactions]);
+
+  // Summary and statistics matching Vue
+  const outstandingBalance = useMemo(() => {
+    if (customer?.summary?.outstandingBalance !== undefined) {
+      return Number(customer.summary.outstandingBalance) || 0;
+    }
     return customerInvoices
-      .filter((i) => {
+      .filter((i: any) => {
         const s = String(i.status || "").toLowerCase();
         return s !== "paid" && s !== "draft";
       })
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  }, [customerInvoices]);
+      .reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
+  }, [customer?.summary?.outstandingBalance, customerInvoices]);
 
-  const totalPaid = useMemo(() => {
+  const totalPaidRevenue = useMemo(() => {
+    if (customer?.summary?.totalPaid !== undefined) {
+      return Number(customer.summary.totalPaid) || 0;
+    }
     return customerInvoices
-      .filter((i) => String(i.status || "").toLowerCase() === "paid")
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  }, [customerInvoices]);
+      .filter((i: any) => String(i.status || "").toLowerCase() === "paid")
+      .reduce((acc: number, curr: any) => acc + (Number(curr.amount) || 0), 0);
+  }, [customer?.summary?.totalPaid, customerInvoices]);
 
-  const pipelineEstimates = useMemo(() => {
-    return customerEstimates
-      .filter((e) => {
-        const s = String(e.status || "").toLowerCase();
-        return s === "sent" || s === "accepted";
-      })
-      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
-  }, [customerEstimates]);
+  const summaryEstimatedProfit = useMemo(() => {
+    if (customer?.summary?.estimatedProfit !== undefined) {
+      return Number(customer.summary.estimatedProfit) || 0;
+    }
+    return totalPaidRevenue;
+  }, [customer?.summary?.estimatedProfit, totalPaidRevenue]);
+
+  const summaryEstimateCount = useMemo(() => {
+    if (customer?.summary?.estimateCount !== undefined) {
+      return customer.summary.estimateCount;
+    }
+    return customerEstimates.length;
+  }, [customer?.summary?.estimateCount, customerEstimates.length]);
 
   const stats = [
     {
       title: "Outstanding Balance",
-      amount: formatCurrency(outstanding),
-      subText: `${customerInvoices.length} invoices issued`,
+      amount: formatCurrency(outstandingBalance),
       icon: TrendingUp,
       color: "text-rose-700 dark:text-rose-400",
-      bg: "bg-rose-500/10 border border-rose-500/15",
+      bgColor: "bg-rose-500/10 border border-rose-500/15",
       accentBar: "bg-rose-500/50",
+      containerClass: "hover:border-rose-500/40",
     },
     {
-      title: "Total Revenue Collected",
-      amount: formatCurrency(totalPaid),
-      subText: "settled receivables",
+      title: "Total Revenue",
+      amount: formatCurrency(totalPaidRevenue),
       icon: TrendingDown,
       color: "text-emerald-700 dark:text-emerald-400",
-      bg: "bg-emerald-500/10 border border-emerald-500/15",
+      bgColor: "bg-emerald-500/10 border border-emerald-500/15",
       accentBar: "bg-emerald-500/50",
+      containerClass: "hover:border-emerald-500/40",
     },
     {
-      title: "Active Quotation Pipeline",
-      amount: formatCurrency(pipelineEstimates),
-      subText: `${customerEstimates.length} quote proposals`,
-      icon: Calculator,
+      title: "Estimated Profit",
+      amount: formatCurrency(summaryEstimatedProfit),
+      icon: TrendingUp,
       color: "text-amber-700 dark:text-amber-400",
-      bg: "bg-amber-500/10 border border-amber-500/15",
+      bgColor: "bg-amber-500/10 border border-amber-500/15",
       accentBar: "bg-amber-500/50",
+      containerClass: "hover:border-amber-500/40",
     },
   ];
 
-  const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete customer ${customer.name}?`)) return;
-    try {
-      await deleteCustomerMutation.mutateAsync(id);
-      toast.success("Customer deleted");
-      navigate({ to: "/customers" });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to delete customer");
-    }
-  };
-
-  const handleExportHistory = () => {
-    if (transactions.length === 0) {
-      toast.error("No transactions to export");
+  const handleExportStatement = () => {
+    if (!statements || statements.length === 0) {
+      toast.error("No statement records to export");
       return;
     }
-    const data = transactions.map((t) => ({
-      Type: t.type,
-      "Document #": t.number,
-      Date: formatDate(t.date),
-      Status: t.status,
-      Amount: t.amount,
+    const exportData = statements.map((s: any) => ({
+      Date: s.date ? formatDate(s.date) : "",
+      Type: s.type,
+      Reference:
+        s.invoice_number ||
+        s.estimate_number ||
+        s.invoiceNumber ||
+        s.estimateNumber ||
+        s.reference ||
+        s.id,
+      Amount: s.amount || 0,
+      Status: s.status || "",
     }));
-    exportToCsv(data, `customer-${customer.name || id}-transactions`);
-    toast.success(`Exported ${data.length} records to CSV`);
+    const filename = customer?.name
+      ? `statement-${customer.name.toLowerCase().replace(/\s+/g, "-")}`
+      : "customer-statement";
+    exportToCsv(exportData, filename);
+    toast.success("Account statement exported as CSV");
   };
 
-  if (isCustLoading) {
-    return (
-      <div className="flex-1 p-8 max-w-7xl mx-auto space-y-6 w-full">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <Skeleton className="h-28 w-full rounded-2xl" />
-          <Skeleton className="h-28 w-full rounded-2xl" />
-          <Skeleton className="h-28 w-full rounded-2xl" />
-        </div>
-        <Skeleton className="h-96 w-full rounded-2xl" />
-      </div>
-    );
-  }
-
-  const initials = (customer.name ? customer.name.charAt(0) : "C").toUpperCase();
+  const tabs = ["Transactions", "Statements", "Details"] as const;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background p-8 max-w-7xl mx-auto space-y-8 w-full">
-      {/* Navigation & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
-        <div className="flex items-center gap-4">
-          <Link
-            to="/customers"
-            className="size-10 rounded-xl bg-card border border-border/80 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs"
-          >
-            <ArrowLeft className="size-4" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xl shadow-2xs">
-              {initials}
+    <div className="px-8 pt-4 md:pt-5 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full">
+      {/* Header */}
+      <div className="flex flex-col gap-6">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/customers" })}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group w-fit cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest">Back to Customers</span>
+        </button>
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-3xl font-black shadow-inner">
+              {customer?.name?.charAt(0) || "C"}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight text-foreground font-display">
-                  {customer.name || "Customer Profile"}
+            <div className="space-y-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="ui-page-title">
+                  {customer?.name || (isCustLoading ? "Loading..." : "Customer Profile")}
                 </h1>
-                {customer.customerCode && (
-                  <span className="text-[10px] font-mono font-bold bg-muted px-2 py-0.5 rounded-md text-muted-foreground border border-border/60">
-                    {customer.customerCode}
-                  </span>
+                {(customer?.gst_number || customer?.gstNumber) && (
+                  <div className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-bold text-muted-foreground border border-border uppercase tracking-widest">
+                    GSTIN: {customer.gst_number || customer.gstNumber}
+                  </div>
+                )}
+                {customer?.pan && (
+                  <div className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-bold text-muted-foreground border border-border uppercase tracking-widest font-mono">
+                    PAN: {customer.pan}
+                  </div>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {customer.company ? `${customer.company} • ` : ""}
-                {customer.email || "No email on file"}
+              <p className="text-muted-foreground font-medium flex items-center gap-2 text-sm">
+                <Building2 className="w-4 h-4" />
+                {customer?.company || "Individual Customer"}
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsEditOpen(true)}
-            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <Pencil className="size-3.5" /> Edit Profile
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleExportHistory}
-            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export History
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setIsInvoiceOpen(true)}
-            className="h-9 px-3 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Plus className="size-3.5" /> New Invoice
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleDelete}
-            className="size-9 rounded-lg text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-            title="Delete Customer"
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card
-              key={stat.title}
-              className="border-border/60 shadow-2xs overflow-hidden relative group hover:border-primary/40 hover:shadow-xs transition-all duration-300 py-0 gap-0 bg-card/50 backdrop-blur-xs"
-            >
-              <div className={`h-[2.5px] w-full ${stat.accentBar}`} />
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.18em]">
-                    {stat.title}
-                  </span>
-                  <div
-                    className={`size-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${stat.bg} ${stat.color}`}
-                  >
-                    <Icon className="size-4" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-foreground mb-1 tracking-tight font-mono">
-                  {stat.amount}
-                </div>
-                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                  {stat.subText}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Tabs Bar */}
-      <div className="flex border-b border-border/60 gap-6">
-        {(["Transactions", "Statements", "Details"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`pb-3 text-xs font-bold tracking-wide border-b-2 transition-colors cursor-pointer ${
-              activeTab === tab
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab === "Transactions" ? `Transactions (${transactions.length})` : tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab: Transactions */}
-      {activeTab === "Transactions" && (
-        <div className="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs space-y-0">
-          <div className="p-4 flex items-center justify-between border-b border-border/60 bg-muted/25">
-            <div className="inline-flex h-8.5 items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border/50">
-              {(["All", "Invoices", "Estimates"] as const).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setTransactionFilter(f)}
-                  className={`px-3 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer ${
-                    transactionFilter === f
-                      ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                      : "text-muted-foreground font-medium hover:text-foreground"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground font-medium">
-              Showing {filteredTransactions.length} transaction(s)
-            </span>
-          </div>
-
-          <Table>
-            <TableHeader className="bg-muted/35 border-b border-border/70">
-              <TableRow className="hover:bg-transparent border-b border-border/70">
-                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[120px]">
-                  Type
-                </TableHead>
-                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90">
-                  Document #
-                </TableHead>
-                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[140px]">
-                  Date
-                </TableHead>
-                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-center w-[140px]">
-                  Status
-                </TableHead>
-                <TableHead className="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-right w-[150px]">
-                  Amount
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody className="divide-y divide-border/60">
-              {filteredTransactions.length === 0 ? (
-                <TableEmpty colSpan={5}>
-                  <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3 py-8">
-                    <div className="size-14 rounded-2xl bg-muted/60 flex items-center justify-center">
-                      <FileText className="size-7 text-muted-foreground/40" />
-                    </div>
-                    <div className="space-y-1 text-center">
-                      <h3 className="text-sm font-bold text-foreground">No transactions recorded</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Issue an invoice or quotation for this client to begin building their transaction history.
-                      </p>
-                    </div>
-                  </div>
-                </TableEmpty>
-              ) : (
-                filteredTransactions.map((tx) => (
-                  <TableRow
-                    key={`${tx.type}-${tx.id}`}
-                    onClick={() => {
-                      if (tx.type === "Invoice") navigate({ to: "/invoices" });
-                      else navigate({ to: "/estimates" });
-                    }}
-                    className="hover:bg-muted/40 transition-colors cursor-pointer"
-                  >
-                    <TableCell className="py-4 px-6">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${
-                          tx.type === "Invoice"
-                            ? "bg-primary/10 text-primary border-primary/20"
-                            : "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20"
-                        }`}
-                      >
-                        {tx.type === "Invoice" ? <FileText className="size-3" /> : <Calculator className="size-3" />}
-                        {tx.type}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="py-4 px-6 font-mono text-xs font-bold text-foreground">
-                      {tx.number}
-                    </TableCell>
-
-                    <TableCell className="py-4 px-6 text-xs text-muted-foreground font-medium">
-                      {formatDate(tx.date)}
-                    </TableCell>
-
-                    <TableCell className="py-4 px-6 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-muted text-muted-foreground border border-border">
-                        {tx.status}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="py-4 px-6 text-right font-mono text-xs font-bold text-foreground">
-                      {formatCurrency(tx.amount)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      {/* Tab: Statements */}
-      {activeTab === "Statements" && (
-        <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-            <div>
-              <h3 className="text-base font-bold text-foreground">Customer Account Statement</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Summary of all historical billings, settled payments, and current outstanding balances.
-              </p>
-            </div>
+          <div className="flex items-center gap-3">
             <Button
-              size="sm"
+              onClick={() => setIsEditingCustomer(true)}
               variant="outline"
-              onClick={handleExportHistory}
-              className="gap-2 text-xs font-semibold cursor-pointer shadow-2xs"
+              className="h-10 px-5 rounded-xl font-bold uppercase tracking-wider text-[11px] border-border/70 hover:bg-muted/50 transition-all cursor-pointer"
             >
-              <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Download Statement CSV
+              Edit Profile
+            </Button>
+            <Button
+              onClick={() => setIsInvoiceOpen(true)}
+              className="h-10 px-5 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99] transition-all gap-2 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Invoice
             </Button>
           </div>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-            <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Statement Details
-              </span>
-              <div className="space-y-1">
-                <div className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">Client Name:</span>
-                  <span className="font-semibold text-foreground">{customer.name}</span>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {isCustLoading ? (
+          [1, 2, 3].map((i) => (
+            <Card key={i} className="bg-card/50 border-border/60 shadow-2xs">
+              <CardContent className="p-6">
+                <Skeleton className="h-3 w-24 mb-2" />
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-3 w-40" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          stats.map((stat) => {
+            const Icon = stat.icon;
+            return (
+              <Card
+                key={stat.title}
+                className={`border-border/60 shadow-2xs overflow-hidden relative group hover:border-primary/40 hover:shadow-xs transition-all duration-300 py-0 gap-0 bg-card/50 backdrop-blur-xs ${stat.containerClass}`}
+              >
+                <div className={`h-[2.5px] w-full ${stat.accentBar}`} />
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.18em]">
+                      {stat.title}
+                    </span>
+                    <div
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${stat.bgColor} ${stat.color}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-foreground mb-1 tracking-tight font-mono">
+                    {stat.amount}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                    Total Lifetime Value
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Main Content Grid: 1/3 Left Column, 2/3 Right Column */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Details & Contact */}
+        <div className="space-y-6">
+          <Card className="bg-card/60 border-border/60 shadow-2xs overflow-hidden rounded-2xl">
+            <CardHeader className="border-b border-border/60 bg-card/40 py-3.5 px-6">
+              <CardTitle className="text-sm font-bold">Contact Information</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground shadow-2xs">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Email
+                    </p>
+                    <p className="text-sm font-bold text-foreground">
+                      {customer?.email || "No email provided"}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">GSTIN / Tax ID:</span>
-                  <span className="font-mono text-foreground">{customer.gstNumber || customer.pan || "N/A"}</span>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground shadow-2xs">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Phone
+                    </p>
+                    <p className="text-sm font-bold text-foreground">
+                      {customer?.phone || "No phone provided"}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Total Invoices:</span>
-                  <span className="font-mono font-bold text-foreground">{customerInvoices.length}</span>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground shrink-0 shadow-2xs">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">
+                      Billing Address
+                    </p>
+                    <p className="text-sm font-bold text-foreground leading-relaxed whitespace-pre-line">
+                      {customer?.billingAddress || customer?.address || "No address provided"}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-muted/30 border border-border/70 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Financial Summary
-              </span>
-              <div className="space-y-1">
-                <div className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">Total Invoiced:</span>
-                  <span className="font-mono font-bold text-foreground">
-                    {formatCurrency(customerInvoices.reduce((s, i) => s + (Number(i.amount) || 0), 0))}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-border/50">
-                  <span className="text-muted-foreground">Total Paid:</span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrency(totalPaid)}
-                  </span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground font-bold">Outstanding Balance:</span>
-                  <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
-                    {formatCurrency(outstanding)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Tab: Details */}
-      {activeTab === "Details" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground pb-2 border-b border-border/60 flex items-center gap-2">
-              <Building2 className="size-4 text-primary" /> Contact & Business Info
-            </h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Primary Contact</span>
-                <span className="font-semibold text-foreground text-sm">{customer.name}</span>
-              </div>
-              {customer.company && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Company</span>
-                  <span className="font-medium text-foreground">{customer.company}</span>
-                </div>
-              )}
-              {customer.email && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Email Address</span>
-                  <span className="font-medium text-foreground">{customer.email}</span>
-                </div>
-              )}
-              {customer.phone && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Phone Number</span>
-                  <span className="font-medium text-foreground">{customer.phone}</span>
-                </div>
-              )}
-              {customer.gstTreatment && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">GST Treatment</span>
-                  <span className="font-medium text-foreground">{customer.gstTreatment}</span>
-                </div>
-              )}
-            </div>
+            </CardContent>
           </Card>
 
-          <Card className="border-border/60 bg-card/60 rounded-2xl p-6 shadow-2xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground pb-2 border-b border-border/60 flex items-center gap-2">
-              <MapPin className="size-4 text-primary" /> Address & Tax Identification
-            </h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Billing Address</span>
-                <p className="font-medium text-foreground leading-relaxed whitespace-pre-wrap">
-                  {customer.billingAddress || customer.address || "No address on file"}
-                </p>
+          <Card className="bg-card/60 border-border/60 shadow-2xs overflow-hidden rounded-2xl">
+            <CardHeader className="border-b border-border/60 bg-card/40 py-3.5 px-6">
+              <CardTitle className="text-sm font-bold">Relationship Stats</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Customer Since</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {formatDate(customer?.created_at || customer?.createdAt)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Estimated Profit</span>
+                  <span className="text-xs font-bold text-primary font-mono">
+                    {formatCurrency(summaryEstimatedProfit)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Outstanding Quotes</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {summaryEstimateCount}
+                  </span>
+                </div>
               </div>
-              {customer.shippingAddress && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Shipping Address</span>
-                  <p className="font-medium text-foreground leading-relaxed whitespace-pre-wrap">
-                    {customer.shippingAddress}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Tabs Content */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-muted/50 p-1 rounded-xl border border-border/60 flex gap-1 shadow-2xs">
+            {tabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  activeTab === tab
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground/80 hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Transactions Tab */}
+          {activeTab === "Transactions" && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {isCustLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-16 w-full rounded-2xl" />
+                  ))}
+                </div>
+              ) : sortedTransactions.length > 0 ? (
+                <div className="space-y-3">
+                  {sortedTransactions.map((item) => (
+                    <div
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => {
+                        if (item.type === "Invoice") navigate({ to: "/invoices" });
+                        else navigate({ to: "/estimates" });
+                      }}
+                      className="p-4 rounded-2xl bg-card/60 border border-border/60 hover:border-primary/40 hover:bg-muted/50 shadow-2xs transition-all flex items-center justify-between group cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-2xs ${
+                            item.type === "Invoice"
+                              ? "bg-primary/10 text-primary border border-primary/20"
+                              : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20"
+                          }`}
+                        >
+                          {item.type === "Invoice" ? (
+                            <FileText className="w-4 h-4" />
+                          ) : item.type === "Estimate" ? (
+                            <Calculator className="w-4 h-4" />
+                          ) : (
+                            <TrendingDown className="w-4 h-4" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors font-mono">
+                              {item.invoice_number ||
+                                item.estimate_number ||
+                                item.invoiceNumber ||
+                                item.estimateNumber ||
+                                item.number ||
+                                item.id}
+                            </p>
+                            <span
+                              className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-md border shadow-2xs ${
+                                item.status === "Paid" || item.status === "Accepted"
+                                  ? "border-transparent bg-emerald-600 text-white dark:bg-emerald-600 dark:text-white"
+                                  : "border-transparent bg-secondary text-secondary-foreground"
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                            {item.type} • {formatDate(item.date)} •{" "}
+                            {item.type === "Expense"
+                              ? item.expense_account
+                              : item.invoice_number ||
+                                item.estimate_number ||
+                                item.invoiceNumber ||
+                                item.estimateNumber ||
+                                item.number ||
+                                item.id}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex items-center gap-4">
+                        <div>
+                          <p className="text-sm font-bold text-foreground font-mono">
+                            {formatCurrency(item.amount)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+                            Amount
+                          </p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-muted/10 rounded-3xl border-2 border-dashed border-border">
+                  <FileText className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+                  <p className="text-sm font-bold text-muted-foreground">No transactions found</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Start by creating an invoice for this customer.
                   </p>
                 </div>
               )}
-              {customer.gstNumber && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">GSTIN</span>
-                  <span className="font-mono font-bold text-foreground">{customer.gstNumber}</span>
-                </div>
-              )}
-              {customer.pan && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">PAN</span>
-                  <span className="font-mono font-bold text-foreground">{customer.pan}</span>
-                </div>
-              )}
             </div>
-          </Card>
-        </div>
-      )}
+          )}
 
-      {/* Modals */}
+          {/* Statements Tab */}
+          {activeTab === "Statements" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="bg-card border-border/50 overflow-hidden rounded-2xl">
+                <CardHeader className="border-b border-border/50 bg-muted/20 py-4 px-6">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold">Account Statement</CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-[10px] font-bold uppercase tracking-widest gap-2 cursor-pointer hover:bg-muted"
+                      onClick={handleExportStatement}
+                    >
+                      <FileText className="w-3 h-3" /> Export Statement
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-muted/30 border-b border-border/50">
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Date
+                        </th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Reference
+                        </th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                          Amount
+                        </th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">
+                          Balance
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {statements.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-8 text-center text-xs text-muted-foreground">
+                            No statement records found
+                          </td>
+                        </tr>
+                      ) : (
+                        statements.map((item, index) => (
+                          <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                            <td className="px-6 py-4 text-xs font-bold">{formatDate(item.date)}</td>
+                            <td className="px-6 py-4">
+                              <p className="text-xs font-bold">
+                                {item.invoice_number ||
+                                  item.estimate_number ||
+                                  item.invoiceNumber ||
+                                  item.estimateNumber ||
+                                  item.number ||
+                                  item.id}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+                                {item.type}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-black text-right font-mono">
+                              {formatCurrency(item.amount)}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-black text-right text-primary font-mono">
+                              {formatCurrency(
+                                statements.slice(index).reduce((sum, s) => sum + Number(s.amount || 0), 0)
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Details Tab */}
+          {activeTab === "Details" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="bg-card border-border/50 overflow-hidden rounded-2xl">
+                <CardHeader className="border-b border-border/50 bg-muted/20 py-4 px-6">
+                  <CardTitle className="text-sm font-bold">Full Business Details</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid sm:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Legal Name
+                        </p>
+                        <p className="text-sm font-bold">{customer?.name || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Company / Trade Name
+                        </p>
+                        <p className="text-sm font-bold">{customer?.company || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          GST Treatment
+                        </p>
+                        <p className="text-sm font-bold">
+                          {customer?.gstTreatment || customer?.gst_treatment || "N/A"}
+                        </p>
+                      </div>
+                      {(customer?.gstNumber || customer?.gst_number) && (
+                        <div>
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                            GST Identification Number
+                          </p>
+                          <p className="text-sm font-mono font-bold text-primary">
+                            {customer?.gstNumber || customer?.gst_number}
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Payment Terms
+                        </p>
+                        <p className="text-sm font-bold">{customer?.paymentTerms || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Currency
+                        </p>
+                        <p className="text-sm font-bold">{customer?.currency || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Website
+                        </p>
+                        <p className="text-sm font-bold">{customer?.website || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          General Address
+                        </p>
+                        <p className="text-sm font-bold leading-relaxed">{customer?.address || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Billing Address
+                        </p>
+                        <p className="text-sm font-bold leading-relaxed whitespace-pre-line">
+                          {customer?.billingAddress || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Shipping Address
+                        </p>
+                        <p className="text-sm font-bold leading-relaxed whitespace-pre-line">
+                          {customer?.shippingAddress || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                          Internal Notes
+                        </p>
+                        <p
+                          className={`text-xs text-muted-foreground leading-relaxed whitespace-pre-line ${
+                            !customer?.notes ? "italic text-muted-foreground/60" : ""
+                          }`}
+                        >
+                          {customer?.notes || "No internal notes added for this customer."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modals matching Vue */}
       <AddCustomerModal
-        isOpen={isEditOpen}
+        isOpen={isEditingCustomer}
         customer={customer}
-        onClose={() => setIsEditOpen(false)}
+        onClose={() => setIsEditingCustomer(false)}
         onSuccess={() => refetch()}
       />
 
       <CreateInvoiceModal
         isOpen={isInvoiceOpen}
+        initialCustomerId={id}
         onClose={() => setIsInvoiceOpen(false)}
         onSuccess={() => {
+          refetch();
           refetchInvoices();
-          refetch();
-        }}
-      />
-
-      <CreateEstimateModal
-        isOpen={isEstimateOpen}
-        onClose={() => setIsEstimateOpen(false)}
-        onSuccess={() => {
-          refetchEstimates();
-          refetch();
         }}
       />
     </div>

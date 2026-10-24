@@ -1,12 +1,14 @@
+import React, { useEffect } from "react";
 import {
   createRouter,
   createRootRoute,
   createRoute,
   Outlet,
   Navigate,
+  useLocation,
 } from "@tanstack/react-router";
 import { AppLayout } from "./components/layout/AppLayout";
-import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { ProtectedRoute, GuestRoute } from "./components/auth/ProtectedRoute";
 import { Dashboard } from "./views/Dashboard";
 import { Invoices } from "./views/Invoices";
 import { Estimates } from "./views/Estimates";
@@ -31,14 +33,37 @@ import VerifyEmail from "./views/auth/VerifyEmail";
 import { AcceptInvitation } from "./views/auth/AcceptInvitation";
 import { ChatBot } from "./components/chat/ChatBot";
 
-// 1. Root Route
-const rootRoute = createRootRoute({
-  component: () => (
+function RootLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Silently cleanup OAuth URL parameters (state, code, scope, etc.) 
+    // after navigation is complete to ensure a clean address bar, matching Vue router.
+    const oauthParams = ["state", "code", "iss", "scope", "authuser", "prompt", "error"];
+    const currentUrl = new URL(window.location.href);
+    let changed = false;
+    for (const param of oauthParams) {
+      if (currentUrl.searchParams.has(param)) {
+        currentUrl.searchParams.delete(param);
+        changed = true;
+      }
+    }
+    if (changed) {
+      window.history.replaceState({}, document.title, currentUrl.pathname + currentUrl.search);
+    }
+  }, [location.pathname, location.searchStr]);
+
+  return (
     <>
       <Outlet />
       <ChatBot />
     </>
-  ),
+  );
+}
+
+// 1. Root Route
+const rootRoute = createRootRoute({
+  component: RootLayout,
 });
 
 // 2. Public Auth Routes
@@ -49,31 +74,51 @@ const loginRoute = createRoute({
     redirect: (search.redirect as string) || undefined,
     email: (search.email as string) || undefined,
   }),
-  component: Login,
+  component: () => (
+    <GuestRoute>
+      <Login />
+    </GuestRoute>
+  ),
 });
 
 const signupRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/signup",
-  component: Signup,
+  component: () => (
+    <GuestRoute>
+      <Signup />
+    </GuestRoute>
+  ),
 });
 
 const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/forgot-password",
-  component: ForgotPassword,
+  component: () => (
+    <GuestRoute>
+      <ForgotPassword />
+    </GuestRoute>
+  ),
 });
 
 const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/reset-password",
-  component: ResetPassword,
+  component: () => (
+    <GuestRoute>
+      <ResetPassword />
+    </GuestRoute>
+  ),
 });
 
 const checkEmailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/check-email",
-  component: CheckEmail,
+  component: () => (
+    <GuestRoute>
+      <CheckEmail />
+    </GuestRoute>
+  ),
 });
 
 const verifyEmailRoute = createRoute({
@@ -235,7 +280,11 @@ const notificationsRedirectRoute = createRoute({
 const adminRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/admin",
-  component: AdminPanel,
+  component: () => (
+    <ProtectedRoute requireAdmin={true}>
+      <AdminPanel />
+    </ProtectedRoute>
+  ),
 });
 
 // 4. Create Route Tree

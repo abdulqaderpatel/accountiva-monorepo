@@ -381,13 +381,15 @@ export function ChatBot() {
           {/* Header */}
           <div className="p-5 bg-primary/5 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-card flex items-center justify-center overflow-hidden border border-border/80 shadow-xs relative">
+              <div className="size-10 rounded-xl bg-card flex items-center justify-center border border-border/80 shadow-xs relative shrink-0">
                 <img
                   src={aiMascotSrc}
                   alt="Accountiva AI Mascot"
-                  className="w-8 h-8 object-contain"
+                  className="size-8 object-contain pointer-events-none select-none"
                 />
-                <span className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-card" />
+                <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
+                  <span className="relative inline-flex rounded-full size-2.5 bg-emerald-500 ring-2 ring-card" />
+                </span>
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
@@ -401,14 +403,14 @@ export function ChatBot() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer"
+              aria-label="Close assistant"
+              className="size-8 rounded-xl hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer"
             >
-              <X className="w-4 h-4" />
-            </Button>
+              <X className="size-4" />
+            </button>
           </div>
 
           {/* Chat Messages Area */}
@@ -419,15 +421,15 @@ export function ChatBot() {
             {/* Welcome Banner */}
             {messages.length <= 1 && (
               <div className="text-center py-4 px-3 rounded-2xl bg-primary/[0.03] border border-primary/10 flex flex-col items-center space-y-2 mb-2">
-                <div className="w-16 h-16 rounded-full bg-card p-1 border border-border shadow-md flex items-center justify-center relative">
+                <div className="size-16 rounded-2xl bg-card p-2 border border-border shadow-md flex items-center justify-center relative shrink-0">
                   <img
                     src={aiMascotSrc}
                     alt="Accountiva AI Mascot"
-                    className="w-14 h-14 object-contain"
+                    className="size-12 object-contain pointer-events-none select-none"
                   />
-                  <span className="absolute bottom-0 right-0 flex h-3.5 w-3.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 ring-2 ring-card" />
+                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5">
+                    <span className="animate-ping absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full size-3.5 bg-emerald-500 ring-2 ring-card" />
                   </span>
                 </div>
                 <div>
@@ -447,9 +449,9 @@ export function ChatBot() {
                 className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border overflow-hidden ${
+                  className={`size-8 rounded-xl flex items-center justify-center shrink-0 border ${
                     msg.role === "assistant"
-                      ? "bg-card border-border/80 p-0.5 shadow-2xs"
+                      ? "bg-card border-border/80 p-1 shadow-2xs"
                       : "bg-muted border-border text-muted-foreground"
                   }`}
                 >
@@ -457,10 +459,10 @@ export function ChatBot() {
                     <img
                       src={aiMascotSrc}
                       alt="Accountiva AI"
-                      className="w-full h-full object-contain"
+                      className="size-6 object-contain pointer-events-none select-none"
                     />
                   ) : (
-                    <User className="w-4 h-4" />
+                    <User className="size-4" />
                   )}
                 </div>
 
@@ -609,11 +611,11 @@ export function ChatBot() {
             {/* Loading Indicator */}
             {isLoading && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-xl bg-card border border-border/80 p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                <div className="size-8 rounded-xl bg-card border border-border/80 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                   <img
                     src={aiMascotSrc}
                     alt="Accountiva AI"
-                    className="w-full h-full object-contain animate-pulse"
+                    className="size-6 object-contain animate-pulse pointer-events-none select-none"
                   />
                 </div>
                 <div className="p-4 rounded-2xl bg-muted/50 border border-border rounded-tl-none flex items-center gap-2">
@@ -702,17 +704,15 @@ export function ChatBot() {
               }}
               className="relative flex items-center gap-2"
             >
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                size="icon"
                 disabled={isLoading}
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach Image or PDF receipt"
-                className="h-11 w-11 rounded-2xl border-border/60 bg-card hover:bg-muted text-muted-foreground hover:text-primary transition-all shrink-0 cursor-pointer"
+                className="size-11 rounded-2xl border border-border/60 bg-card hover:bg-muted text-muted-foreground hover:text-primary transition-all flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               >
-                <Paperclip className="w-4 h-4" />
-              </Button>
+                <Paperclip className="size-4" />
+              </button>
 
               <Input
                 value={message}
@@ -722,45 +722,45 @@ export function ChatBot() {
                 className="pr-12 h-11 rounded-2xl border-border/50 bg-card focus:ring-primary/20 focus:border-primary transition-all text-xs font-medium flex-1"
               />
 
-              <Button
+              <button
                 type="submit"
-                size="icon"
                 disabled={(!message.trim() && attachments.length === 0) || isLoading}
-                className="absolute right-1 top-1 h-9 w-9 rounded-xl hover:scale-[1.05] active:scale-[0.95] transition-all bg-primary text-primary-foreground shadow-sm cursor-pointer"
+                className="absolute right-1 top-1 size-9 rounded-xl hover:scale-[1.05] active:scale-[0.95] transition-all bg-primary text-primary-foreground shadow-sm flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <Send className="size-4" />
                 )}
-              </Button>
+              </button>
             </form>
           </div>
         </div>
       )}
 
       {/* Floating Toggle Mascot Button */}
-      <Button
+      <button
+        type="button"
         onClick={toggleChat}
-        className="w-14 h-14 rounded-2xl flex items-center justify-center p-0 hover:scale-[1.06] active:scale-[0.95] transition-all group bg-card border border-border/80 shadow-xl relative overflow-hidden cursor-pointer"
+        className="size-14 rounded-2xl flex items-center justify-center p-0 hover:scale-[1.05] active:scale-[0.95] transition-all group bg-card border border-border/80 shadow-xl relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-label="Toggle Accountiva AI Assistant"
       >
         {!isOpen ? (
-          <div className="w-full h-full flex items-center justify-center relative">
+          <div className="size-full flex items-center justify-center relative">
             <img
               src={aiMascotSrc}
               alt="Accountiva AI Mascot"
-              className="w-10 h-10 object-contain rounded-full relative z-10 drop-shadow-xs group-hover:scale-110 transition-transform duration-200"
+              className="size-10 object-contain relative z-10 drop-shadow-xs group-hover:scale-110 transition-transform duration-200 pointer-events-none select-none"
             />
-            <span className="absolute top-2 right-2 flex h-2.5 w-2.5 z-20">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-2 ring-card" />
+            <span className="absolute top-1.5 right-1.5 flex size-3 z-20 pointer-events-none">
+              <span className="animate-ping absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full size-3 bg-emerald-500 ring-2 ring-card" />
             </span>
           </div>
         ) : (
-          <ChevronDown className="w-6 h-6 relative z-10 text-foreground" />
+          <ChevronDown className="size-6 relative z-10 text-foreground" />
         )}
-      </Button>
+      </button>
     </div>
   );
 }

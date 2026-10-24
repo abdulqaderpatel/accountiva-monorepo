@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Plus,
@@ -14,6 +14,7 @@ import {
   X,
   Pencil,
   FileSpreadsheet,
+  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,9 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
-import { formatCurrency, exportToCsv } from "@accountiva/shared";
+import { BulkUploadModal } from "@/components/ui/BulkUploadModal";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { formatCurrency, exportToCsv, exportToJson } from "@accountiva/shared";
 import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { toast } from "sonner";
@@ -61,6 +64,7 @@ export function Customers() {
   const pageSize = 12;
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
 
   // Bulk selection state
@@ -119,6 +123,13 @@ export function Customers() {
   }, [customerList, search]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const paginatedCustomers = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
@@ -187,7 +198,7 @@ export function Customers() {
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExport = (format: "csv" | "json") => {
     const target = selectedIds.size > 0
       ? customerList.filter((c) => selectedIds.has(c.id))
       : filtered;
@@ -197,16 +208,22 @@ export function Customers() {
       return;
     }
     const exportData = target.map((c) => ({
-      "Code": c.customerCode || "",
-      "Name": c.name,
-      "Company": c.company || "",
-      "Email": c.email || "",
-      "Phone": c.phone || "",
+      Code: c.customerCode || "",
+      Name: c.name,
+      Company: c.company || "",
+      Email: c.email || "",
+      Phone: c.phone || "",
+      GSTIN: c.gstNumber || "",
       "GST Treatment": c.gstTreatment || "",
-      "Outstanding": Number(c.outstandingBalance) || Number(c.outstanding) || Number(c.opening_balance) || 0,
+      "Outstanding Balance": Number(c.outstandingBalance) || Number(c.outstanding) || Number(c.opening_balance) || 0,
     }));
-    exportToCsv(exportData, "customers");
-    toast.success(`Exported ${exportData.length} customer(s) to CSV`);
+
+    if (format === "csv") {
+      exportToCsv(exportData, "customers");
+    } else {
+      exportToJson(exportData, "customers");
+    }
+    toast.success(`Exported ${exportData.length} customer(s) as ${format.toUpperCase()}`);
   };
 
   return (
@@ -221,11 +238,11 @@ export function Customers() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={() => setIsBulkUploadOpen(true)}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
-            <FileSpreadsheet className="size-3.5 mr-1.5 text-muted-foreground" />
-            Export CSV
+            <FileUp className="size-3.5 mr-1.5 text-muted-foreground" />
+            Import Customers
           </Button>
           <Button
             size="sm"
@@ -445,63 +462,26 @@ export function Customers() {
         </div>
 
         {/* Pagination Controls */}
-        {filtered.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 rounded-xl border border-border/60 bg-muted/20">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Showing {Math.min((page - 1) * pageSize + 1, filtered.length)}–
-              {Math.min(page * pageSize, filtered.length)} of {filtered.length} customers
-            </p>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-              >
-                <ChevronLeft className="size-3.5" /> Prev
-              </Button>
-              <span className="text-xs font-mono font-bold px-2 text-foreground">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-              >
-                Next <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          total={filtered.length}
+          totalPages={totalPages}
+          label="Customers"
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Floating Bulk Action Bar */}
       <BulkActionBar
         selectedCount={selectedIds.size}
         totalCount={filtered.length}
+        label="customers"
+        enableExport={true}
         onClearSelection={() => setSelectedIds(new Set())}
-      >
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExport}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setShowBulkDeleteConfirm(true)}
-          className="h-8 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </Button>
-      </BulkActionBar>
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onExport={handleBulkExport}
+      />
 
       {/* Bulk Delete Confirm Dialog */}
       <BulkConfirmDialog
@@ -511,6 +491,14 @@ export function Customers() {
         isPending={isBulkDeleting}
         onClose={() => setShowBulkDeleteConfirm(false)}
         onConfirm={handleBulkDeleteConfirm}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        open={isBulkUploadOpen}
+        entity="customers"
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => refetch()}
       />
 
       {/* Add / Edit Customer Modal */}

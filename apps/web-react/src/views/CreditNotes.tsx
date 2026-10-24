@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -39,9 +39,10 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
+import { PaginationBar } from "@/components/ui/PaginationBar";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
-import { formatCurrency, formatDate, exportToCsv } from "@accountiva/shared";
+import { formatCurrency, formatDate, exportToCsv, exportToJson } from "@accountiva/shared";
 import {
   fetchCreditNote,
   useCreditNotes,
@@ -222,6 +223,13 @@ export function CreditNotes() {
   }, [creditNoteList, search, activeFilter]);
 
   const totalPages = Math.ceil(filteredCreditNotes.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const paginatedCreditNotes = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredCreditNotes.slice(start, start + pageSize);
@@ -377,7 +385,7 @@ export function CreditNotes() {
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExport = (format: "csv" | "json") => {
     const target = selectedIds.size > 0
       ? creditNoteList.filter((c) => selectedIds.has(c.id))
       : filteredCreditNotes;
@@ -388,14 +396,19 @@ export function CreditNotes() {
     }
     const exportData = target.map((cn) => ({
       "Credit Note #": cn.creditNoteNumber || "N/A",
-      "Customer": cn.customerName || cn.customers?.name || "N/A",
-      "Date": formatDate(cn.date),
-      "Amount": cn.amount,
+      Customer: cn.customerName || cn.customers?.name || "N/A",
+      Date: formatDate(cn.date),
+      Amount: cn.amount,
       "Remaining Balance": cn.remainingAmount ?? cn.amount,
-      "Status": cn.status,
+      Status: cn.status,
     }));
-    exportToCsv(exportData, "credit-notes");
-    toast.success(`Exported ${exportData.length} credit note(s) to CSV`);
+
+    if (format === "csv") {
+      exportToCsv(exportData, "credit-notes");
+    } else {
+      exportToJson(exportData, "credit-notes");
+    }
+    toast.success(`Exported ${exportData.length} credit note(s) as ${format.toUpperCase()}`);
   };
 
   const renderStatusBadge = (status: string) => {
@@ -442,7 +455,7 @@ export function CreditNotes() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={() => handleBulkExport("csv")}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
             <FileSpreadsheet className="size-3.5 mr-1.5 text-muted-foreground" />
@@ -761,38 +774,14 @@ export function CreditNotes() {
           </Table>
 
           {/* Pagination Controls */}
-          {filteredCreditNotes.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/20">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Showing {Math.min((page - 1) * pageSize + 1, filteredCreditNotes.length)}–
-                {Math.min(page * pageSize, filteredCreditNotes.length)} of {filteredCreditNotes.length} credit notes
-              </p>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  <ChevronLeft className="size-3.5" /> Prev
-                </Button>
-                <span className="text-xs font-mono font-bold px-2 text-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  Next <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={filteredCreditNotes.length}
+            totalPages={totalPages}
+            label="Credit Notes"
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -800,25 +789,12 @@ export function CreditNotes() {
       <BulkActionBar
         selectedCount={selectedIds.size}
         totalCount={filteredCreditNotes.length}
+        label="credit notes"
+        enableExport={true}
         onClearSelection={() => setSelectedIds(new Set())}
-      >
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExport}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setShowBulkDeleteConfirm(true)}
-          className="h-8 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </Button>
-      </BulkActionBar>
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onExport={handleBulkExport}
+      />
 
       {/* Bulk Delete Confirm Dialog */}
       <BulkConfirmDialog

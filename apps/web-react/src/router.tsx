@@ -29,10 +29,16 @@ import ResetPassword from "./views/auth/ResetPassword";
 import CheckEmail from "./views/auth/CheckEmail";
 import VerifyEmail from "./views/auth/VerifyEmail";
 import { AcceptInvitation } from "./views/auth/AcceptInvitation";
+import { ChatBot } from "./components/chat/ChatBot";
 
 // 1. Root Route
 const rootRoute = createRootRoute({
-  component: () => <Outlet />,
+  component: () => (
+    <>
+      <Outlet />
+      <ChatBot />
+    </>
+  ),
 });
 
 // 2. Public Auth Routes

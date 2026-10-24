@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -43,10 +43,12 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
+import { PaginationBar } from "@/components/ui/PaginationBar";
 import {
   formatCurrency,
   formatDate,
   exportToCsv,
+  exportToJson,
   type EstimateConversionSource,
   type EstimateStatus,
 } from "@accountiva/shared";
@@ -234,6 +236,13 @@ export function Estimates() {
   }, [rawEstimates, search, activeFilter]);
 
   const totalPages = Math.ceil(filteredEstimates.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const paginatedEstimates = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredEstimates.slice(start, start + pageSize);
@@ -390,7 +399,7 @@ export function Estimates() {
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExport = (format: "csv" | "json") => {
     const target = selectedIds.size > 0
       ? rawEstimates.filter((e) => selectedIds.has(e.id))
       : filteredEstimates;
@@ -401,14 +410,19 @@ export function Estimates() {
     }
     const exportData = target.map((est) => ({
       "Estimate #": est.estimateNumber || "N/A",
-      "Customer": est.customerName || est.customers?.name || "N/A",
-      "Date": formatDate(est.date),
+      Customer: est.customerName || est.customers?.name || "N/A",
+      Date: formatDate(est.date),
       "Expiry Date": formatDate(est.expiryDate),
-      "Amount": est.amount,
-      "Status": est.status,
+      Amount: est.amount,
+      Status: est.status,
     }));
-    exportToCsv(exportData, "estimates");
-    toast.success(`Exported ${exportData.length} estimate(s) to CSV`);
+
+    if (format === "csv") {
+      exportToCsv(exportData, "estimates");
+    } else {
+      exportToJson(exportData, "estimates");
+    }
+    toast.success(`Exported ${exportData.length} estimate(s) as ${format.toUpperCase()}`);
   };
 
   const renderStatusBadge = (status: string) => {
@@ -461,7 +475,7 @@ export function Estimates() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={() => handleBulkExport("csv")}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
             <FileSpreadsheet className="size-3.5 mr-1.5 text-muted-foreground" />
@@ -802,38 +816,14 @@ export function Estimates() {
           </Table>
 
           {/* Pagination Controls */}
-          {filteredEstimates.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/20">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Showing {Math.min((page - 1) * pageSize + 1, filteredEstimates.length)}–
-                {Math.min(page * pageSize, filteredEstimates.length)} of {filteredEstimates.length} estimates
-              </p>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  <ChevronLeft className="size-3.5" /> Prev
-                </Button>
-                <span className="text-xs font-mono font-bold px-2 text-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  Next <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={filteredEstimates.length}
+            totalPages={totalPages}
+            label="Estimates"
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -841,25 +831,12 @@ export function Estimates() {
       <BulkActionBar
         selectedCount={selectedIds.size}
         totalCount={filteredEstimates.length}
+        label="estimates"
+        enableExport={true}
         onClearSelection={() => setSelectedIds(new Set())}
-      >
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExport}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setShowBulkDeleteConfirm(true)}
-          className="h-8 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </Button>
-      </BulkActionBar>
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onExport={handleBulkExport}
+      />
 
       {/* Bulk Delete Confirm Dialog */}
       <BulkConfirmDialog

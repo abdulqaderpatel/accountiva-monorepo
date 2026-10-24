@@ -119,7 +119,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
       )}
 
       {/* Delete Action Button */}
-      {canDelete && (
+      {canDelete && onDelete && (
         <Button
           type="button"
           variant="destructive"

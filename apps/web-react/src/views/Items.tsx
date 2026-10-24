@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -15,6 +15,7 @@ import {
   X,
   Pencil,
   FileSpreadsheet,
+  FileUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,7 +41,9 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
-import { formatCurrency, exportToCsv } from "@accountiva/shared";
+import { BulkUploadModal } from "@/components/ui/BulkUploadModal";
+import { PaginationBar } from "@/components/ui/PaginationBar";
+import { formatCurrency, exportToCsv, exportToJson } from "@accountiva/shared";
 import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { toast } from "sonner";
@@ -59,6 +62,7 @@ interface ItemRecord {
   salesTaxRate?: number;
   openingStock?: number;
   stockOnHand?: number;
+  uom?: string;
   description?: string;
   category?: string;
   customFields?: Record<string, any>;
@@ -71,6 +75,7 @@ export function Items() {
   const pageSize = 10;
 
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemRecord | null>(null);
 
   // Bulk selection state
@@ -202,6 +207,13 @@ export function Items() {
   }, [itemList, search, selectedFilter]);
 
   const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const paginatedItems = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredItems.slice(start, start + pageSize);
@@ -270,7 +282,7 @@ export function Items() {
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExport = (format: "csv" | "json") => {
     const target = selectedIds.size > 0
       ? itemList.filter((i) => selectedIds.has(i.id))
       : filteredItems;
@@ -280,16 +292,24 @@ export function Items() {
       return;
     }
     const exportData = target.map((item) => ({
-      "Name": item.name,
-      "Type": item.type,
-      "SKU": item.sku || "",
+      Name: item.name,
+      SKU: item.sku || "",
+      Type: item.type,
+      "Product Type": item.productType || "",
+      Category: item.category || "",
+      UOM: item.uom || "Unit",
       "Selling Price": Number(item.sellingPrice) || Number(item.unitPrice) || 0,
       "Cost Price": Number(item.costPrice) || 0,
       "Stock on Hand": Number(item.stockOnHand) || Number(item.openingStock) || 0,
-      "Description": item.description || "",
+      Description: item.description || "",
     }));
-    exportToCsv(exportData, "items");
-    toast.success(`Exported ${exportData.length} item(s) to CSV`);
+
+    if (format === "csv") {
+      exportToCsv(exportData, "items");
+    } else {
+      exportToJson(exportData, "items");
+    }
+    toast.success(`Exported ${exportData.length} item(s) as ${format.toUpperCase()}`);
   };
 
   const filterTabs = [
@@ -312,11 +332,11 @@ export function Items() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={() => setIsBulkUploadOpen(true)}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
-            <FileSpreadsheet className="size-3.5 mr-1.5 text-muted-foreground" />
-            Export CSV
+            <FileUp className="size-3.5 mr-1.5 text-muted-foreground" />
+            Import Items
           </Button>
           <Button
             size="sm"
@@ -607,38 +627,14 @@ export function Items() {
           </Table>
 
           {/* Pagination Controls */}
-          {filteredItems.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/20">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Showing {Math.min((page - 1) * pageSize + 1, filteredItems.length)}–
-                {Math.min(page * pageSize, filteredItems.length)} of {filteredItems.length} items
-              </p>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  <ChevronLeft className="size-3.5" /> Prev
-                </Button>
-                <span className="text-xs font-mono font-bold px-2 text-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  Next <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={filteredItems.length}
+            totalPages={totalPages}
+            label="Items"
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -646,25 +642,12 @@ export function Items() {
       <BulkActionBar
         selectedCount={selectedIds.size}
         totalCount={filteredItems.length}
+        label="items"
+        enableExport={true}
         onClearSelection={() => setSelectedIds(new Set())}
-      >
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExport}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setShowBulkDeleteConfirm(true)}
-          className="h-8 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </Button>
-      </BulkActionBar>
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onExport={handleBulkExport}
+      />
 
       {/* Bulk Delete Confirm Dialog */}
       <BulkConfirmDialog
@@ -674,6 +657,14 @@ export function Items() {
         isPending={isBulkDeleting}
         onClose={() => setShowBulkDeleteConfirm(false)}
         onConfirm={handleBulkDeleteConfirm}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        open={isBulkUploadOpen}
+        entity="items"
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => refetch()}
       />
 
       {/* Add / Edit Item Modal */}

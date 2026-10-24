@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -17,6 +17,7 @@ import {
   Pencil,
   Check,
   FileSpreadsheet,
+  FileUp,
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,10 +44,13 @@ import {
 import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
+import { BulkUploadModal } from "@/components/ui/BulkUploadModal";
+import { PaginationBar } from "@/components/ui/PaginationBar";
 import {
   formatCurrency,
   formatDate,
   exportToCsv,
+  exportToJson,
   type InvoiceStatus,
 } from "@accountiva/shared";
 import {
@@ -115,6 +119,7 @@ export function Invoices() {
   };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [emailInvoice, setEmailInvoice] = useState<InvoiceRecord | null>(null);
@@ -319,6 +324,13 @@ export function Invoices() {
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredInvoices.length / pageSize) || 1;
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(Math.max(1, totalPages));
+    }
+  }, [page, totalPages]);
+
   const paginatedInvoices = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredInvoices.slice(start, start + pageSize);
@@ -410,7 +422,7 @@ export function Invoices() {
     }
   };
 
-  const handleExport = () => {
+  const handleBulkExport = (format: "csv" | "json") => {
     const target = selectedIds.size > 0
       ? rawInvoices.filter((i) => selectedIds.has(i.id))
       : filteredInvoices;
@@ -421,14 +433,20 @@ export function Invoices() {
     }
     const exportData = target.map((inv) => ({
       "Invoice #": inv.invoiceNumber || "N/A",
-      "Customer": inv.customerName || inv.customers?.name || "N/A",
-      "Date": formatDate(inv.date || inv.issueDate),
+      Customer: inv.customerName || inv.customers?.name || "N/A",
+      Date: formatDate(inv.date || inv.issueDate),
       "Due Date": formatDate(inv.dueDate),
-      "Amount": inv.amount,
-      "Status": inv.status,
+      Amount: inv.amount,
+      Status: inv.status,
+      Notes: inv.notes || "",
     }));
-    exportToCsv(exportData, "invoices");
-    toast.success(`Exported ${exportData.length} invoice(s) to CSV`);
+
+    if (format === "csv") {
+      exportToCsv(exportData, "invoices");
+    } else {
+      exportToJson(exportData, "invoices");
+    }
+    toast.success(`Exported ${exportData.length} invoice(s) as ${format.toUpperCase()}`);
   };
 
   const renderStatusBadge = (status: string) => {
@@ -473,11 +491,11 @@ export function Invoices() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleExport}
+            onClick={() => setIsBulkUploadOpen(true)}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
-            <FileSpreadsheet className="size-3.5 mr-1.5 text-muted-foreground" />
-            Export CSV
+            <FileUp className="size-3.5 mr-1.5 text-muted-foreground" />
+            Import Invoices
           </Button>
           <Button
             size="sm"
@@ -806,38 +824,14 @@ export function Invoices() {
           </Table>
 
           {/* Pagination Controls */}
-          {filteredInvoices.length > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-border/60 bg-muted/20">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Showing {Math.min((page - 1) * pageSize + 1, filteredInvoices.length)}–
-                {Math.min(page * pageSize, filteredInvoices.length)} of {filteredInvoices.length} invoices
-              </p>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  <ChevronLeft className="size-3.5" /> Prev
-                </Button>
-                <span className="text-xs font-mono font-bold px-2 text-foreground">
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-8 px-2.5 text-xs font-semibold gap-1 cursor-pointer"
-                >
-                  Next <ChevronRight className="size-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <PaginationBar
+            page={page}
+            pageSize={pageSize}
+            total={filteredInvoices.length}
+            totalPages={totalPages}
+            label="Invoices"
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -845,7 +839,11 @@ export function Invoices() {
       <BulkActionBar
         selectedCount={selectedIds.size}
         totalCount={filteredInvoices.length}
+        label="invoices"
+        enableExport={true}
         onClearSelection={() => setSelectedIds(new Set())}
+        onDelete={() => setShowBulkDeleteConfirm(true)}
+        onExport={handleBulkExport}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -871,22 +869,6 @@ export function Invoices() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleExport}
-          className="h-8 text-xs font-bold gap-1.5 bg-background border-border shadow-xs cursor-pointer"
-        >
-          <FileSpreadsheet className="size-3.5 text-muted-foreground" /> Export
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => setShowBulkDeleteConfirm(true)}
-          className="h-8 text-xs font-bold gap-1.5 shadow-xs cursor-pointer"
-        >
-          <Trash2 className="size-3.5" /> Delete
-        </Button>
       </BulkActionBar>
 
       {/* Bulk Delete Confirm Dialog */}
@@ -897,6 +879,14 @@ export function Invoices() {
         isPending={isBulkDeleting}
         onClose={() => setShowBulkDeleteConfirm(false)}
         onConfirm={handleBulkDeleteConfirm}
+      />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        open={isBulkUploadOpen}
+        entity="invoices"
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => refetch()}
       />
 
       {/* Create / Edit Invoice Modal */}

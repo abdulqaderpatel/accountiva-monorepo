@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { Search, Plus, Package, Wrench, Boxes } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import { formatCurrency } from '@accountiva/shared';
 import { useItems } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -164,10 +164,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading catalog...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={Package}

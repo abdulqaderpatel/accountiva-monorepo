@@ -179,6 +179,12 @@ export function ItemDetailModal({ visible, item, onClose, onRefresh, onEdit }: I
                       <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.hsnSacCode || item.hsnCode}</Text>
                     </View>
                   ) : null}
+                  {item.taxPreference ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>Tax Preference</Text>
+                      <Text style={{ fontSize: 13, fontFamily: fonts.medium, color: colors.foreground }}>{item.taxPreference}</Text>
+                    </View>
+                  ) : null}
                   {item.salesTaxRate !== undefined && item.salesTaxRate !== null ? (
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={{ fontSize: 13, fontFamily: fonts.regular, color: colors.mutedForeground }}>GST Rate</Text>

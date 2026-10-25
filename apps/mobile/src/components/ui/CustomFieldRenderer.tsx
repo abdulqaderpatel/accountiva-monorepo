@@ -9,11 +9,24 @@ import {
   FlatList,
   StyleSheet,
 } from 'react-native';
-import { SlidersHorizontal, ChevronDown, Check, X, Asterisk, Calendar as CalendarIcon } from 'lucide-react-native';
+import {
+  SlidersHorizontal,
+  ChevronDown,
+  Check,
+  X,
+  Asterisk,
+  Calendar as CalendarIcon,
+  Hash,
+  Type,
+  CheckSquare,
+  Search,
+  CircleAlert,
+} from 'lucide-react-native';
 import api from '@accountiva/api';
 import { useTheme } from '../../theme/ThemeContext';
 import { fonts } from '../../theme/typography';
 import { Badge } from './Badge';
+import { SkeletonCustomFields } from './Skeleton';
 
 export type CustomFieldDataType = 'text' | 'number' | 'date' | 'dropdown' | 'checkbox';
 
@@ -51,11 +64,13 @@ export function CustomFieldRenderer({
 }: CustomFieldRendererProps) {
   const { colors } = useTheme();
   const [allFields, setAllFields] = useState<MobileCustomField[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeDropdownField, setActiveDropdownField] = useState<MobileCustomField | null>(null);
   const [dropdownSearch, setDropdownSearch] = useState('');
 
   useEffect(() => {
     let isMounted = true;
+    setLoading(true);
     api
       .get<MobileCustomField[]>('/custom-fields')
       .then(({ data }) => {
@@ -65,6 +80,11 @@ export function CustomFieldRenderer({
       })
       .catch(() => {
         // Silently catch if custom fields endpoint fails or is disabled
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
       });
     return () => {
       isMounted = false;
@@ -103,17 +123,24 @@ export function CustomFieldRenderer({
     onChange?.(next);
   };
 
+  // 1. Loading State: Render Skeleton loader for smooth UX without jarring layout jump
+  if (loading) {
+    return <SkeletonCustomFields count={2} />;
+  }
+
+  // If no fields apply to this entity, return null
   if (fields.length === 0) {
     return null;
   }
 
+  // 2. Non-load State: Clean, responsive, and mobile-native UI
   return (
     <View style={styles.container}>
       {showTitle && (
         <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
           <View style={styles.titleWrap}>
             <View style={[styles.iconBox, { backgroundColor: colors.surfaceSubtle }]}>
-              <SlidersHorizontal size={14} color={colors.primary} />
+              <SlidersHorizontal size={13} color={colors.primary} />
             </View>
             <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
           </View>
@@ -126,13 +153,17 @@ export function CustomFieldRenderer({
           const val = localValues[field.id];
           const hasError = errors[field.id];
 
+          // A) CHECKBOX TOGGLE
           if (field.dataType === 'checkbox') {
             return (
               <View
                 key={field.id}
                 style={[
-                  styles.checkboxRow,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  styles.checkboxCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: hasError ? colors.destructive : colors.border,
+                  },
                 ]}
               >
                 <View style={{ flex: 1, marginRight: 12 }}>
@@ -159,12 +190,13 @@ export function CustomFieldRenderer({
             );
           }
 
+          // B) DROPDOWN SELECTOR
           if (field.dataType === 'dropdown') {
             const options = Array.isArray(field.options) ? field.options : [];
             return (
               <View key={field.id} style={styles.fieldGroup}>
                 <View style={styles.labelRow}>
-                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
                     {field.name}
                   </Text>
                   {field.isRequired ? <Asterisk size={11} color={colors.destructive} /> : null}
@@ -196,54 +228,131 @@ export function CustomFieldRenderer({
                   <ChevronDown size={16} color={colors.mutedForeground} />
                 </TouchableOpacity>
                 {hasError ? (
-                  <Text style={[styles.errorText, { color: colors.destructive }]}>{hasError}</Text>
+                  <View style={styles.errorRow}>
+                    <CircleAlert size={12} color={colors.destructive} />
+                    <Text style={[styles.errorText, { color: colors.destructive }]}>{hasError}</Text>
+                  </View>
                 ) : null}
               </View>
             );
           }
 
+          // C) DATE FIELD
+          if (field.dataType === 'date') {
+            const isToday = val === new Date().toISOString().split('T')[0];
+            return (
+              <View key={field.id} style={styles.fieldGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                    {field.name}
+                  </Text>
+                  {field.isRequired ? <Asterisk size={11} color={colors.destructive} /> : null}
+                </View>
+
+                <View
+                  style={[
+                    styles.dateInputWrap,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: hasError ? colors.destructive : colors.border,
+                    },
+                  ]}
+                >
+                  <CalendarIcon size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+                  <TextInput
+                    value={val != null ? String(val) : ''}
+                    onChangeText={(text) => updateValue(field.id, text)}
+                    placeholder={field.placeholder || 'YYYY-MM-DD'}
+                    placeholderTextColor={colors.mutedForeground}
+                    editable={!readonly}
+                    style={[styles.dateInput, { color: colors.foreground }]}
+                  />
+                  {!readonly ? (
+                    <TouchableOpacity
+                      onPress={() => updateValue(field.id, new Date().toISOString().split('T')[0])}
+                      style={[
+                        styles.todayChip,
+                        {
+                          backgroundColor: isToday ? colors.primary + '20' : colors.surfaceSubtle,
+                          borderColor: isToday ? colors.primary : colors.border,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.todayChipText,
+                          { color: isToday ? colors.primary : colors.mutedForeground },
+                        ]}
+                      >
+                        Today
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {hasError ? (
+                  <View style={styles.errorRow}>
+                    <CircleAlert size={12} color={colors.destructive} />
+                    <Text style={[styles.errorText, { color: colors.destructive }]}>{hasError}</Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          }
+
+          // D) NUMBER / TEXT FIELD
           return (
             <View key={field.id} style={styles.fieldGroup}>
               <View style={styles.labelRow}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
                   {field.name}
                 </Text>
                 {field.isRequired ? <Asterisk size={11} color={colors.destructive} /> : null}
               </View>
 
-              <TextInput
-                value={val != null ? String(val) : ''}
-                onChangeText={(text) => {
-                  if (field.dataType === 'number') {
-                    const num = text.trim() === '' ? null : Number(text);
-                    updateValue(field.id, isNaN(num as any) ? text : num);
-                  } else {
-                    updateValue(field.id, text);
-                  }
-                }}
-                keyboardType={field.dataType === 'number' ? 'numeric' : 'default'}
-                placeholder={field.placeholder || (field.dataType === 'date' ? 'YYYY-MM-DD' : `Enter ${field.name.toLowerCase()}`)}
-                placeholderTextColor={colors.mutedForeground}
-                editable={!readonly}
+              <View
                 style={[
-                  styles.input,
+                  styles.textInputWrap,
                   {
                     backgroundColor: colors.card,
                     borderColor: hasError ? colors.destructive : colors.border,
-                    color: colors.foreground,
                   },
                 ]}
-              />
+              >
+                {field.dataType === 'number' ? (
+                  <Hash size={15} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+                ) : null}
+                <TextInput
+                  value={val != null ? String(val) : ''}
+                  onChangeText={(text) => {
+                    if (field.dataType === 'number') {
+                      const num = text.trim() === '' ? null : Number(text);
+                      updateValue(field.id, isNaN(num as any) ? text : num);
+                    } else {
+                      updateValue(field.id, text);
+                    }
+                  }}
+                  keyboardType={field.dataType === 'number' ? 'numeric' : 'default'}
+                  placeholder={field.placeholder || `Enter ${field.name.toLowerCase()}...`}
+                  placeholderTextColor={colors.mutedForeground}
+                  editable={!readonly}
+                  style={[styles.input, { color: colors.foreground }]}
+                />
+              </View>
 
               {hasError ? (
-                <Text style={[styles.errorText, { color: colors.destructive }]}>{hasError}</Text>
+                <View style={styles.errorRow}>
+                  <CircleAlert size={12} color={colors.destructive} />
+                  <Text style={[styles.errorText, { color: colors.destructive }]}>{hasError}</Text>
+                </View>
               ) : null}
             </View>
           );
         })}
       </View>
 
-      {/* Dropdown Options Modal */}
+      {/* Dropdown Options Bottom-Sheet Modal */}
       {activeDropdownField && (
         <Modal
           visible={!!activeDropdownField}
@@ -259,16 +368,20 @@ export function CustomFieldRenderer({
                     Select {activeDropdownField.name}
                   </Text>
                   <Text style={[styles.modalSub, { color: colors.mutedForeground }]}>
-                    Choose an option from the list
+                    Choose an option from the list below
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => setActiveDropdownField(null)}>
+                <TouchableOpacity
+                  onPress={() => setActiveDropdownField(null)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <X size={20} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
 
               {activeDropdownField.options && activeDropdownField.options.length > 5 ? (
                 <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Search size={15} color={colors.mutedForeground} style={{ marginRight: 8 }} />
                   <TextInput
                     placeholder="Search options..."
                     placeholderTextColor={colors.mutedForeground}
@@ -296,7 +409,7 @@ export function CustomFieldRenderer({
                       style={[
                         styles.optionItem,
                         {
-                          backgroundColor: isSelected ? colors.surfaceSubtle : colors.card,
+                          backgroundColor: isSelected ? colors.primary + '14' : colors.card,
                           borderColor: isSelected ? colors.primary : colors.border,
                         },
                       ]}
@@ -306,7 +419,7 @@ export function CustomFieldRenderer({
                         style={[
                           styles.optionText,
                           {
-                            color: colors.foreground,
+                            color: isSelected ? colors.primary : colors.foreground,
                             fontWeight: isSelected ? '700' : '500',
                           },
                         ]}
@@ -328,7 +441,7 @@ export function CustomFieldRenderer({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
+    marginVertical: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -369,11 +482,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   fieldLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: fonts.semiBold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontFamily: fonts.medium,
   },
   fieldLabelInline: {
     fontSize: 13,
@@ -385,19 +495,48 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     marginTop: 2,
   },
-  input: {
+  textInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 44,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    paddingVertical: 10,
+  },
+  dateInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  dateInput: {
+    flex: 1,
     fontSize: 13,
     fontFamily: fonts.regular,
   },
-  checkboxRow: {
+  todayChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  todayChipText: {
+    fontSize: 10,
+    fontFamily: fonts.semiBold,
+  },
+  checkboxCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 12,
+    padding: 14,
     borderRadius: 10,
     borderWidth: 1,
   },
@@ -414,10 +553,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.regular,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   errorText: {
     fontSize: 11,
     fontFamily: fonts.medium,
-    marginTop: 2,
   },
   modalOverlay: {
     flex: 1,
@@ -451,15 +595,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     margin: 16,
     marginBottom: 8,
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
-    justifyContent: 'center',
   },
   searchInput: {
+    flex: 1,
     fontSize: 13,
     fontFamily: fonts.regular,
   },
@@ -480,4 +626,3 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
 });
-

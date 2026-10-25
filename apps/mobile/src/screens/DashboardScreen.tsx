@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import {
   Bell,
   ArrowUpRight,
@@ -14,12 +14,14 @@ import {
   Clock,
   Sparkles,
   ChevronDown,
+  Building2,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { formatCurrency, isFeatureEnabled } from '@accountiva/shared';
 import { useInvoices, useEstimates, useNotifications } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -173,25 +175,25 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
         {/* Total Receivables Hero Card */}
         <Card style={styles.heroCard}>
           {isLoading && rawInvoices.length === 0 ? (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 14 }}>
               <View style={styles.cardHeaderRow}>
-                <View style={{ gap: 6 }}>
-                  <View style={[styles.skeletonBlock, { width: 120, height: 12, backgroundColor: colors.surfaceSubtle }]} />
-                  <View style={[styles.skeletonBlock, { width: 180, height: 26, backgroundColor: colors.surfaceSubtle }]} />
+                <View style={{ gap: 8 }}>
+                  <Skeleton width={120} height={12} borderRadius={4} />
+                  <Skeleton width={180} height={26} borderRadius={6} />
                 </View>
-                <View style={[styles.trendIconContainer, { backgroundColor: colors.surfaceSubtle }]} />
+                <Skeleton width={36} height={36} borderRadius={18} />
               </View>
 
               <View style={[styles.cardDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.cardFooterGrid}>
-                <View style={{ gap: 5 }}>
-                  <View style={[styles.skeletonBlock, { width: 90, height: 10, backgroundColor: colors.surfaceSubtle }]} />
-                  <View style={[styles.skeletonBlock, { width: 110, height: 16, backgroundColor: colors.surfaceSubtle }]} />
+                <View style={{ gap: 6 }}>
+                  <Skeleton width={90} height={10} borderRadius={4} />
+                  <Skeleton width={110} height={16} borderRadius={4} />
                 </View>
-                <View style={{ gap: 5 }}>
-                  <View style={[styles.skeletonBlock, { width: 60, height: 10, backgroundColor: colors.surfaceSubtle }]} />
-                  <View style={[styles.skeletonBlock, { width: 85, height: 16, backgroundColor: colors.surfaceSubtle }]} />
+                <View style={{ gap: 6 }}>
+                  <Skeleton width={60} height={10} borderRadius={4} />
+                  <Skeleton width={85} height={16} borderRadius={4} />
                 </View>
               </View>
             </View>
@@ -284,6 +286,58 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             </TouchableOpacity>
           )}
 
+          {isFeatureEnabled('expenses') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('expenses')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <Receipt size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Expenses</Text>
+            </TouchableOpacity>
+          )}
+
+          {isFeatureEnabled('bills') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('bills')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <FileText size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Bills</Text>
+            </TouchableOpacity>
+          )}
+
+          {isFeatureEnabled('vendors') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('vendors')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <Building2 size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Vendors</Text>
+            </TouchableOpacity>
+          )}
+
+          {isFeatureEnabled('reports') && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => onNavigate('reports')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: colors.surfaceSubtle }]}>
+                <TrendingUp size={18} color={colors.foreground} />
+              </View>
+              <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Reports</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => onNavigate('customers')}
@@ -347,19 +401,19 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                   key={i}
                   style={[
                     styles.invoiceItem,
-                    { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.7 },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
                   <View style={styles.invoiceLeft}>
-                    <View style={[styles.invoiceAvatar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]} />
+                    <Skeleton width={36} height={36} borderRadius={8} />
                     <View style={{ gap: 6 }}>
-                      <View style={[styles.skeletonBlock, { width: 130, height: 14, backgroundColor: colors.surfaceSubtle }]} />
-                      <View style={[styles.skeletonBlock, { width: 90, height: 11, backgroundColor: colors.surfaceSubtle }]} />
+                      <Skeleton width={130} height={14} borderRadius={4} />
+                      <Skeleton width={90} height={11} borderRadius={4} />
                     </View>
                   </View>
                   <View style={[styles.invoiceRight, { gap: 6, alignItems: 'flex-end' }]}>
-                    <View style={[styles.skeletonBlock, { width: 70, height: 14, backgroundColor: colors.surfaceSubtle }]} />
-                    <View style={[styles.skeletonBlock, { width: 50, height: 18, borderRadius: 6, backgroundColor: colors.surfaceSubtle }]} />
+                    <Skeleton width={70} height={14} borderRadius={4} />
+                    <Skeleton width={50} height={18} borderRadius={6} />
                   </View>
                 </View>
               ))}

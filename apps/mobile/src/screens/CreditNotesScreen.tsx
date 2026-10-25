@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Search, Plus, FileMinus } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import { formatCurrency } from '@accountiva/shared';
 import { useCreditNotes } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -189,10 +189,7 @@ export function CreditNotesScreen({ onNavigate }: CreditNotesScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading credit notes...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredNotes.length === 0 ? (
           <EmptyState
             icon={FileMinus}

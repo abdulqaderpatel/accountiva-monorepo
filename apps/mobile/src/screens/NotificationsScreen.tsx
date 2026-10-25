@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
@@ -26,6 +25,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -219,12 +219,7 @@ export function NotificationsScreen({ onNavigate }: NotificationsScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              Loading notifications...
-            </Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredNotifications.length === 0 ? (
           <EmptyState
             icon={Bell}

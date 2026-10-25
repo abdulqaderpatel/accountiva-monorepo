@@ -16,6 +16,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../context/FeedbackContext';
 import { fonts } from '../theme/typography';
+import { SkeletonCard } from './ui/Skeleton';
 
 interface ApplicableCreditNote {
   id: string;
@@ -180,7 +181,10 @@ export function ApplyCreditNoteModal({
 
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Outstanding invoice *</Text>
             {isLoading ? (
-              <View style={styles.loadingRow}><ActivityIndicator size="small" color={colors.primary} /><Text style={[styles.helper, { color: colors.mutedForeground }]}>Loading invoices...</Text></View>
+              <View style={{ gap: 8, marginVertical: 4 }}>
+                <SkeletonCard />
+                <SkeletonCard />
+              </View>
             ) : invoices.length === 0 ? (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <FileText size={22} color={colors.mutedForeground} />

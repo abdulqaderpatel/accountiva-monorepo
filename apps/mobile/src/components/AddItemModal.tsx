@@ -32,7 +32,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
   const [name, setName] = useState('');
   const [type, setType] = useState<'Product' | 'Service'>('Product');
   const [sku, setSku] = useState('');
+  const [category, setCategory] = useState('');
+  const [uom, setUom] = useState('pcs');
+  const [hsnSacCode, setHsnSacCode] = useState('');
+  const [taxPreference, setTaxPreference] = useState<'Taxable' | 'Nil-Rated' | 'Exempt'>('Taxable');
+  const [salesTaxRate, setSalesTaxRate] = useState('18');
   const [sellingPrice, setSellingPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [description, setDescription] = useState('');
   const [openingStock, setOpeningStock] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
@@ -44,7 +50,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       setName(initialItem.name || '');
       setType(initialItem.type === 'Service' ? 'Service' : 'Product');
       setSku(initialItem.sku || '');
+      setCategory(initialItem.category || '');
+      setUom(initialItem.uom || initialItem.unit || (initialItem.type === 'Service' ? 'hrs' : 'pcs'));
+      setHsnSacCode(initialItem.hsnSacCode || initialItem.hsnCode || '');
+      setTaxPreference(initialItem.taxPreference === 'Nil-Rated' ? 'Nil-Rated' : initialItem.taxPreference === 'Exempt' ? 'Exempt' : 'Taxable');
+      setSalesTaxRate(initialItem.salesTaxRate != null ? String(initialItem.salesTaxRate) : '18');
       setSellingPrice(initialItem.sellingPrice != null ? String(initialItem.sellingPrice) : '');
+      setCostPrice(initialItem.costPrice != null ? String(initialItem.costPrice) : '');
       setDescription(initialItem.description || '');
       setOpeningStock(initialItem.stockOnHand != null ? String(initialItem.stockOnHand) : initialItem.openingStock != null ? String(initialItem.openingStock) : '');
       setCustomFields(initialItem.customFields || initialItem.custom_fields || {});
@@ -52,7 +64,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       setName('');
       setType('Product');
       setSku('');
+      setCategory('');
+      setUom('pcs');
+      setHsnSacCode('');
+      setTaxPreference('Taxable');
+      setSalesTaxRate('18');
       setSellingPrice('');
+      setCostPrice('');
       setDescription('');
       setOpeningStock('');
       setCustomFields({});
@@ -64,7 +82,13 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
     setName('');
     setType('Product');
     setSku('');
+    setCategory('');
+    setUom('pcs');
+    setHsnSacCode('');
+    setTaxPreference('Taxable');
+    setSalesTaxRate('18');
     setSellingPrice('');
+    setCostPrice('');
     setDescription('');
     setOpeningStock('');
     setCustomFields({});
@@ -84,9 +108,15 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
     const formData = {
       name: name.trim(),
       type,
-      sku: sku.trim(),
+      sku: sku.trim() || undefined,
+      category: category.trim() || undefined,
+      uom: uom.trim() || undefined,
+      hsnSacCode: hsnSacCode.trim() || undefined,
+      taxPreference: taxPreference || undefined,
+      salesTaxRate: taxPreference === 'Taxable' && salesTaxRate ? parseFloat(salesTaxRate) : 0,
       sellingPrice: sellingPrice ? parseFloat(sellingPrice) : 0,
-      description: description.trim(),
+      costPrice: costPrice ? parseFloat(costPrice) : undefined,
+      description: description.trim() || undefined,
       openingStock: type === 'Product' && openingStock ? parseInt(openingStock, 10) : undefined,
     };
 
@@ -242,22 +272,172 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
               />
             </View>
 
-            {/* Selling Price */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.foreground }]}>Selling Price (₹) *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  { backgroundColor: colors.card, borderColor: errors.sellingPrice ? colors.destructive : colors.border, color: colors.foreground },
-                ]}
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                value={sellingPrice}
-                onChangeText={setSellingPrice}
-                keyboardType="numeric"
-              />
-              {errors.sellingPrice && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.sellingPrice}</Text>}
+            {/* Selling Price & Cost Price */}
+            <View style={styles.twoColRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.foreground }]}>Selling Price (₹) *</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { backgroundColor: colors.card, borderColor: errors.sellingPrice ? colors.destructive : colors.border, color: colors.foreground },
+                  ]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={sellingPrice}
+                  onChangeText={setSellingPrice}
+                  keyboardType="numeric"
+                />
+                {errors.sellingPrice && <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.sellingPrice}</Text>}
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.foreground }]}>Cost Price (₹)</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={costPrice}
+                  onChangeText={setCostPrice}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
+
+            {/* Unit of Measurement (UOM) */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.foreground }]}>Unit of Measurement (UOM)</Text>
+              <View style={styles.chipRow}>
+                {['pcs', 'box', 'kg', 'hrs', 'mtr', 'nos'].map((u) => {
+                  const isSelected = uom.toLowerCase() === u;
+                  return (
+                    <TouchableOpacity
+                      key={u}
+                      onPress={() => setUom(u)}
+                      style={[
+                        styles.chipBtn,
+                        {
+                          backgroundColor: isSelected ? colors.primary : colors.card,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.chipBtnText,
+                          {
+                            color: isSelected ? colors.primaryForeground : colors.foreground,
+                            fontWeight: isSelected ? '700' : '500',
+                          },
+                        ]}
+                      >
+                        {u.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* HSN/SAC & Category */}
+            <View style={styles.twoColRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.foreground }]}>
+                  {type === 'Product' ? 'HSN Code' : 'SAC Code'}
+                </Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                  placeholder={type === 'Product' ? 'e.g. 8471' : 'e.g. 998313'}
+                  placeholderTextColor={colors.mutedForeground}
+                  value={hsnSacCode}
+                  onChangeText={setHsnSacCode}
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.label, { color: colors.foreground }]}>Category</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground }]}
+                  placeholder="e.g. Hardware"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={category}
+                  onChangeText={setCategory}
+                />
+              </View>
+            </View>
+
+            {/* Tax Preference & GST Rate */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.foreground }]}>Tax Preference</Text>
+              <View style={styles.typeRow}>
+                {(['Taxable', 'Nil-Rated', 'Exempt'] as const).map((pref) => {
+                  const isSelected = taxPreference === pref;
+                  return (
+                    <TouchableOpacity
+                      key={pref}
+                      onPress={() => setTaxPreference(pref)}
+                      style={[
+                        styles.prefBtn,
+                        {
+                          backgroundColor: isSelected ? colors.primary : colors.card,
+                          borderColor: isSelected ? colors.primary : colors.border,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.prefBtnText,
+                          {
+                            color: isSelected ? colors.primaryForeground : colors.foreground,
+                            fontWeight: isSelected ? '700' : '500',
+                          },
+                        ]}
+                      >
+                        {pref}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {taxPreference === 'Taxable' ? (
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { color: colors.foreground }]}>GST Tax Rate (%)</Text>
+                <View style={styles.chipRow}>
+                  {['0', '5', '12', '18', '28'].map((r) => {
+                    const isSelected = salesTaxRate === r;
+                    return (
+                      <TouchableOpacity
+                        key={r}
+                        onPress={() => setSalesTaxRate(r)}
+                        style={[
+                          styles.chipBtn,
+                          {
+                            backgroundColor: isSelected ? colors.primary : colors.card,
+                            borderColor: isSelected ? colors.primary : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.chipBtnText,
+                            {
+                              color: isSelected ? colors.primaryForeground : colors.foreground,
+                              fontWeight: isSelected ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {r}%
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
 
             {/* Opening Stock (Product Only) */}
             {type === 'Product' && (
@@ -450,5 +630,37 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     flex: 1,
     lineHeight: 18,
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  chipBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  chipBtnText: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+  },
+  prefBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  prefBtnText: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
   },
 });

@@ -12,6 +12,10 @@ export type ScreenType =
   | 'customers'
   | 'estimates'
   | 'credit_notes'
+  | 'expenses'
+  | 'bills'
+  | 'vendors'
+  | 'reports'
   | 'settings'
   | 'notifications';
 

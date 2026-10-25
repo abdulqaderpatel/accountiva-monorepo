@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Search, Plus, Mail, Phone, Users } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import { formatCurrency } from '@accountiva/shared';
 import { useCustomers } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -40,11 +40,14 @@ interface CustomerRecord {
   variant: 'default' | 'warning' | 'destructive' | 'outline' | 'success';
 }
 
+export type CustomerFilterType = 'all' | 'balance' | 'active' | 'registered';
+
 export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
   const currentOrgId = currentOrg?.id;
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<CustomerFilterType>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
@@ -55,6 +58,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     setEditingCustomer(null);
     setIsAddModalOpen(false);
     setSearch('');
+    setFilter('all');
   }, [currentOrgId]);
 
   const { data: apiCustomers, isLoading, refetch, isRefetching } = useCustomers({
@@ -81,11 +85,30 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     variant: c.gstTreatment === 'Registered' || c.gst_treatment === 'Registered' ? 'warning' : 'default',
   }));
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const counts = React.useMemo(() => ({
+    all: customers.length,
+    balance: customers.filter((c) => c.outstanding > 0).length,
+    active: customers.filter((c) => c.status !== 'Inactive').length,
+    registered: customers.filter((c) => c.status === 'GST Registered' || Boolean(c.gstNumber)).length,
+  }), [customers]);
+
+  const filteredCustomers = React.useMemo(() => {
+    return customers.filter((c) => {
+      const q = search.trim().toLowerCase();
+      const matchSearch =
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q);
+
+      if (!matchSearch) return false;
+
+      if (filter === 'balance') return c.outstanding > 0;
+      if (filter === 'registered') return c.status === 'GST Registered' || Boolean(c.gstNumber);
+      if (filter === 'active') return c.status !== 'Inactive';
+      return true;
+    });
+  }, [customers, search, filter]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -116,6 +139,46 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         </View>
       </View>
 
+      {/* Filter Chips */}
+      <View style={styles.filterWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          {[
+            { id: 'all', label: `All (${counts.all})` },
+            { id: 'balance', label: `With Balance (${counts.balance})` },
+            { id: 'active', label: `Active (${counts.active})` },
+            { id: 'registered', label: `GST Registered (${counts.registered})` },
+          ].map((tab) => {
+            const isSelected = filter === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                onPress={() => setFilter(tab.id as CustomerFilterType)}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isSelected ? colors.primary : colors.card,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    {
+                      color: isSelected ? colors.primaryForeground : colors.mutedForeground,
+                      fontWeight: isSelected ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {/* Customer List */}
       <ScrollView
         contentContainerStyle={styles.listContent}
@@ -130,10 +193,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading customers...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredCustomers.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -261,7 +321,8 @@ const styles = StyleSheet.create({
   },
   searchWrapper: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   searchBox: {
     flexDirection: 'row',
@@ -274,6 +335,23 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
+  },
+  filterWrapper: {
+    paddingBottom: 10,
+  },
+  filterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
   },
   listContent: {
     paddingHorizontal: 16,

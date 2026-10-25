@@ -29,6 +29,11 @@ import {
   Shield,
   Briefcase,
   Sparkles,
+  Receipt,
+  FileText,
+  Calculator,
+  FileMinus,
+  TrendingUp,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
@@ -38,8 +43,14 @@ import { Badge } from '../components/ui/Badge';
 import { fonts } from '../theme/typography';
 import { OrganizationSwitcherModal } from '../components/OrganizationSwitcherModal';
 import { OrganizationSettingsModal, OrgSettingsTab } from '../components/OrganizationSettingsModal';
+import { ScreenType } from '../components/BottomNav';
+import { isFeatureEnabled } from '@accountiva/shared';
 
-export function SettingsScreen() {
+interface SettingsScreenProps {
+  onNavigate?: (screen: ScreenType) => void;
+}
+
+export function SettingsScreen({ onNavigate }: SettingsScreenProps = {}) {
   const { colors, isDark, toggleTheme } = useTheme();
   const {
     user,
@@ -227,6 +238,167 @@ export function SettingsScreen() {
             <Badge variant="outline">Active</Badge>
           </View>
         </Card>
+
+        {/* Modules & Tools (Guarded by Feature Flags) */}
+        {onNavigate && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Modules & Tools</Text>
+            <Card style={styles.card}>
+              {isFeatureEnabled('estimates') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('estimates')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <Calculator size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Estimates & Quotes</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Create and send price quotes to customers
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {isFeatureEnabled('creditNotes') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('credit_notes')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <FileMinus size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Credit Notes</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Sales returns, discounts, and credit memos
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {isFeatureEnabled('expenses') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('expenses')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <Receipt size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Expenses</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Operating costs, receipts, and payment accounts
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {isFeatureEnabled('bills') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('bills')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <FileText size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Bills & Payables</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Vendor procurement bills and payables
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {isFeatureEnabled('vendors') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('vendors')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <Building2 size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Vendors & Suppliers</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Manage vendor records and compliance details
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {isFeatureEnabled('reports') && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionRow}
+                    onPress={() => onNavigate('reports')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <TrendingUp size={18} color={colors.foreground} />
+                      <View>
+                        <Text style={[styles.rowLabel, { color: colors.foreground }]}>Financial Reports</Text>
+                        <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                          Profit & Loss, GST breakdown, General Ledger
+                        </Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                </>
+              )}
+
+              {/* Trash shortcut */}
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={() => {
+                  setOrgSettingsTab('trash');
+                  setIsOrgSettingsOpen(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.rowLeft}>
+                  <Trash2 size={18} color={colors.foreground} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.foreground }]}>Recently Deleted (Trash)</Text>
+                    <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                      Restore soft-deleted items or permanently purge
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </Card>
+          </>
+        )}
 
         {/* Appearance & Interface */}
         <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Appearance & Theme</Text>

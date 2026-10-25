@@ -17,6 +17,7 @@ import { toast, confirm } from '../../context/FeedbackContext';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
+import { SkeletonList } from '../ui/Skeleton';
 import { fonts } from '../../theme/typography';
 
 export interface MobileMember {
@@ -242,10 +243,7 @@ export function TeamMembersTab() {
       {/* Members List */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {loading && members.length === 0 ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading members...</Text>
-          </View>
+          <SkeletonList count={3} />
         ) : members.length === 0 ? (
           <EmptyState
             icon={Users}

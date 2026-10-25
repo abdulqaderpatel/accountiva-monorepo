@@ -32,6 +32,7 @@ import { useAuth } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
+import { Skeleton } from './ui/Skeleton';
 import { ApplyCreditNoteModal } from './ApplyCreditNoteModal';
 
 interface CreditNoteDetailModalProps {
@@ -188,7 +189,10 @@ export function CreditNoteDetailModal({
 
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
               {detailQuery.isLoading && !detailQuery.data ? (
-                <View style={styles.loading}><ActivityIndicator size="small" color={colors.primary} /><Text style={[styles.helper, { color: colors.mutedForeground }]}>Loading full credit note...</Text></View>
+                <View style={{ gap: 6, marginBottom: 12 }}>
+                  <Skeleton width="100%" height={16} borderRadius={4} />
+                  <Skeleton width="60%" height={12} borderRadius={4} />
+                </View>
               ) : null}
               {detailQuery.isError && !detailQuery.data ? (
                 <TouchableOpacity onPress={() => void detailQuery.refetch()} style={[styles.detailError, { backgroundColor: colors.card, borderColor: colors.destructive }]}>

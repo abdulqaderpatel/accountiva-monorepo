@@ -13,6 +13,7 @@ import {
   Users,
   SlidersHorizontal,
   Palette,
+  Trash2,
   X,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -22,8 +23,9 @@ import { OrganizationProfileTab } from './settings/OrganizationProfileTab';
 import { TeamMembersTab } from './settings/TeamMembersTab';
 import { CustomFieldsTab } from './settings/CustomFieldsTab';
 import { BrandingTab } from './settings/BrandingTab';
+import { RecentlyDeletedTab } from './settings/RecentlyDeletedTab';
 
-export type OrgSettingsTab = 'profile' | 'members' | 'custom-fields' | 'branding';
+export type OrgSettingsTab = 'profile' | 'members' | 'custom-fields' | 'branding' | 'trash';
 
 interface OrganizationSettingsModalProps {
   visible: boolean;
@@ -36,6 +38,7 @@ const TABS: Array<{ id: OrgSettingsTab; label: string; icon: any }> = [
   { id: 'members', label: 'Team', icon: Users },
   { id: 'custom-fields', label: 'Custom Fields', icon: SlidersHorizontal },
   { id: 'branding', label: 'Branding', icon: Palette },
+  { id: 'trash', label: 'Trash', icon: Trash2 },
 ];
 
 export function OrganizationSettingsModal({
@@ -139,6 +142,7 @@ export function OrganizationSettingsModal({
             {activeTab === 'members' && <TeamMembersTab />}
             {activeTab === 'custom-fields' && <CustomFieldsTab />}
             {activeTab === 'branding' && <BrandingTab />}
+            {activeTab === 'trash' && <RecentlyDeletedTab />}
           </View>
         </SafeAreaView>
       </View>

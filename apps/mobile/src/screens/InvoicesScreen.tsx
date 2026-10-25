@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
   Modal,
 } from 'react-native';
@@ -14,6 +13,7 @@ import { Search, Plus, FileText } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import { formatCurrency } from '@accountiva/shared';
 import { useInvoices } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -201,10 +201,7 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading invoices...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredInvoices.length === 0 ? (
           <EmptyState
             icon={FileText}

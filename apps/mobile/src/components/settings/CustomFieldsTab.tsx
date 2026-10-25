@@ -35,6 +35,7 @@ import { toast, confirm } from '../../context/FeedbackContext';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
+import { SkeletonList } from '../ui/Skeleton';
 import { fonts } from '../../theme/typography';
 import { useAuth } from '../../context/AuthContext';
 
@@ -324,12 +325,7 @@ export function CustomFieldsTab() {
       {/* Fields List */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {loading && fields.length === 0 ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              Loading custom fields...
-            </Text>
-          </View>
+          <SkeletonList count={4} />
         ) : filteredFields.length === 0 ? (
           <EmptyState
             icon={SlidersHorizontal}
@@ -682,6 +678,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 10,
   },
   dataTypeIconBox: {
     width: 32,

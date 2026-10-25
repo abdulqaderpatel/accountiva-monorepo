@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,16 @@ import {
   Share,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
-import { X, Share2, CircleCheck, Users, Send, Trash, Pencil } from 'lucide-react-native';
+import { X, Share2, CircleCheck, Users, Send, Trash, Pencil, Eye, FileMinus } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import { calculateFinancialDocumentSubtotal, formatCurrency } from '@accountiva/shared';
+import { calculateFinancialDocumentSubtotal, formatCurrency, isFeatureEnabled } from '@accountiva/shared';
 import { useUpdateInvoiceStatus, useDeleteInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
+import { InvoicePreviewModal } from './InvoicePreviewModal';
+import { CreateCreditNoteModal } from './CreateCreditNoteModal';
 
 interface InvoiceDetailModalProps {
   visible: boolean;
@@ -32,6 +34,9 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
   const currency = currentOrg?.currency || 'INR';
   const updateInvoiceStatusMutation = useUpdateInvoiceStatus();
   const deleteInvoiceMutation = useDeleteInvoice();
+
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [creditNoteVisible, setCreditNoteVisible] = useState(false);
 
   if (!invoice) return null;
 
@@ -123,6 +128,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
   };
 
   return (
+    <>
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
@@ -149,6 +155,14 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                   <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                onPress={() => setPreviewVisible(true)}
+                style={styles.iconBtn}
+                activeOpacity={0.7}
+                accessibilityLabel="Preview Invoice"
+              >
+                <Eye size={18} color={colors.foreground} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
                 <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
@@ -324,6 +338,19 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                   </Text>
                 </TouchableOpacity>
               ) : null}
+
+              {isFeatureEnabled('creditNotes') && !isDraft ? (
+                <TouchableOpacity
+                  onPress={() => setCreditNoteVisible(true)}
+                  style={[styles.secondaryActionBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                >
+                  <FileMinus size={15} color={colors.foreground} style={{ marginRight: 6 }} />
+                  <Text style={[styles.secondaryActionText, { color: colors.foreground }]}>
+                    Issue Credit Note
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             {/* Notes & Terms */}
@@ -372,6 +399,38 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
         </View>
       </View>
     </Modal>
+
+    <InvoicePreviewModal
+      visible={previewVisible}
+      invoice={invoice}
+      onClose={() => setPreviewVisible(false)}
+    />
+
+    {isFeatureEnabled('creditNotes') ? (
+      <CreateCreditNoteModal
+        visible={creditNoteVisible}
+        onClose={() => setCreditNoteVisible(false)}
+        onSuccess={() => {
+          setCreditNoteVisible(false);
+          if (onRefresh) onRefresh();
+        }}
+        initialCreditNote={{
+          customerId: invoice.customerId || invoice.customer_id,
+          customer: clientName,
+          referenceInvoiceId: invoice.id,
+          referenceNumber: invoiceNum,
+          items: lineItems.map((item: any) => ({
+            id: item.id || String(Math.random()),
+            name: item.name || item.itemName || 'Item',
+            description: item.description || '',
+            quantity: Number(item.quantity) || 1,
+            rate: Number(item.rate) || 0,
+          })),
+          notes: `Credit Note issued against invoice ${invoiceNum}`,
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -562,5 +621,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  secondaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 44,
+  },
+  secondaryActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: fonts.semiBold,
   },
 });

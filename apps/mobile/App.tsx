@@ -33,6 +33,11 @@ import { EstimatesScreen } from './src/screens/EstimatesScreen';
 import { CreditNotesScreen } from './src/screens/CreditNotesScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { ExpensesScreen } from './src/screens/ExpensesScreen';
+import { BillsScreen } from './src/screens/BillsScreen';
+import { VendorsScreen } from './src/screens/VendorsScreen';
+import { ReportsScreen } from './src/screens/ReportsScreen';
+import { isFeatureEnabled } from '@accountiva/shared';
 import { setupMobileApi } from './src/config/api';
 
 // Prevent native splash screen from hiding prematurely before fonts and auth are ready
@@ -245,13 +250,45 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
       case 'items':
         return <ItemsScreen onNavigate={setCurrentScreen} />;
       case 'estimates':
-        return <EstimatesScreen onNavigate={setCurrentScreen} />;
+        return isFeatureEnabled('estimates') ? (
+          <EstimatesScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
       case 'credit_notes':
-        return <CreditNotesScreen onNavigate={setCurrentScreen} />;
+        return isFeatureEnabled('creditNotes') ? (
+          <CreditNotesScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
+      case 'expenses':
+        return isFeatureEnabled('expenses') ? (
+          <ExpensesScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
+      case 'bills':
+        return isFeatureEnabled('bills') ? (
+          <BillsScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
+      case 'vendors':
+        return isFeatureEnabled('vendors') ? (
+          <VendorsScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
+      case 'reports':
+        return isFeatureEnabled('reports') ? (
+          <ReportsScreen onNavigate={setCurrentScreen} />
+        ) : (
+          <DashboardScreen onNavigate={setCurrentScreen} />
+        );
       case 'notifications':
         return <NotificationsScreen onNavigate={setCurrentScreen} />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen onNavigate={setCurrentScreen} />;
       default:
         return <DashboardScreen onNavigate={setCurrentScreen} />;
     }

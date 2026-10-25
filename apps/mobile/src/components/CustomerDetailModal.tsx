@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Linking,
+  Share,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
 import {
@@ -21,12 +22,14 @@ import {
   Pencil,
   Plus,
   ChevronRight,
+  Share2,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
-import { useDeleteCustomer, useInvoices } from '@accountiva/api';
+import { useDeleteCustomer, useInvoices, useEstimates } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 
 interface CustomerDetailModalProps {
@@ -77,8 +80,10 @@ export function CustomerDetailModal({
   onViewInvoice,
 }: CustomerDetailModalProps) {
   const { colors } = useTheme();
+  const [activeTab, setActiveTab] = useState<'overview' | 'statement'>('overview');
   const deleteCustomerMutation = useDeleteCustomer();
   const { data: apiInvoices } = useInvoices();
+  const { data: apiEstimates } = useEstimates();
 
   const safeName = typeof customer?.name === 'string' ? customer.name : String(customer?.name || 'Unnamed Customer');
   const safeCompany = typeof customer?.company === 'string' ? customer.company : '';
@@ -147,7 +152,97 @@ export function CustomerDetailModal({
       }));
   }, [apiInvoices, customer, safeName]);
 
+  const statements = useMemo(() => {
+    if (!customer) return [];
+    const invoiceList = customerInvoices.map((inv) => ({
+      id: inv.id,
+      date: inv.date,
+      type: 'Invoice',
+      reference: inv.number,
+      amount: inv.amount,
+      status: inv.status,
+      raw: inv.raw,
+    }));
+
+    const rawEstimates: any[] = Array.isArray(apiEstimates)
+      ? apiEstimates
+      : Array.isArray(apiEstimates?.data)
+      ? apiEstimates.data
+      : [];
+
+    const custName = safeName.toLowerCase();
+    const custId = customer.id ? String(customer.id) : '';
+
+    const estimateList = rawEstimates
+      .filter((est) => {
+        if (!est || typeof est !== 'object') return false;
+        const estCust = (
+          est.customer ||
+          est.customerName ||
+          est.customers?.name ||
+          ''
+        ).toLowerCase();
+        const estCustId = String(
+          est.customerId || est.customer_id || est.customer?.id || ''
+        );
+        return (custName && estCust.includes(custName)) || (custId && estCustId === custId);
+      })
+      .map((est) => ({
+        id: String(est.id || Math.random()),
+        date: String(est.date || est.issueDate || 'Recent'),
+        type: 'Estimate',
+        reference: String(est.estimateNumber || est.number || 'EST-000'),
+        amount: Number(est.amount || est.total || 0),
+        status: String(est.status || 'Draft').toUpperCase(),
+        raw: est,
+      }));
+
+    return [...invoiceList, ...estimateList].sort((a, b) => {
+      const timeA = new Date(a.date).getTime() || 0;
+      const timeB = new Date(b.date).getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [customer, customerInvoices, apiEstimates, safeName]);
+
+  const totalBilled = useMemo(() => {
+    return customerInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+  }, [customerInvoices]);
+
+  const totalPaid = useMemo(() => {
+    return customerInvoices
+      .filter((inv) => inv.status === 'PAID')
+      .reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
+  }, [customerInvoices]);
+
   if (!visible || !customer) return null;
+
+  const handleShareStatement = async () => {
+    try {
+      const lines = [
+        `ACCOUNT STATEMENT: ${safeName}`,
+        safeCompany ? `Company: ${safeCompany}` : '',
+        `Generated: ${new Date().toLocaleDateString()}`,
+        `----------------------------------------`,
+        `Total Invoiced: ${formatCurrency(totalBilled, 'INR')}`,
+        `Total Received: ${formatCurrency(totalPaid, 'INR')}`,
+        `Net Outstanding: ${formatCurrency(outstanding, 'INR')}`,
+        `Total Transactions: ${statements.length}`,
+        `----------------------------------------`,
+        `Transactions:`,
+        ...statements.map(
+          (s) =>
+            `• ${s.date} | ${s.type} ${s.reference} | ${formatCurrency(s.amount, 'INR')} [${s.status}]`
+        ),
+      ].filter(Boolean);
+
+      await Share.share({
+        message: lines.join('\n'),
+        title: `Statement - ${safeName}`,
+      });
+    } catch (err: any) {
+      console.log('Error sharing statement:', err.message);
+    }
+  };
 
   const handleCall = () => {
     if (safePhone) {
@@ -212,6 +307,14 @@ export function CustomerDetailModal({
                   <Pencil size={18} color={colors.foreground} />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                onPress={handleShareStatement}
+                style={styles.iconBtn}
+                activeOpacity={0.7}
+                accessibilityLabel="Share Statement"
+              >
+                <Share2 size={18} color={colors.foreground} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
                 <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
@@ -287,6 +390,59 @@ export function CustomerDetailModal({
               </View>
             </Card>
 
+            {/* Tab Switcher */}
+            <View style={styles.tabSwitcher}>
+              <TouchableOpacity
+                onPress={() => setActiveTab('overview')}
+                style={[
+                  styles.tabSwitchBtn,
+                  {
+                    backgroundColor: activeTab === 'overview' ? colors.primary : colors.surfaceSubtle,
+                    borderColor: activeTab === 'overview' ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabSwitchText,
+                    {
+                      color: activeTab === 'overview' ? colors.primaryForeground : colors.foreground,
+                      fontWeight: activeTab === 'overview' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Overview
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setActiveTab('statement')}
+                style={[
+                  styles.tabSwitchBtn,
+                  {
+                    backgroundColor: activeTab === 'statement' ? colors.primary : colors.surfaceSubtle,
+                    borderColor: activeTab === 'statement' ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabSwitchText,
+                    {
+                      color: activeTab === 'statement' ? colors.primaryForeground : colors.foreground,
+                      fontWeight: activeTab === 'statement' ? '700' : '500',
+                    },
+                  ]}
+                >
+                  Statement ({statements.length})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {activeTab === 'overview' ? (
+              <>
             {/* Financial Overview */}
             <Card style={styles.detailCard}>
               <View style={styles.dataRow}>
@@ -428,6 +584,88 @@ export function CustomerDetailModal({
                 </Card>
               </>
             ) : null}
+              </>
+            ) : (
+              /* Statement View */
+              <View style={{ gap: 14 }}>
+                {/* Statement KPI Grid */}
+                <View style={styles.statementGrid}>
+                  <View style={[styles.statementBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Text style={[styles.statementBoxLabel, { color: colors.mutedForeground }]}>Total Billed</Text>
+                    <Text style={[styles.statementBoxValue, { color: colors.foreground }]}>
+                      {formatCurrency(totalBilled, 'INR')}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.statementBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Text style={[styles.statementBoxLabel, { color: colors.mutedForeground }]}>Received</Text>
+                    <Text style={[styles.statementBoxValue, { color: colors.success }]}>
+                      {formatCurrency(totalPaid, 'INR')}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.statementBox, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Text style={[styles.statementBoxLabel, { color: colors.mutedForeground }]}>Outstanding</Text>
+                    <Text style={[styles.statementBoxValue, { color: outstanding > 0 ? colors.destructive : colors.foreground }]}>
+                      {formatCurrency(outstanding, 'INR')}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Share Statement Action */}
+                <TouchableOpacity
+                  onPress={handleShareStatement}
+                  style={[styles.shareStatementBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                >
+                  <Share2 size={16} color={colors.foreground} />
+                  <Text style={[styles.shareStatementText, { color: colors.foreground }]}>
+                    Export / Share Account Statement
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Statement Ledger List */}
+                <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
+                  Transaction Ledger ({statements.length})
+                </Text>
+
+                {statements.length === 0 ? (
+                  <Card style={styles.emptyInvoicesCard}>
+                    <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                      No transaction records for this customer.
+                    </Text>
+                  </Card>
+                ) : (
+                  <Card style={{ padding: 12, gap: 10 }}>
+                    {statements.map((tx, idx) => (
+                      <View key={tx.id || idx}>
+                        <View style={styles.statementRow}>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                              <Badge variant={tx.type === 'Invoice' ? 'default' : 'outline'}>{tx.type}</Badge>
+                              <Text style={[styles.invNumber, { color: colors.foreground }]}>{tx.reference}</Text>
+                            </View>
+                            <Text style={[styles.invDate, { color: colors.mutedForeground }]}>{tx.date}</Text>
+                          </View>
+
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[styles.invAmount, { color: colors.foreground }]}>
+                              {formatCurrency(tx.amount, 'INR')}
+                            </Text>
+                            <Badge variant={tx.status === 'PAID' ? 'success' : tx.status === 'OVERDUE' ? 'destructive' : 'warning'}>
+                              {tx.status}
+                            </Badge>
+                          </View>
+                        </View>
+                        {idx < statements.length - 1 ? (
+                          <View style={[styles.divider, { backgroundColor: colors.border, marginVertical: 8 }]} />
+                        ) : null}
+                      </View>
+                    ))}
+                  </Card>
+                )}
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -638,5 +876,62 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     flex: 1,
     fontFamily: fonts.regular,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 4,
+  },
+  tabSwitchBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabSwitchText: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+  },
+  statementGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statementBox: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statementBoxLabel: {
+    fontSize: 10,
+    fontFamily: fonts.regular,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  statementBoxValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
+  },
+  shareStatementBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  shareStatementText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: fonts.semiBold,
+  },
+  statementRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

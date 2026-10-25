@@ -16,6 +16,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { toast, confirm } from '../../context/FeedbackContext';
 import { Card } from '../ui/Card';
+import { Skeleton } from '../ui/Skeleton';
 import { fonts } from '../../theme/typography';
 
 const CURRENCIES = [
@@ -164,11 +165,22 @@ export function OrganizationProfileTab() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-          Loading organization details...
-        </Text>
+      <View style={{ padding: 16, gap: 16 }}>
+        <Card style={[styles.card, { gap: 14 }]}>
+          <Skeleton width={140} height={18} borderRadius={4} />
+          <View style={{ gap: 6 }}>
+            <Skeleton width={100} height={12} borderRadius={4} />
+            <Skeleton width="100%" height={44} borderRadius={8} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Skeleton width={120} height={12} borderRadius={4} />
+            <Skeleton width="100%" height={44} borderRadius={8} />
+          </View>
+          <View style={{ gap: 6 }}>
+            <Skeleton width={80} height={12} borderRadius={4} />
+            <Skeleton width="100%" height={44} borderRadius={8} />
+          </View>
+        </Card>
       </View>
     );
   }

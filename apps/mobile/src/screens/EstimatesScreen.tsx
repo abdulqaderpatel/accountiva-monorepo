@@ -6,13 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { Search, Plus, Calculator } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonList } from '../components/ui/Skeleton';
 import { formatCurrency } from '@accountiva/shared';
 import { useEstimates } from '@accountiva/api';
 import { ScreenType } from '../components/BottomNav';
@@ -194,10 +194,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
         }
       >
         {isLoading && !isRefetching ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading estimates...</Text>
-          </View>
+          <SkeletonList count={5} />
         ) : filteredEstimates.length === 0 ? (
           <EmptyState
             icon={Calculator}

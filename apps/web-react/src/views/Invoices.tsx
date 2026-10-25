@@ -45,6 +45,8 @@ import { StickyPageHeader } from "@/components/ui/StickyPageHeader";
 import { BulkActionBar } from "@/components/ui/BulkActionBar";
 import { BulkConfirmDialog } from "@/components/ui/BulkConfirmDialog";
 import { BulkUploadModal } from "@/components/ui/BulkUploadModal";
+import { ImportSourceModal } from "@/components/invoices/ImportSourceModal";
+import { ZohoImportModal } from "@/components/invoices/ZohoImportModal";
 import { PaginationBar } from "@/components/ui/PaginationBar";
 import {
   formatCurrency,
@@ -61,6 +63,7 @@ import {
 } from "@accountiva/api";
 import { CreateInvoiceModal } from "@/components/invoices/CreateInvoiceModal";
 import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
+import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
 import { InvoiceFilterBar, InvoiceFiltersState } from "@/components/invoices/InvoiceFilterBar";
 import { useBookmarks } from "@/context/BookmarkContext";
@@ -119,7 +122,9 @@ export function Invoices() {
   };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportSourceOpen, setIsImportSourceOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isZohoImportOpen, setIsZohoImportOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceRecord | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceRecord | null>(null);
   const [emailInvoice, setEmailInvoice] = useState<InvoiceRecord | null>(null);
@@ -491,7 +496,7 @@ export function Invoices() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsBulkUploadOpen(true)}
+            onClick={() => setIsImportSourceOpen(true)}
             className="h-9 px-3.5 text-xs font-medium border-border shadow-2xs cursor-pointer"
           >
             <FileUp className="size-3.5 mr-1.5 text-muted-foreground" />
@@ -881,6 +886,21 @@ export function Invoices() {
         onConfirm={handleBulkDeleteConfirm}
       />
 
+      {/* Import Source Selector Modal */}
+      <ImportSourceModal
+        isOpen={isImportSourceOpen}
+        onClose={() => setIsImportSourceOpen(false)}
+        onSelectAccountiva={() => setIsBulkUploadOpen(true)}
+        onSelectZoho={() => setIsZohoImportOpen(true)}
+      />
+
+      {/* Zoho Books Importer Modal */}
+      <ZohoImportModal
+        isOpen={isZohoImportOpen}
+        onClose={() => setIsZohoImportOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
       {/* Bulk Upload Modal */}
       <BulkUploadModal
         open={isBulkUploadOpen}
@@ -900,9 +920,9 @@ export function Invoices() {
         onSuccess={() => refetch()}
       />
 
-      {/* Invoice Detail Preview Modal */}
-      <InvoiceDetailModal
-        isOpen={Boolean(selectedInvoice)}
+      {/* Invoice Multi-Template Preview Modal */}
+      <InvoicePreviewModal
+        open={Boolean(selectedInvoice)}
         invoice={selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
         onSuccess={() => refetch()}

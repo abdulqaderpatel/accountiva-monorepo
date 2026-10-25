@@ -106,12 +106,12 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       </button>
 
       {/* Organization Switcher at the top of Sidebar */}
-      <div className="py-2 px-2 border-b border-sidebar-border/80 transition-all duration-300 shrink-0">
+      <div id="org-switcher" className="py-2 px-2 border-b border-sidebar-border/80 transition-all duration-300 shrink-0">
         <OrganizationSwitcher isCollapsed={isCollapsed} />
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-5 custom-scrollbar">
+      <nav id="sidebar-nav" className="flex-1 overflow-y-auto px-2 py-2 space-y-5 custom-scrollbar">
         {visibleSections.map((section) => (
           <div key={section.title} className="space-y-1">
             {!isCollapsed ? (

@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { MemberPermissionsModal } from "./MemberPermissionsModal";
 
 interface MemberItem {
   id: string;
@@ -78,6 +79,10 @@ export function MemberManagement() {
 
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState("all");
+
+  // Permissions modal
+  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
+  const [selectedMemberForPermissions, setSelectedMemberForPermissions] = useState<MemberItem | null>(null);
 
   // Invite modal
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -400,24 +405,39 @@ export function MemberManagement() {
                     </TableCell>
 
                     <TableCell className="py-2.5 text-right">
-                      {canRemoveMember(item) ? (
+                      {item.role !== "owner" && !item.isSelf ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer">
                               <MoreHorizontal className="w-3.5 h-3.5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem
                               onClick={() => {
-                                setMemberToRemove(item);
-                                setIsRemoveModalOpen(true);
+                                setSelectedMemberForPermissions(item);
+                                setIsPermissionsModalOpen(true);
                               }}
-                              className="text-destructive focus:text-destructive cursor-pointer text-xs"
+                              className="cursor-pointer text-xs"
                             >
-                              <UserMinus className="w-3.5 h-3.5 mr-2" />
-                              Remove Member
+                              <Shield className="w-3.5 h-3.5 mr-2 text-primary" />
+                              Manage Permissions
                             </DropdownMenuItem>
+                            {canRemoveMember(item) && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setMemberToRemove(item);
+                                    setIsRemoveModalOpen(true);
+                                  }}
+                                  className="text-destructive focus:text-destructive cursor-pointer text-xs"
+                                >
+                                  <UserMinus className="w-3.5 h-3.5 mr-2" />
+                                  Remove Member
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       ) : (
@@ -697,6 +717,20 @@ export function MemberManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Member Permissions Modal */}
+      {currentOrganization?.id && (
+        <MemberPermissionsModal
+          isOpen={isPermissionsModalOpen}
+          member={selectedMemberForPermissions}
+          organizationId={currentOrganization.id}
+          onClose={() => {
+            setIsPermissionsModalOpen(false);
+            setSelectedMemberForPermissions(null);
+          }}
+          onUpdated={fetchMembers}
+        />
+      )}
     </div>
   );
 }

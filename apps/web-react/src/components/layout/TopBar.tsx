@@ -53,6 +53,15 @@ export function TopBar({
     navigate({ to: path });
   };
 
+  const handleHelpTour = async () => {
+    if (location.pathname !== "/dashboard") {
+      await navigate({ to: "/dashboard" });
+    }
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("start-product-tour"));
+    }, 150);
+  };
+
   // Compute dynamic breadcrumbs from URL
   const getBreadcrumbs = () => {
     const path = location.pathname;
@@ -236,8 +245,8 @@ export function TopBar({
           variant="ghost"
           size="icon-sm"
           className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
-          title="Help & Overview"
-          onClick={() => navigate({ to: "/dashboard" })}
+          title="Help & Tour"
+          onClick={handleHelpTour}
         >
           <HelpCircle className="size-4" />
         </Button>
@@ -270,7 +279,9 @@ export function TopBar({
         </Button>
 
         {/* User Profile Avatar with Dropdown & Sign Out Button */}
-        <UserProfile variant="topbar" />
+        <div id="user-profile">
+          <UserProfile variant="topbar" />
+        </div>
       </div>
     </header>
   );

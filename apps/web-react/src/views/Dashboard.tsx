@@ -262,7 +262,7 @@ export function Dashboard() {
       {/* Body Content */}
       <div className="flex-1 space-y-8 min-h-0">
         {/* Summary Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div id="dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {summaryStats.map((stat) => {
             const Icon = stat.icon;
             return (

@@ -31,6 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 
 type SettingsTab = "Account" | "Notifications" | "Display" | "Invoices" | "Security" | "Billing";
 
@@ -223,6 +224,61 @@ export function Settings() {
 
   // Billing State
   const [isBillingMonthly, setIsBillingMonthly] = useState(true);
+  const [isSwitchingPlan, setIsSwitchingPlan] = useState(false);
+
+  const handlePlanUpgrade = async (planId: string) => {
+    if (planId !== "pro") return;
+    try {
+      setIsSwitchingPlan(true);
+      const { data: orderData } = await api.post("/billing/create-order", {
+        billingCycle: isBillingMonthly ? "monthly" : "annual",
+      });
+
+      if (!orderData?.orderId || !orderData?.keyId) {
+        throw new Error("Payment session was not created.");
+      }
+
+      await openRazorpayCheckout({
+        keyId: orderData.keyId,
+        orderId: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "Accountiva",
+        description: `Accountiva Pro Plan (${isBillingMonthly ? "Monthly" : "Annual"})`,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+        },
+        onSuccess: async (response) => {
+          try {
+            const verifyRes = await api.post("/billing/verify-payment", {
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+
+            if (verifyRes.data?.success) {
+              toast.success("🎉 Welcome to Accountiva Pro!", {
+                description: "Your workspace has been upgraded successfully.",
+              });
+              await fetchOrganizations();
+            }
+          } catch (verifyErr: any) {
+            console.error("[Billing] Payment verification failed:", verifyErr);
+            toast.error(verifyErr.response?.data?.error || "Payment verification failed");
+          }
+        },
+        onDismiss: () => {
+          toast.info("Payment window was closed.");
+        },
+      });
+    } catch (err: any) {
+      console.error("Plan upgrade error:", err);
+      toast.error(err.response?.data?.error || err.message || "Payment initiation failed");
+    } finally {
+      setIsSwitchingPlan(false);
+    }
+  };
 
   const plans = [
     {
@@ -995,7 +1051,7 @@ export function Settings() {
 
                             <Button
                               type="button"
-                              disabled={isCurrent}
+                              disabled={isCurrent || isSwitchingPlan}
                               variant={isCurrent ? "outline" : "default"}
                               className={cn(
                                 "w-full h-10 rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-sm cursor-pointer",
@@ -1003,12 +1059,11 @@ export function Settings() {
                                   ? "border-primary/30 text-primary cursor-default"
                                   : "bg-primary text-primary-foreground hover:bg-primary/95"
                               )}
-                              onClick={() => {
-                                if (plan.id === "pro") {
-                                  toast.info("Pro plan upgrade checkout initiated!");
-                                }
-                              }}
+                              onClick={() => handlePlanUpgrade(plan.id)}
                             >
+                              {isSwitchingPlan && plan.id === "pro" ? (
+                                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                              ) : null}
                               {isCurrent ? "Current Plan" : "Upgrade to Pro"}
                             </Button>
                           </div>

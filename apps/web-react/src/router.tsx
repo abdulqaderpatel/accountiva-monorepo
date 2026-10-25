@@ -32,6 +32,7 @@ import CheckEmail from "./views/auth/CheckEmail";
 import VerifyEmail from "./views/auth/VerifyEmail";
 import { AcceptInvitation } from "./views/auth/AcceptInvitation";
 import { ChatBot } from "./components/chat/ChatBot";
+import { ProductTour } from "./components/layout/ProductTour";
 
 function RootLayout() {
   const location = useLocation();
@@ -57,6 +58,7 @@ function RootLayout() {
     <>
       <Outlet />
       <ChatBot />
+      <ProductTour />
     </>
   );
 }

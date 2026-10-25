@@ -51,6 +51,8 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { MemberPermissionsModal } from "./MemberPermissionsModal";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
+import { PlanUpgradeCard } from "@/components/ui/PlanUpgradeCard";
 
 interface MemberItem {
   id: string;
@@ -89,6 +91,8 @@ export function MemberManagement() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "staff">("staff");
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [invitePlanError, setInvitePlanError] = useState<string | null>(null);
 
   // Remove member modal
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
@@ -190,9 +194,26 @@ export function MemberManagement() {
       toast.success(`Invitation sent to ${inviteEmail.trim()}`);
       setInviteEmail("");
       setIsInviteModalOpen(false);
+      setInvitePlanError(null);
       await fetchMembers();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || "Failed to send invitation");
+      const errorMsg =
+        err.response?.data?.error || err.response?.data?.message || "Failed to send invitation";
+      const isPlanLimit =
+        err.response?.status === 403 &&
+        (err.response?.data?.code === "LIMIT_REACHED" ||
+          errorMsg.toLowerCase().includes("upgrade") ||
+          errorMsg.toLowerCase().includes("limit") ||
+          errorMsg.toLowerCase().includes("seat"));
+
+      if (isPlanLimit) {
+        setInvitePlanError(errorMsg);
+        setIsInviteModalOpen(false);
+        setIsUpgradeModalOpen(true);
+      } else {
+        setInvitePlanError(null);
+        toast.error(errorMsg);
+      }
     } finally {
       setInviteLoading(false);
     }
@@ -547,6 +568,15 @@ export function MemberManagement() {
             </div>
 
             <div className="p-5 space-y-4">
+              {invitePlanError && (
+                <PlanUpgradeCard
+                  title="Team Seat Limit Reached"
+                  description={invitePlanError}
+                  dismissible={true}
+                  onDismiss={() => setInvitePlanError(null)}
+                />
+              )}
+
               <div className="space-y-1.5">
                 <Label htmlFor="invite-email" className="text-xs font-semibold">
                   Email Address <span className="text-destructive">*</span>
@@ -731,6 +761,18 @@ export function MemberManagement() {
           onUpdated={fetchMembers}
         />
       )}
+
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        feature="member"
+        title="Team Seat Limit Reached"
+        description={
+          invitePlanError ||
+          "Your Free plan allows 1 user seat. Upgrade to Professional to invite team members and assign custom permissions."
+        }
+      />
     </div>
   );
 }

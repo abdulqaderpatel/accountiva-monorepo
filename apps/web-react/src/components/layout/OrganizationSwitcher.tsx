@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth, Organization } from "@/context/AuthContext";
 import { CreateOrganizationModal } from "./CreateOrganizationModal";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
 import { cn } from "@/lib/utils";
 
 interface OrganizationSwitcherProps {
@@ -18,9 +19,18 @@ interface OrganizationSwitcherProps {
 }
 
 export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitcherProps) {
-  const { organizations, currentOrganization, setCurrentOrganization } = useAuth();
+  const { organizations, currentOrganization, setCurrentOrganization, ownedOrganizationsCount, isPro } = useAuth();
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
+  const handleCreateClick = () => {
+    if (ownedOrganizationsCount >= 1 && !isPro) {
+      setIsUpgradeModalOpen(true);
+    } else {
+      setIsCreateModalOpen(true);
+    }
+  };
 
   const handleSelect = (org: Organization) => {
     setCurrentOrganization(org);
@@ -152,7 +162,7 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
 
           {/* Create New Organization */}
           <DropdownMenuItem
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleCreateClick}
             className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md cursor-pointer transition-colors outline-none"
           >
             <div className="shrink-0 w-7 h-7 rounded bg-primary/10 flex items-center justify-center text-primary">
@@ -166,6 +176,13 @@ export function OrganizationSwitcher({ isCollapsed = false }: OrganizationSwitch
       <CreateOrganizationModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+      />
+
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        title="Organization Limit Reached"
+        description="Free plan users can only create 1 organization. Please upgrade to the Professional plan to create additional organizations."
       />
     </div>
   );

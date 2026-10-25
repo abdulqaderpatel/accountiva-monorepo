@@ -46,7 +46,7 @@ interface NumberingSequenceItem {
 
 export function Settings() {
   const { theme, accentColor, setTheme, setAccentColor } = useTheme();
-  const { user, profile, currentOrganization, fetchOrganizations } = useAuth();
+  const { user, profile, currentOrganization, fetchOrganizations, updateCurrentOrgPlan } = useAuth();
 
   const getInitialTab = (): SettingsTab => {
     if (typeof window !== "undefined") {
@@ -226,12 +226,30 @@ export function Settings() {
   const [isBillingMonthly, setIsBillingMonthly] = useState(true);
   const [isSwitchingPlan, setIsSwitchingPlan] = useState(false);
 
+  const isPlanActive = (planId: string) => {
+    const currentOrgPlan =
+      currentOrganization?.plan ||
+      (currentOrganization?.plan_id === "00000000-0000-0000-0000-000000000002" ? "pro" : "free");
+    if (planId === "free") return currentOrgPlan === "free";
+    if (planId === "pro") return currentOrgPlan === "pro";
+    return false;
+  };
+
   const handlePlanUpgrade = async (planId: string) => {
-    if (planId !== "pro") return;
+    if (isPlanActive(planId)) return;
+
+    if (planId === "free") {
+      toast.info("Plan Downgrade", {
+        description:
+          "Your Pro subscription will automatically transition to Free Starter at the end of your paid billing period.",
+      });
+      return;
+    }
+
     try {
       setIsSwitchingPlan(true);
       const { data: orderData } = await api.post("/billing/create-order", {
-        billingCycle: isBillingMonthly ? "monthly" : "annual",
+        billingCycle: isBillingMonthly ? "monthly" : "yearly",
       });
 
       if (!orderData?.orderId || !orderData?.keyId) {
@@ -258,6 +276,12 @@ export function Settings() {
             });
 
             if (verifyRes.data?.success) {
+              updateCurrentOrgPlan({
+                plan: "pro",
+                plan_id: "00000000-0000-0000-0000-000000000002",
+                plan_expires_at: verifyRes.data.expiresAt,
+                billing_cycle: verifyRes.data.billingCycle,
+              });
               toast.success("🎉 Welcome to Accountiva Pro!", {
                 description: "Your workspace has been upgraded successfully.",
               });
@@ -996,8 +1020,7 @@ export function Settings() {
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto text-left">
                       {plans.map((plan) => {
-                        const isCurrent =
-                          (currentOrganization?.plan || "free") === plan.id;
+                        const isCurrent = isPlanActive(plan.id);
 
                         return (
                           <div
@@ -1064,7 +1087,17 @@ export function Settings() {
                               {isSwitchingPlan && plan.id === "pro" ? (
                                 <Loader2 className="size-3.5 animate-spin mr-1.5" />
                               ) : null}
-                              {isCurrent ? "Current Plan" : "Upgrade to Pro"}
+                              {isCurrent ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Check className="size-3.5 font-bold" />
+                                  Active Plan
+                                </span>
+                              ) : plan.priceMonthly >
+                                (plans.find((p) => isPlanActive(p.id))?.priceMonthly || 0) ? (
+                                `Upgrade to ${plan.name}`
+                              ) : (
+                                `Switch to ${plan.name}`
+                              )}
                             </Button>
                           </div>
                         );

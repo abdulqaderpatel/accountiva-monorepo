@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select } from "@/components/ui/Select";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { Modal } from "@/components/ui/modal";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
 import {
   COMMON_CURRENCIES,
   INDIAN_STATES,
@@ -37,6 +38,8 @@ export function CreateOrganizationModal({
 }: CreateOrganizationModalProps) {
   const { createOrganization } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [planLimitError, setPlanLimitError] = useState<string | null>(null);
 
   // Form Fields
   const [name, setName] = useState("");
@@ -171,15 +174,28 @@ export function CreateOrganizationModal({
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.error || err.message || "Failed to create organization";
-      toast.error(errorMsg);
+      const isLimit =
+        err.response?.status === 403 &&
+        (errorMsg.toLowerCase().includes("limit") ||
+          errorMsg.toLowerCase().includes("plan") ||
+          errorMsg.toLowerCase().includes("upgrade"));
+      if (isLimit) {
+        setPlanLimitError(errorMsg);
+        resetForm();
+        onClose();
+        setIsUpgradeModalOpen(true);
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
+    <>
+      <Modal
+        isOpen={isOpen}
       onClose={() => {
         resetForm();
         onClose();
@@ -399,5 +415,13 @@ export function CreateOrganizationModal({
         </div>
       </form>
     </Modal>
+
+    <UpgradePlanModal
+      open={isUpgradeModalOpen}
+      onClose={() => setIsUpgradeModalOpen(false)}
+      title="Organization Limit Reached"
+      description={planLimitError || "Free plan users can only create 1 organization. Please upgrade to the Professional plan to create additional organizations."}
+    />
+  </>
   );
 }

@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Select } from "@/components/ui/Select";
 import { GstTreatmentSelect } from "@/components/ui/GstTreatmentSelect";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
 import { User, Copy, Check, Sparkles, Building2, Globe, Mail, Phone, Hash, CreditCard, X } from "lucide-react";
 import { customerSchema, COMMON_CURRENCIES } from "@accountiva/shared";
 import { useCreateCustomer, useUpdateCustomer } from "@accountiva/api";
@@ -63,6 +64,7 @@ export function AddCustomerModal({
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isFetchingGst, setIsFetchingGst] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [isPanManuallyEdited, setIsPanManuallyEdited] = useState(false);
   const [lastAutoPan, setLastAutoPan] = useState("");
 
@@ -262,15 +264,26 @@ export function AddCustomerModal({
       onSuccess?.(savedResult);
       onClose();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || "Failed to save customer");
+      const errorMsg =
+        err.response?.data?.error || err.response?.data?.message || "Failed to save customer";
+      toast.error(errorMsg);
+      if (
+        !customer?.id &&
+        (errorMsg.toLowerCase().includes("limit") ||
+          errorMsg.toLowerCase().includes("plan") ||
+          errorMsg.toLowerCase().includes("upgrade"))
+      ) {
+        setIsUpgradeModalOpen(true);
+      }
     }
   };
 
   const isSaving = createCustomerMutation.isPending || updateCustomerMutation.isPending;
 
   return (
-    <Modal
-      open={isOpen}
+    <>
+      <Modal
+        open={isOpen}
       onClose={onClose}
       maxWidthClass="max-w-xl"
       bodyClass="p-6 overflow-y-auto flex-1 custom-scrollbar max-h-[52vh]"
@@ -669,7 +682,14 @@ export function AddCustomerModal({
           </div>
         )}
       </form>
-    </Modal>
+      </Modal>
+
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        feature="customer"
+      />
+    </>
   );
 }
 

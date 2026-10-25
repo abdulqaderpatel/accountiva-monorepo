@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
 import {
   Plus,
   Trash2,
@@ -93,6 +94,7 @@ export function CreateInvoiceModal({
   }, [apiItems]);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [autoGenerateNumber, setAutoGenerateNumber] = useState(true);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [isNumberLoading, setIsNumberLoading] = useState(false);
@@ -421,6 +423,14 @@ export function CreateInvoiceModal({
         return;
       }
       toast.error(message);
+      if (
+        !isEditing &&
+        (message.toLowerCase().includes("limit") ||
+          message.toLowerCase().includes("plan") ||
+          message.toLowerCase().includes("upgrade"))
+      ) {
+        setIsUpgradeModalOpen(true);
+      }
     }
   };
 
@@ -960,6 +970,13 @@ export function CreateInvoiceModal({
           onSuccess={() => setIsAddItemOpen(false)}
         />
       )}
+
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        feature="invoice"
+      />
     </>
   );
 }

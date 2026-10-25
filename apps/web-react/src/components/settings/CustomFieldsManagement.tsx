@@ -44,6 +44,8 @@ import {
 } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PlanUpgradeCard } from "@/components/ui/PlanUpgradeCard";
+import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
 import { isFeatureEnabled } from "@accountiva/shared";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -95,6 +97,8 @@ export function CustomFieldsManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingField, setEditingField] = useState<CustomFieldRecord | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [customFieldPlanError, setCustomFieldPlanError] = useState<string | null>(null);
 
   // Form State
   const [formName, setFormName] = useState("");
@@ -213,9 +217,24 @@ export function CustomFieldsManagement() {
         toast.success("Custom field created successfully");
       }
       setIsModalOpen(false);
+      setCustomFieldPlanError(null);
       fetchFields();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save field");
+      const errorMsg =
+        err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save field";
+      const isLimit =
+        err.response?.status === 403 &&
+        (errorMsg.toLowerCase().includes("limit") ||
+          errorMsg.toLowerCase().includes("plan") ||
+          errorMsg.toLowerCase().includes("upgrade"));
+      if (isLimit) {
+        setCustomFieldPlanError(errorMsg);
+        setIsModalOpen(false);
+        setIsUpgradeModalOpen(true);
+      } else {
+        setCustomFieldPlanError(null);
+        toast.error(errorMsg);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -433,6 +452,15 @@ export function CustomFieldsManagement() {
           </DialogHeader>
 
           <form onSubmit={handleSave} className="space-y-4">
+            {customFieldPlanError && (
+              <PlanUpgradeCard
+                title="Custom Fields Require Professional"
+                description={customFieldPlanError}
+                dismissible={true}
+                onDismiss={() => setCustomFieldPlanError(null)}
+              />
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="customFieldName">
@@ -655,6 +683,17 @@ export function CustomFieldsManagement() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        feature="custom_fields"
+        title="Custom Fields Require Professional"
+        description={
+          customFieldPlanError ||
+          "Custom fields are exclusive to the Professional plan. Upgrade now to capture unique business data across your invoices, items, and customers."
+        }
+      />
     </Card>
   );
 }

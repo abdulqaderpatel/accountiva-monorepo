@@ -93,3 +93,4 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
   const instance = new RazorpayConstructor(rzpOptions);
   instance.open();
 }
+

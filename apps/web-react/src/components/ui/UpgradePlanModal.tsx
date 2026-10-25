@@ -30,7 +30,7 @@ export function UpgradePlanModal({
   description,
 }: UpgradePlanModalProps) {
   const navigate = useNavigate();
-  const { user, currentOrganization, fetchOrganizations } = useAuth();
+  const { user, currentOrganization, fetchOrganizations, updateCurrentOrgPlan } = useAuth();
   const [isUpgrading, setIsUpgrading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -69,6 +69,12 @@ export function UpgradePlanModal({
             });
 
             if (verifyRes.data.success) {
+              updateCurrentOrgPlan({
+                plan: "pro",
+                plan_id: "00000000-0000-0000-0000-000000000002",
+                plan_expires_at: verifyRes.data.expiresAt,
+                billing_cycle: verifyRes.data.billingCycle,
+              });
               toast.success("🎉 Welcome to Accountiva Pro!", {
                 description: "Your workspace has been upgraded successfully.",
               });
@@ -102,6 +108,12 @@ export function UpgradePlanModal({
       ? "You have reached your invoice limit on the Free plan. Upgrade to Pro for unlimited invoices."
       : feature === "customer"
       ? "You have reached your customer limit on the Free plan. Upgrade to Pro to add unlimited customers."
+      : feature === "member"
+      ? "Your Free plan allows 1 user seat. Upgrade to Professional to invite team members and assign custom permissions."
+      : feature === "custom_fields"
+      ? "Custom fields are exclusive to the Professional plan. Upgrade now to capture unique business data across your invoices, items, and customers."
+      : feature === "gstin"
+      ? "Automated GSTIN taxpayer auto-fetch is exclusive to the Professional plan."
       : "Unlock unlimited workspaces, custom branding, and team members with Accountiva Pro.");
 
   return (
@@ -215,3 +227,4 @@ export function UpgradePlanModal({
     </Dialog>
   );
 }
+

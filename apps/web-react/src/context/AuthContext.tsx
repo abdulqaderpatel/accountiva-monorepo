@@ -25,6 +25,9 @@ export interface Organization {
   large_logo_url?: string;
   plan?: string;
   plan_id?: string;
+  plan_expires_at?: string;
+  billing_cycle?: string;
+  subscription_status?: string;
   gstin?: string;
   is_gst_registered?: boolean;
   address?: string;
@@ -46,6 +49,8 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isPro: boolean;
+  ownedOrganizationsCount: number;
   login: (email: string, password: string) => Promise<any>;
   signup: (signupData: { name: string; email: string; password: string; redirect?: string }) => Promise<any>;
   socialLogin: (provider: "google") => Promise<void>;
@@ -55,6 +60,12 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
+  updateCurrentOrgPlan: (planData: {
+    plan: string;
+    plan_id?: string;
+    plan_expires_at?: string;
+    billing_cycle?: string;
+  }) => void;
   createOrganization: (formData: any) => Promise<any>;
   updateOrganization: (id: string, formData: FormData | Record<string, any>) => Promise<any>;
   updateOrganizationBranding: (id: string, formData: FormData) => Promise<any>;
@@ -165,6 +176,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentOrganizationState((prev) => (prev?.id === id ? { ...prev, ...data } : prev));
     return data;
   }, []);
+
+  const isPro = Boolean(
+    currentOrganization?.plan === "pro" ||
+      currentOrganization?.plan_id === "00000000-0000-0000-0000-000000000002"
+  );
+
+  const ownedOrganizationsCount = organizations.filter(
+    (org) => org.role === "owner"
+  ).length;
+
+  const updateCurrentOrgPlan = useCallback(
+    (planData: {
+      plan: string;
+      plan_id?: string;
+      plan_expires_at?: string;
+      billing_cycle?: string;
+    }) => {
+      if (!currentOrganization) return;
+      const updated: Organization = {
+        ...currentOrganization,
+        plan: planData.plan,
+        plan_id:
+          planData.plan_id ||
+          (planData.plan === "pro"
+            ? "00000000-0000-0000-0000-000000000002"
+            : "00000000-0000-0000-0000-000000000001"),
+        plan_expires_at: planData.plan_expires_at,
+        billing_cycle: planData.billing_cycle || currentOrganization.billing_cycle,
+        subscription_status: "active",
+      };
+      setCurrentOrganizationState(updated);
+      setOrganizations((prev) =>
+        prev.map((org) => (org.id === updated.id ? { ...org, ...updated } : org))
+      );
+    },
+    [currentOrganization]
+  );
 
   // Restore session on mount
   useEffect(() => {
@@ -330,6 +378,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isAuthenticated,
         isAdmin,
+        isPro,
+        ownedOrganizationsCount,
         login,
         signup,
         socialLogin,
@@ -339,6 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut: logout,
         setCurrentOrganization,
         fetchOrganizations,
+        updateCurrentOrgPlan,
         createOrganization,
         updateOrganization,
         updateOrganizationBranding,

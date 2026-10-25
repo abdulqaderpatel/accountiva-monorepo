@@ -21,4 +21,6 @@ export * from "./GstTreatmentSelect";
 export * from "./BulkActionBar";
 export * from "./BulkConfirmDialog";
 export * from "./CustomFieldRenderer";
+export * from "./PlanUpgradeCard";
+export * from "./UpgradePlanModal";
 

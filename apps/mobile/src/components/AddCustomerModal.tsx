@@ -16,6 +16,7 @@ import api, { useCreateCustomer, useUpdateCustomer } from '@accountiva/api';
 import { customerSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
+import { formatAddress } from './CustomerDetailModal';
 
 interface AddCustomerModalProps {
   visible: boolean;
@@ -59,8 +60,8 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
       setGstTreatment(initialCustomer.gstTreatment || 'Consumer');
       setGstNumber(initialCustomer.gstNumber || initialCustomer.gstin || '');
       setPan(initialCustomer.pan || '');
-      setBillingAddress(initialCustomer.billingAddress || initialCustomer.address || '');
-      setShippingAddress(initialCustomer.shippingAddress || '');
+      setBillingAddress(formatAddress(initialCustomer.billingAddress || initialCustomer.address));
+      setShippingAddress(formatAddress(initialCustomer.shippingAddress));
       setNotes(initialCustomer.notes || '');
       setOpeningBalance(
         initialCustomer.opening_balance != null

@@ -42,33 +42,13 @@ interface CustomerDetailModalProps {
   onViewInvoice?: (invoice: any) => void;
 }
 
-export function formatAddress(addr: any): string {
-  if (!addr) return '';
-  if (typeof addr === 'string') {
-    const trimmed = addr.trim();
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        return formatAddress(parsed);
-      } catch {
-        return trimmed;
-      }
-    }
-    return trimmed;
-  }
-  if (typeof addr === 'object') {
-    const parts = [
-      addr.street || addr.address || addr.addressLine1 || addr.address_line1 || addr.line1,
-      addr.addressLine2 || addr.address_line2 || addr.line2,
-      addr.city,
-      addr.state,
-      addr.postalCode || addr.postal_code || addr.zip || addr.zipCode,
-      addr.country,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(', ') : '';
-  }
-  return String(addr);
-}
+import {
+  formatAddress,
+  extractCustomerId,
+  matchesCustomer,
+} from '../utils/customerUtils';
+
+export { formatAddress, extractCustomerId, matchesCustomer };
 
 export function CustomerDetailModal({
   visible,
@@ -106,31 +86,11 @@ export function CustomerDetailModal({
       ? apiInvoices.data
       : [];
 
-    const custName = safeName.toLowerCase();
+    const custName = safeName;
     const custId = customer.id ? String(customer.id) : '';
 
     return rawList
-      .filter((inv) => {
-        if (!inv || typeof inv !== 'object') return false;
-
-        const invCust = (
-          typeof inv.customer === 'string'
-            ? inv.customer
-            : typeof inv.customer?.name === 'string'
-            ? inv.customer.name
-            : typeof inv.customerName === 'string'
-            ? inv.customerName
-            : typeof inv.customers?.name === 'string'
-            ? inv.customers.name
-            : ''
-        ).toLowerCase();
-
-        const invCustId = String(
-          inv.customerId || inv.customer_id || inv.customer?.id || inv.customers?.id || ''
-        );
-
-        return (custName && invCust.includes(custName)) || (custId && invCustId === custId);
-      })
+      .filter((inv) => matchesCustomer(inv, custId, custName))
       .map((inv) => ({
         id: String(inv.id || Math.random()),
         number: String(inv.number || inv.invoiceNumber || inv.invoice_number || 'INV-000'),
@@ -170,23 +130,11 @@ export function CustomerDetailModal({
       ? apiEstimates.data
       : [];
 
-    const custName = safeName.toLowerCase();
+    const custName = safeName;
     const custId = customer.id ? String(customer.id) : '';
 
     const estimateList = rawEstimates
-      .filter((est) => {
-        if (!est || typeof est !== 'object') return false;
-        const estCust = (
-          est.customer ||
-          est.customerName ||
-          est.customers?.name ||
-          ''
-        ).toLowerCase();
-        const estCustId = String(
-          est.customerId || est.customer_id || est.customer?.id || ''
-        );
-        return (custName && estCust.includes(custName)) || (custId && estCustId === custId);
-      })
+      .filter((est) => matchesCustomer(est, custId, custName))
       .map((est) => ({
         id: String(est.id || Math.random()),
         date: String(est.date || est.issueDate || 'Recent'),
@@ -198,11 +146,35 @@ export function CustomerDetailModal({
       }));
 
     return [...invoiceList, ...estimateList].sort((a, b) => {
-      const timeA = new Date(a.date).getTime() || 0;
-      const timeB = new Date(b.date).getTime() || 0;
-      return timeB - timeA;
+      const timeA = new Date(a.date).getTime();
+      const timeB = new Date(b.date).getTime();
+      const valA = isNaN(timeA) ? 0 : timeA;
+      const valB = isNaN(timeB) ? 0 : timeB;
+      return valB - valA;
     });
   }, [customer, customerInvoices, apiEstimates, safeName]);
+
+  const customFieldsEntries = useMemo(() => {
+    const cf = customer?.customFields || customer?.custom_fields;
+    if (!cf) return [];
+    if (Array.isArray(cf)) {
+      return cf
+        .map((item: any, i: number) => ({
+          key: String(item?.name || item?.field_name || item?.fieldName || item?.key || `Field ${i + 1}`),
+          value: typeof item?.value === 'object' && item?.value !== null
+            ? JSON.stringify(item.value)
+            : String(item?.value ?? item?.field_value ?? item?.val ?? ''),
+        }))
+        .filter((f) => f.key && f.value);
+    }
+    if (typeof cf === 'object') {
+      return Object.entries(cf).map(([k, v]) => ({
+        key: String(k),
+        value: typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v ?? ''),
+      }));
+    }
+    return [];
+  }, [customer?.customFields, customer?.custom_fields]);
 
   const totalBilled = useMemo(() => {
     return customerInvoices.reduce((sum, inv) => sum + Number(inv.amount || 0), 0);
@@ -246,15 +218,18 @@ export function CustomerDetailModal({
 
   const handleCall = () => {
     if (safePhone) {
-      Linking.openURL(`tel:${safePhone}`).catch(() => {
-        toast.error('Call Failed', 'Unable to initiate phone call on this device.');
-      });
+      const sanitized = safePhone.replace(/[^\d+]/g, '');
+      if (sanitized) {
+        Linking.openURL(`tel:${sanitized}`).catch(() => {
+          toast.error('Call Failed', 'Unable to initiate phone call on this device.');
+        });
+      }
     }
   };
 
   const handleEmail = () => {
     if (safeEmail) {
-      Linking.openURL(`mailto:${safeEmail}`).catch(() => {
+      Linking.openURL(`mailto:${encodeURIComponent(safeEmail.trim())}`).catch(() => {
         toast.error('Email Failed', 'Unable to open mail client on this device.');
       });
     }
@@ -564,19 +539,19 @@ export function CustomerDetailModal({
             ) : null}
 
             {/* Custom Fields */}
-            {customer?.customFields && typeof customer.customFields === 'object' && Object.keys(customer.customFields).length > 0 ? (
+            {customFieldsEntries.length > 0 ? (
               <>
                 <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
                   Custom Fields
                 </Text>
                 <Card style={styles.detailCard}>
-                  {Object.entries(customer.customFields).map(([k, v], idx, arr) => (
-                    <View key={k}>
+                  {customFieldsEntries.map(({ key, value }, idx) => (
+                    <View key={`${key}-${idx}`}>
                       <View style={styles.dataRow}>
-                        <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>{k}</Text>
-                        <Text style={[styles.dataValue, { color: colors.foreground }]}>{String(v)}</Text>
+                        <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>{key}</Text>
+                        <Text style={[styles.dataValue, { color: colors.foreground }]}>{value}</Text>
                       </View>
-                      {idx < arr.length - 1 ? (
+                      {idx < customFieldsEntries.length - 1 ? (
                         <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       ) : null}
                     </View>

@@ -35,9 +35,14 @@ interface CustomerRecord {
   gstNumber?: string;
   pan?: string;
   billingAddress?: string;
+  shippingAddress?: string;
+  customFields?: any;
+  notes?: string;
+  gstTreatment?: string;
   status: string;
   outstanding: number;
   variant: 'default' | 'warning' | 'destructive' | 'outline' | 'success';
+  [key: string]: any;
 }
 
 export type CustomerFilterType = 'all' | 'balance' | 'active' | 'registered';
@@ -72,6 +77,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     : [];
 
   const customers: CustomerRecord[] = rawList.map((c: any) => ({
+    ...c,
     id: String(c.id || ''),
     name: String(c.name || 'Unnamed Customer'),
     company: typeof c.company === 'string' ? c.company : '',
@@ -80,6 +86,10 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     gstNumber: typeof c.gstNumber === 'string' ? c.gstNumber : typeof c.gstin === 'string' ? c.gstin : typeof c.gst_number === 'string' ? c.gst_number : '',
     pan: typeof c.pan === 'string' ? c.pan : '',
     billingAddress: formatAddress(c.billingAddress || c.billing_address || c.address),
+    shippingAddress: formatAddress(c.shippingAddress || c.shipping_address),
+    customFields: c.customFields || c.custom_fields,
+    notes: typeof c.notes === 'string' ? c.notes : '',
+    gstTreatment: typeof c.gstTreatment === 'string' ? c.gstTreatment : typeof c.gst_treatment === 'string' ? c.gst_treatment : '',
     status: c.gstTreatment === 'Registered' || c.gst_treatment === 'Registered' ? 'GST Registered' : String(c.gstTreatment || c.gst_treatment || 'Regular'),
     outstanding: Number(c.outstanding) || Number(c.outstandingBalance) || Number(c.opening_balance) || 0,
     variant: c.gstTreatment === 'Registered' || c.gst_treatment === 'Registered' ? 'warning' : 'default',

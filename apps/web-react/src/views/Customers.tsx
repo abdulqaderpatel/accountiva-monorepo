@@ -65,7 +65,9 @@ export function Customers() {
 
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(
+    null,
+  );
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -98,7 +100,11 @@ export function Customers() {
     setSearch("");
   }, [currentOrgId]);
 
-  const { data: apiCustomers, isLoading, refetch } = useCustomers({
+  const {
+    data: apiCustomers,
+    isLoading,
+    refetch,
+  } = useCustomers({
     search: search || undefined,
   });
 
@@ -118,7 +124,7 @@ export function Customers() {
         c.name.toLowerCase().includes(q) ||
         (c.customerCode && c.customerCode.toLowerCase().includes(q)) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.company && c.company.toLowerCase().includes(q))
+        (c.company && c.company.toLowerCase().includes(q)),
     );
   }, [customerList, search]);
 
@@ -137,7 +143,8 @@ export function Customers() {
 
   // Bulk selection helpers
   const isAllSelected =
-    paginatedCustomers.length > 0 && paginatedCustomers.every((c) => selectedIds.has(c.id));
+    paginatedCustomers.length > 0 &&
+    paginatedCustomers.every((c) => selectedIds.has(c.id));
   const isIndeterminate =
     paginatedCustomers.some((c) => selectedIds.has(c.id)) && !isAllSelected;
 
@@ -192,16 +199,21 @@ export function Customers() {
       setShowBulkDeleteConfirm(false);
       refetch();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "Failed to delete selected customers");
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to delete selected customers",
+      );
     } finally {
       setIsBulkDeleting(false);
     }
   };
 
   const handleBulkExport = (format: "csv" | "json") => {
-    const target = selectedIds.size > 0
-      ? customerList.filter((c) => selectedIds.has(c.id))
-      : filtered;
+    const target =
+      selectedIds.size > 0
+        ? customerList.filter((c) => selectedIds.has(c.id))
+        : filtered;
 
     if (!target || target.length === 0) {
       toast.error("No customers available to export");
@@ -215,7 +227,11 @@ export function Customers() {
       Phone: c.phone || "",
       GSTIN: c.gstNumber || "",
       "GST Treatment": c.gstTreatment || "",
-      "Outstanding Balance": Number(c.outstandingBalance) || Number(c.outstanding) || Number(c.opening_balance) || 0,
+      "Outstanding Balance":
+        Number(c.outstandingBalance) ||
+        Number(c.outstanding) ||
+        Number(c.opening_balance) ||
+        0,
     }));
 
     if (format === "csv") {
@@ -223,7 +239,9 @@ export function Customers() {
     } else {
       exportToJson(exportData, "customers");
     }
-    toast.success(`Exported ${exportData.length} customer(s) as ${format.toUpperCase()}`);
+    toast.success(
+      `Exported ${exportData.length} customer(s) as ${format.toUpperCase()}`,
+    );
   };
 
   return (
@@ -287,7 +305,13 @@ export function Customers() {
           {filtered.length > 0 && selectedIds.size > 0 && (
             <div className="flex items-center gap-2 px-1 animate-in fade-in duration-150">
               <Checkbox
-                checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                checked={
+                  isAllSelected
+                    ? true
+                    : isIndeterminate
+                      ? "indeterminate"
+                      : false
+                }
                 onCheckedChange={toggleSelectAll}
                 id="select-all-customers"
               />
@@ -334,9 +358,13 @@ export function Customers() {
                   <Users className="size-7 text-muted-foreground/40" />
                 </div>
                 <div className="space-y-1 text-center">
-                  <h3 className="text-sm font-bold text-foreground">No customers found</h3>
+                  <h3 className="text-sm font-bold text-foreground">
+                    No customers found
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    {search ? "No clients match the search keyword." : "Add clients to start creating invoices and estimates."}
+                    {search
+                      ? "No clients match the search keyword."
+                      : "Add clients to start creating invoices and estimates."}
                   </p>
                 </div>
               </div>
@@ -344,15 +372,23 @@ export function Customers() {
           ) : (
             paginatedCustomers.map((cust) => {
               const isSelected = selectedIds.has(cust.id);
-              const initials = cust.name ? cust.name.charAt(0).toUpperCase() : "?";
-              const balance = Number(cust.outstandingBalance) || Number(cust.outstanding) || Number(cust.opening_balance) || 0;
+              const initials = cust.name
+                ? cust.name.charAt(0).toUpperCase()
+                : "?";
+              const balance =
+                Number(cust.outstandingBalance) ||
+                Number(cust.outstanding) ||
+                Number(cust.opening_balance) ||
+                0;
 
               return (
                 <Card
                   key={cust.id}
                   onClick={() => navigate({ to: `/customers/${cust.id}` })}
                   className={`bg-card/50 border-border/60 hover:border-primary/40 shadow-2xs hover:shadow-xs transition-all duration-300 group relative overflow-hidden cursor-pointer rounded-2xl backdrop-blur-xs py-0 gap-0 ${
-                    isSelected ? "ring-2 ring-primary border-primary bg-primary/10 dark:bg-primary/15" : ""
+                    isSelected
+                      ? "ring-2 ring-primary border-primary bg-primary/10 dark:bg-primary/15"
+                      : ""
                   }`}
                 >
                   <div className="h-[2.5px] w-full bg-primary/20 group-hover:bg-primary/50 transition-colors" />
@@ -363,7 +399,9 @@ export function Customers() {
                         <div
                           onClick={(e) => toggleSelect(cust.id, e)}
                           className={`py-1 transition-opacity duration-150 cursor-pointer ${
-                            selectedIds.size > 0 || isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                            selectedIds.size > 0 || isSelected
+                              ? "opacity-100"
+                              : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           <Checkbox
@@ -378,7 +416,10 @@ export function Customers() {
                         </div>
                       </div>
 
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="relative"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -389,7 +430,10 @@ export function Customers() {
                               <MoreHorizontal className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 shadow-xl">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-40 rounded-xl p-1 shadow-xl"
+                          >
                             <DropdownMenuItem
                               onClick={() => {
                                 setEditingCustomer(cust);
@@ -449,7 +493,9 @@ export function Customers() {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                           Outstanding
                         </span>
-                        <span className={`text-xs font-mono font-bold ${balance > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                        <span
+                          className={`text-xs font-mono font-bold ${balance > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}
+                        >
                           {formatCurrency(balance)}
                         </span>
                       </div>

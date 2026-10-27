@@ -9,7 +9,7 @@ import {
   Share,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
-import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, Pencil } from 'lucide-react-native';
+import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, Pencil, Mail } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -21,6 +21,7 @@ import {
 } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
+import { SendEstimateModal } from './SendEstimateModal';
 
 interface EstimateDetailModalProps {
   visible: boolean;
@@ -46,6 +47,7 @@ export function EstimateDetailModal({
   const deleteEstimateMutation = useDeleteEstimate();
   const [isConverting, setIsConverting] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<'Accepted' | 'Declined' | null>(null);
+  const [isSendEmailOpen, setIsSendEmailOpen] = useState(false);
 
   if (!estimate) return null;
 
@@ -210,6 +212,9 @@ export function EstimateDetailModal({
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
                 <Trash size={18} color={colors.destructive} />
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsSendEmailOpen(true)} style={styles.iconBtn} activeOpacity={0.7} accessibilityLabel="Send Estimate via Email">
+                <Mail size={18} color={colors.foreground} />
+              </TouchableOpacity>
               <TouchableOpacity onPress={handleShare} style={styles.iconBtn} activeOpacity={0.7}>
                 <Share2 size={18} color={colors.foreground} />
               </TouchableOpacity>
@@ -332,6 +337,18 @@ export function EstimateDetailModal({
 
             {/* Quick Actions Row */}
             <View style={styles.actionRow}>
+              <TouchableOpacity
+                onPress={() => setIsSendEmailOpen(true)}
+                style={[
+                  styles.actionBtn,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, borderWidth: 1 },
+                ]}
+                activeOpacity={0.8}
+              >
+                <Mail size={15} color={colors.foreground} style={{ marginRight: 6 }} />
+                <Text style={[styles.actionBtnText, { color: colors.foreground }]}>Send PDF</Text>
+              </TouchableOpacity>
+
               {!isAccepted && !isInvoiced && (
                 <TouchableOpacity
                   onPress={() => handleStatusChange('Accepted')}
@@ -416,6 +433,16 @@ export function EstimateDetailModal({
           </ScrollView>
         </View>
       </View>
+
+      {/* Send Estimate via Email (PDF) Modal */}
+      <SendEstimateModal
+        visible={isSendEmailOpen}
+        estimate={estimate}
+        onClose={() => setIsSendEmailOpen(false)}
+        onSuccess={() => {
+          if (onRefresh) onRefresh();
+        }}
+      />
     </Modal>
   );
 }

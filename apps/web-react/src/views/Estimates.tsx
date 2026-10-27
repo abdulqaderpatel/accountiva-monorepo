@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Check,
   Send,
+  Mail,
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,6 +60,7 @@ import {
   useUpdateEstimateStatus,
 } from "@accountiva/api";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
+import { SendEstimateModal } from "@/components/estimates/SendEstimateModal";
 import { useBookmarks } from "@/context/BookmarkContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -102,6 +104,7 @@ export function Estimates() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<EstimateRecord | null>(null);
+  const [sendingEstimate, setSendingEstimate] = useState<EstimateRecord | null>(null);
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -745,6 +748,14 @@ export function Estimates() {
                               </DropdownMenuItem>
 
                               <DropdownMenuItem
+                                onClick={() => setSendingEstimate(est)}
+                                className="cursor-pointer gap-2 text-xs font-semibold text-primary"
+                              >
+                                <Mail className="size-3.5" />
+                                Send via Email (PDF)
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
                                 disabled={Boolean(statusLoadingAction)}
                                 onClick={() => handleStatusUpdate(est, "Sent")}
                                 className="cursor-pointer gap-2 text-xs font-medium"
@@ -856,6 +867,14 @@ export function Estimates() {
           setIsCreateOpen(false);
           setEditingEstimate(null);
         }}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Send Estimate via Email Modal */}
+      <SendEstimateModal
+        isOpen={Boolean(sendingEstimate)}
+        estimate={sendingEstimate}
+        onClose={() => setSendingEstimate(null)}
         onSuccess={() => refetch()}
       />
     </div>

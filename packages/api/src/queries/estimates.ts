@@ -117,3 +117,28 @@ export function useDeleteEstimate() {
     },
   });
 }
+
+export async function sendEstimate(
+  id: string,
+  payload: { recipientEmail?: string; subject?: string; message?: string }
+): Promise<{ message: string }> {
+  const { data } = await api.post(`/estimates/${id}/send`, payload);
+  return data;
+}
+
+export function useSendEstimate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { recipientEmail?: string; subject?: string; message?: string };
+    }) => sendEstimate(id, payload),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['estimates', id] });
+    },
+  });
+}

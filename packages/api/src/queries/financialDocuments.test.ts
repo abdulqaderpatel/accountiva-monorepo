@@ -20,6 +20,7 @@ import {
 import {
   createEstimate,
   fetchNextEstimateNumber,
+  sendEstimate,
   updateEstimate,
   updateEstimateStatus,
 } from "./estimates";
@@ -263,5 +264,24 @@ describe("credit-note requests", () => {
 
     expect(validation.response.status).not.toBe(409);
     expect((network as any).response?.status).toBeUndefined();
+  });
+
+  it("sends estimate via email with PDF attachment payload", async () => {
+    mockedPost.mockResolvedValueOnce({
+      data: { message: "Estimate with PDF sent successfully to client@example.com" },
+    } as never);
+
+    const result = await sendEstimate("est-1", {
+      recipientEmail: "client@example.com",
+      subject: "Your Estimate",
+      message: "Please find attached the quote.",
+    });
+
+    expect(mockedPost).toHaveBeenCalledWith("/estimates/est-1/send", {
+      recipientEmail: "client@example.com",
+      subject: "Your Estimate",
+      message: "Please find attached the quote.",
+    });
+    expect(result.message).toContain("sent successfully");
   });
 });

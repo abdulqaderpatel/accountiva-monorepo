@@ -88,6 +88,7 @@ import { useAuthStore } from '@/stores/authStore';
 import UpgradePlanModal from '@/components/UpgradePlanModal.vue';
 import { useFormValidation } from '@/composables/useFormValidation';
 import { invoiceSchema } from '@/utils/validationSchemas';
+import { calculateDocumentTotals } from '@accountiva/shared';
 
 import { useQuickCreateStore } from '@/stores/quickCreateStore';
 import { useBookmarkStore } from '@/stores/bookmarkStore';
@@ -319,6 +320,7 @@ const toggleInvoiceBookmark = async (invoice: Invoice) => {
 
 const showAdvanced = ref(false);
 const showTaxesDiscounts = ref(false);
+const autoRoundOff = ref(true);
 
 const newInvoice = ref<Omit<Invoice, 'id'>>({
   invoiceNumber: '',
@@ -336,7 +338,9 @@ const newInvoice = ref<Omit<Invoice, 'id'>>({
   discountValue: 0,
   discountAmount: 0,
   shippingCharges: 0,
+  packagingCharges: 0,
   adjustment: 0,
+  roundOff: 0,
   notes: '',
   termsConditions: '',
   taxPercent: 0,
@@ -499,7 +503,9 @@ const startEditInvoice = async (invoice: Invoice) => {
     discountValue: source.discountValue || 0,
     discountAmount: source.discountAmount || 0,
     shippingCharges: source.shippingCharges || 0,
-    adjustment: source.adjustment || 0,
+    packagingCharges: (source as any).packagingCharges ?? (source as any).packaging_charges ?? 0,
+    adjustment: (source as any).roundOff ?? source.adjustment ?? 0,
+    roundOff: (source as any).roundOff ?? source.adjustment ?? 0,
     notes: source.notes || '',
     termsConditions: source.termsConditions || '',
     taxPercent: source.taxPercent || 0,
@@ -537,7 +543,9 @@ const startEditInvoice = async (invoice: Invoice) => {
       discountValue: details.discountValue || 0,
       discountAmount: details.discountAmount || 0,
       shippingCharges: details.shippingCharges || 0,
-      adjustment: details.adjustment || 0,
+      packagingCharges: (details as any).packagingCharges ?? (details as any).packaging_charges ?? 0,
+      adjustment: (details as any).roundOff ?? details.adjustment ?? 0,
+      roundOff: (details as any).roundOff ?? details.adjustment ?? 0,
       notes: details.notes || '',
       termsConditions: details.termsConditions || '',
       taxPercent: details.taxPercent || 0,
@@ -573,7 +581,9 @@ const resetInvoiceForm = () => {
     discountValue: 0,
     discountAmount: 0,
     shippingCharges: 0,
+    packagingCharges: 0,
     adjustment: 0,
+    roundOff: 0,
     notes: '',
     termsConditions: '',
     taxPercent: 0,
@@ -717,27 +727,22 @@ const updateInvoiceItemRate = (index: number, rate: number) => {
 
 const recalculateInvoiceTotalAmount = () => {
   if (!newInvoice.value.items) return;
-  const subtotal = newInvoice.value.items.reduce((sum, item) => sum + item.amount, 0);
+  const totals = calculateDocumentTotals({
+    items: newInvoice.value.items,
+    discountType: newInvoice.value.discountType,
+    discountValue: newInvoice.value.discountValue,
+    taxPercent: newInvoice.value.taxPercent,
+    shippingCharges: newInvoice.value.shippingCharges,
+    packagingCharges: newInvoice.value.packagingCharges,
+    roundOff: newInvoice.value.adjustment,
+    autoRoundOff: autoRoundOff.value,
+  });
 
-  // Calculate discount
-  let discount = 0;
-  if (newInvoice.value.discountType === 'Percentage') {
-    discount = subtotal * ((newInvoice.value.discountValue || 0) / 100);
-  } else if (newInvoice.value.discountType === 'Flat') {
-    discount = newInvoice.value.discountValue || 0;
-  }
-  newInvoice.value.discountAmount = discount;
-
-  // Calculate tax (on subtotal after discount)
-  const taxableAmount = Math.max(0, subtotal - discount);
-  const tax = taxableAmount * ((newInvoice.value.taxPercent || 0) / 100);
-  newInvoice.value.taxAmount = tax;
-
-  // Calculate total
-  const shipping = Number(newInvoice.value.shippingCharges) || 0;
-  const adj = Number(newInvoice.value.adjustment) || 0;
-
-  newInvoice.value.amount = Number((taxableAmount + tax + shipping + adj).toFixed(2));
+  newInvoice.value.discountAmount = totals.discountAmount;
+  newInvoice.value.taxAmount = totals.taxAmount;
+  newInvoice.value.adjustment = totals.roundOff;
+  newInvoice.value.roundOff = totals.roundOff;
+  newInvoice.value.amount = totals.total;
 };
 
 watch(
@@ -746,7 +751,9 @@ watch(
     newInvoice.value.discountValue,
     newInvoice.value.taxPercent,
     newInvoice.value.shippingCharges,
-    newInvoice.value.adjustment
+    newInvoice.value.packagingCharges,
+    newInvoice.value.adjustment,
+    autoRoundOff.value,
   ],
   () => {
     recalculateInvoiceTotalAmount();
@@ -1920,16 +1927,53 @@ onUnmounted(() => {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
-              <Label class="text-xs font-medium">{{ t('modals.invoices.fields.adjustment') }}</Label>
-              <Input type="number" v-model.number="newInvoice.adjustment" placeholder="0" />
+              <Label class="text-xs font-medium">Packaging Charges</Label>
+              <Input type="number" v-model.number="newInvoice.packagingCharges" placeholder="0" />
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <Label class="text-xs font-medium">Round Off</Label>
+                <button
+                  type="button"
+                  @click="autoRoundOff = !autoRoundOff"
+                  :class="[
+                    'text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer',
+                    autoRoundOff
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  ]"
+                >
+                  Auto {{ autoRoundOff ? 'ON' : 'OFF' }}
+                </button>
+              </div>
+              <Input
+                type="number"
+                step="0.01"
+                v-model.number="newInvoice.adjustment"
+                :disabled="autoRoundOff"
+                placeholder="0.00"
+              />
             </div>
           </div>
-          <div class="flex flex-col items-end pt-1 pr-1 space-y-1 text-right text-xs">
+          <div class="flex flex-col items-end pt-2 pr-1 space-y-1 text-right text-xs">
+            <p v-if="newInvoice.discountAmount > 0" class="text-emerald-600 font-medium">
+              {{ t('modals.invoices.fields.calculatedDiscount') }} <span class="font-mono font-semibold">-{{ currencySymbol }}{{ Number(newInvoice.discountAmount || 0).toFixed(2) }}</span>
+            </p>
             <p class="text-muted-foreground">
               {{ t('modals.invoices.fields.calculatedTax') }} <span class="font-mono text-foreground font-semibold">{{ currencySymbol }}{{ Number(newInvoice.taxAmount || 0).toFixed(2) }}</span>
             </p>
-            <p class="text-muted-foreground">
-              {{ t('modals.invoices.fields.calculatedDiscount') }} <span class="font-mono text-foreground font-semibold">{{ currencySymbol }}{{ Number(newInvoice.discountAmount || 0).toFixed(2) }}</span>
+            <p v-if="Number(newInvoice.shippingCharges) > 0" class="text-muted-foreground">
+              Shipping: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newInvoice.shippingCharges || 0).toFixed(2) }}</span>
+            </p>
+            <p v-if="Number(newInvoice.packagingCharges) > 0" class="text-muted-foreground">
+              Packaging: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newInvoice.packagingCharges || 0).toFixed(2) }}</span>
+            </p>
+            <p v-if="Number(newInvoice.adjustment) !== 0" class="text-muted-foreground">
+              Round Off: <span class="font-mono text-foreground font-semibold">{{ Number(newInvoice.adjustment) > 0 ? '+' : '' }}{{ currencySymbol }}{{ Number(newInvoice.adjustment || 0).toFixed(2) }}</span>
+            </p>
+            <div class="h-px w-36 bg-border my-1"></div>
+            <p class="text-sm font-bold text-foreground">
+              Total Amount: <span class="font-mono">{{ currencySymbol }}{{ Number(newInvoice.amount || 0).toFixed(2) }}</span>
             </p>
           </div>
         </div>

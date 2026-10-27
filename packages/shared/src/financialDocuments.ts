@@ -56,7 +56,9 @@ interface FinancialDocumentFields {
   discountValue?: number;
   discountAmount?: number;
   shippingCharges?: number;
+  packagingCharges?: number;
   adjustment?: number;
+  roundOff?: number;
   notes?: string;
   termsConditions?: string;
   taxPercent?: number;
@@ -154,7 +156,11 @@ export interface DocumentTotalsInput {
   taxPercent?: number | string | null;
   taxAmount?: number | string | null;
   shippingCharges?: number | string | null;
+  packagingCharges?: number | string | null;
+  packingCharges?: number | string | null;
   adjustment?: number | string | null;
+  roundOff?: number | string | null;
+  autoRoundOff?: boolean;
   amount?: number | string | null;
 }
 
@@ -167,7 +173,9 @@ export interface DocumentTotalsResult {
   taxPercent: number;
   taxAmount: number;
   shippingCharges: number;
+  packagingCharges: number;
   adjustment: number;
+  roundOff: number;
   total: number;
 }
 
@@ -246,13 +254,27 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
     ? roundToTwo(parsedShipping)
     : 0;
 
-  const parsedAdjustment = Number(input.adjustment);
-  const adjustment = Number.isFinite(parsedAdjustment)
-    ? roundToTwo(parsedAdjustment)
+  const parsedPackaging = Number(input.packagingCharges ?? input.packingCharges);
+  const packagingCharges = Number.isFinite(parsedPackaging) && parsedPackaging > 0
+    ? roundToTwo(parsedPackaging)
     : 0;
 
+  const preRoundTotal = taxableAmount + taxAmount + shippingCharges + packagingCharges;
+
+  let adjustment = 0;
+  if (input.autoRoundOff) {
+    const rounded = Math.round(preRoundTotal);
+    adjustment = roundToTwo(rounded - preRoundTotal);
+  } else {
+    const rawAdjustment = input.roundOff ?? input.adjustment;
+    const parsedAdjustment = Number(rawAdjustment);
+    adjustment = Number.isFinite(parsedAdjustment)
+      ? roundToTwo(parsedAdjustment)
+      : 0;
+  }
+
   const calculatedTotal = roundToTwo(
-    Math.max(0, taxableAmount + taxAmount + shippingCharges + adjustment)
+    Math.max(0, preRoundTotal + adjustment)
   );
 
   return {
@@ -264,7 +286,9 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
     taxPercent,
     taxAmount,
     shippingCharges,
+    packagingCharges,
     adjustment,
+    roundOff: adjustment,
     total: calculatedTotal,
   };
 }
@@ -280,7 +304,9 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
       taxPercent: 0,
       taxAmount: 0,
       shippingCharges: 0,
+      packagingCharges: 0,
       adjustment: 0,
+      roundOff: 0,
       total: 0,
     };
   }
@@ -299,7 +325,8 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
   const taxPercent = doc.taxPercent ?? doc.tax_percent;
   const taxAmount = doc.taxAmount ?? doc.tax_amount;
   const shippingCharges = doc.shippingCharges ?? doc.shipping_charges;
-  const adjustment = doc.adjustment;
+  const packagingCharges = doc.packagingCharges ?? doc.packaging_charges ?? doc.packingCharges ?? doc.packing_charges;
+  const adjustment = doc.adjustment ?? doc.roundOff ?? doc.round_off;
   const manualAmount = doc.subtotal ?? doc.amount;
 
   return calculateDocumentTotals({
@@ -311,7 +338,9 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
     taxPercent,
     taxAmount,
     shippingCharges,
+    packagingCharges,
     adjustment,
+    roundOff: adjustment,
     amount: doc.amount,
   });
 }

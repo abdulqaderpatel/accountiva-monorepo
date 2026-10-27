@@ -101,24 +101,50 @@ export function SkeletonList({ count = 4, style }: { count?: number; style?: Vie
 /**
  * SkeletonCustomFields: Renders field placeholders for CustomFieldRenderer load state
  */
-export function SkeletonCustomFields({ count = 2 }: { count?: number }) {
+export function SkeletonCustomFields({
+  count = 2,
+  showHeader = true,
+  style,
+}: {
+  count?: number;
+  showHeader?: boolean;
+  style?: ViewStyle;
+}) {
   const { colors } = useTheme();
 
   return (
-    <View style={{ gap: 12, marginVertical: 6 }}>
-      {/* Header shimmer */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-        <Skeleton width={110} height={14} borderRadius={4} />
-        <Skeleton width={32} height={18} borderRadius={10} />
-      </View>
-
-      {/* Field shimmers */}
-      {Array.from({ length: count }).map((_, idx) => (
-        <View key={idx} style={{ gap: 6 }}>
-          <Skeleton width={90} height={12} borderRadius={4} />
-          <Skeleton width="100%" height={44} borderRadius={10} />
+    <View
+      style={[
+        styles.customFieldsCard,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        style,
+      ]}
+    >
+      {showHeader && (
+        <View style={[styles.customFieldsHeader, { borderBottomColor: colors.border }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Skeleton width={24} height={24} borderRadius={6} />
+            <Skeleton width={110} height={14} borderRadius={4} />
+          </View>
+          <Skeleton width={32} height={20} borderRadius={10} />
         </View>
-      ))}
+      )}
+
+      <View style={{ gap: 12 }}>
+        {Array.from({ length: count }).map((_, idx) => (
+          <View key={idx} style={{ gap: 6 }}>
+            <Skeleton width={90} height={12} borderRadius={4} />
+            <View
+              style={[
+                styles.customFieldInputWrap,
+                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border },
+              ]}
+            >
+              <Skeleton width={120} height={14} borderRadius={4} />
+            </View>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -209,5 +235,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  customFieldsCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 12,
+  },
+  customFieldsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 8,
+    marginBottom: 2,
+    borderBottomWidth: 1,
+  },
+  customFieldInputWrap: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
   },
 });

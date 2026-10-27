@@ -306,6 +306,7 @@ describe("getDocumentSummaryDetails", () => {
       discount_value: "5",
       tax_percent: "18",
       shipping_charges: "120",
+      packaging_charges: "50",
       adjustment: "-10",
     };
 
@@ -315,7 +316,40 @@ describe("getDocumentSummaryDetails", () => {
     expect(summary.taxableAmount).toBe(1900);
     expect(summary.taxAmount).toBe(342);
     expect(summary.shippingCharges).toBe(120);
+    expect(summary.packagingCharges).toBe(50);
     expect(summary.adjustment).toBe(-10);
-    expect(summary.total).toBe(2352);
+    expect(summary.roundOff).toBe(-10);
+    expect(summary.total).toBe(2402);
+  });
+
+  it("calculates packaging charges and auto round-off accurately", () => {
+    // 3 items from screenshot:
+    // Icing palette knife: 2 x 150 = 300
+    // Bakeware Pan: 1 x 1200 = 1200
+    // Classic Bakeware set: 1 x 6000 = 6000
+    // Subtotal = 7500
+    // GST 18% = 1350
+    // Shipping = 125.50
+    // Packaging = 45.25
+    // Pre-round = 7500 + 1350 + 125.50 + 45.25 = 9020.75
+    // Auto round-off should be +0.25 -> Total = 9021.00
+    const result = calculateDocumentTotals({
+      items: [
+        { quantity: 2, rate: 150, amount: 300 },
+        { quantity: 1, rate: 1200, amount: 1200 },
+        { quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      taxPercent: 18,
+      shippingCharges: 125.50,
+      packagingCharges: 45.25,
+      autoRoundOff: true,
+    });
+
+    expect(result.subtotal).toBe(7500);
+    expect(result.taxAmount).toBe(1350);
+    expect(result.shippingCharges).toBe(125.50);
+    expect(result.packagingCharges).toBe(45.25);
+    expect(result.roundOff).toBe(0.25);
+    expect(result.total).toBe(9021);
   });
 });

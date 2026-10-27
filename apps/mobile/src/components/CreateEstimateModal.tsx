@@ -117,7 +117,9 @@ export function CreateEstimateModal({
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [taxPercent, setTaxPercent] = useState('18');
   const [shippingCharges, setShippingCharges] = useState('');
+  const [packagingCharges, setPackagingCharges] = useState('');
   const [adjustment, setAdjustment] = useState('');
+  const [autoRoundOff, setAutoRoundOff] = useState(false);
   const [notes, setNotes] = useState('');
   const [termsConditions, setTermsConditions] = useState('');
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
@@ -168,6 +170,7 @@ export function CreateEstimateModal({
       setDiscountType(initialEstimate.discountType === 'fixed' ? 'fixed' : 'percentage');
       setTaxPercent(initialEstimate.taxPercent != null ? String(initialEstimate.taxPercent) : '18');
       setShippingCharges(initialEstimate.shippingCharges != null ? String(initialEstimate.shippingCharges) : '');
+      setPackagingCharges(initialEstimate.packagingCharges != null ? String(initialEstimate.packagingCharges) : '');
       setAdjustment(initialEstimate.adjustment != null ? String(initialEstimate.adjustment) : '');
       setNotes(initialEstimate.notes || '');
       setTermsConditions(initialEstimate.termsConditions || initialEstimate.terms || '');
@@ -247,9 +250,11 @@ export function CreateEstimateModal({
       discountValue,
       taxPercent,
       shippingCharges,
+      packagingCharges,
       adjustment,
+      autoRoundOff,
     });
-  }, [items, discountType, discountValue, taxPercent, shippingCharges, adjustment]);
+  }, [items, discountType, discountValue, taxPercent, shippingCharges, packagingCharges, adjustment, autoRoundOff]);
 
   const applyValidityDays = (days: number) => {
     const d = new Date(date || new Date());
@@ -396,7 +401,10 @@ export function CreateEstimateModal({
         discountType,
         discountValue,
         shippingCharges,
+        packagingCharges,
         adjustment,
+        roundOff: totals.roundOff,
+        autoRoundOff,
         taxPercent,
         notes,
         termsConditions,
@@ -748,6 +756,8 @@ export function CreateEstimateModal({
                         keyboardType="decimal-pad"
                         placeholder="0.00"
                         placeholderTextColor={colors.mutedForeground}
+                        numberOfLines={1}
+                        multiline={false}
                         style={[
                           styles.rateInput,
                           {
@@ -881,6 +891,8 @@ export function CreateEstimateModal({
                 keyboardType="numeric"
                 placeholder="0.00"
                 placeholderTextColor={colors.mutedForeground}
+                numberOfLines={1}
+                multiline={false}
                 style={[
                   styles.summarySmallInput,
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
@@ -888,20 +900,74 @@ export function CreateEstimateModal({
               />
             </View>
 
-            {/* Adjustment */}
+            {/* Packaging / Packing Charges */}
             <View style={styles.summaryInputRow}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment (+/-)</Text>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Packaging / Packing</Text>
               <TextInput
-                value={adjustment}
-                onChangeText={setAdjustment}
+                value={packagingCharges}
+                onChangeText={setPackagingCharges}
                 keyboardType="numeric"
                 placeholder="0.00"
                 placeholderTextColor={colors.mutedForeground}
+                numberOfLines={1}
+                multiline={false}
                 style={[
                   styles.summarySmallInput,
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
                 ]}
               />
+            </View>
+
+            {/* Round Off / Adjustment */}
+            <View style={styles.summaryInputRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Round Off</Text>
+                <TouchableOpacity
+                  onPress={() => setAutoRoundOff(!autoRoundOff)}
+                  style={[
+                    styles.autoRoundChip,
+                    {
+                      backgroundColor: autoRoundOff ? colors.primary : colors.surfaceSubtle,
+                      borderColor: autoRoundOff ? colors.primary : colors.border,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.autoRoundChipText,
+                      { color: autoRoundOff ? colors.primaryForeground : colors.mutedForeground },
+                    ]}
+                  >
+                    Auto
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {autoRoundOff ? (
+                <Text
+                  style={[
+                    styles.summaryValue,
+                    { color: totals.roundOff < 0 ? colors.destructive : colors.foreground, fontFamily: fonts.medium },
+                  ]}
+                >
+                  {totals.roundOff >= 0 ? `+${formatCurrency(totals.roundOff, currency)}` : `-${formatCurrency(Math.abs(totals.roundOff), currency)}`}
+                </Text>
+              ) : (
+                <TextInput
+                  value={adjustment}
+                  onChangeText={setAdjustment}
+                  keyboardType="numeric"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.mutedForeground}
+                  numberOfLines={1}
+                  multiline={false}
+                  style={[
+                    styles.summarySmallInput,
+                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                  ]}
+                />
+              )}
             </View>
 
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
@@ -1374,13 +1440,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   rateInput: {
-    height: 32,
+    height: 36,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
+    paddingVertical: 0,
     fontSize: 12,
     fontFamily: fonts.medium,
     minWidth: 80,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   mathValueBold: {
     fontSize: 13,
@@ -1519,14 +1588,27 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   summarySmallInput: {
-    height: 32,
+    height: 36,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
+    paddingVertical: 0,
     fontSize: 12,
     fontFamily: fonts.medium,
     minWidth: 70,
     textAlign: 'right',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
+  autoRoundChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  autoRoundChipText: {
+    fontSize: 10,
+    fontFamily: fonts.semiBold,
   },
   summaryDiscountSub: {
     fontSize: 11,

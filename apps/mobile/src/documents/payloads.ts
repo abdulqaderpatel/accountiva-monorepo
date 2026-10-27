@@ -33,7 +33,10 @@ export interface MobileInvoiceFormValues {
   discountType?: string;
   discountValue?: number | string;
   shippingCharges?: number | string;
+  packagingCharges?: number | string;
   adjustment?: number | string;
+  roundOff?: number | string;
+  autoRoundOff?: boolean;
   taxPercent?: number | string;
   notes?: string;
   termsConditions?: string;
@@ -54,7 +57,10 @@ export interface MobileEstimateFormValues {
   discountType?: string;
   discountValue?: number | string;
   shippingCharges?: number | string;
+  packagingCharges?: number | string;
   adjustment?: number | string;
+  roundOff?: number | string;
+  autoRoundOff?: boolean;
   taxPercent?: number | string;
   notes?: string;
   termsConditions?: string;
@@ -117,12 +123,14 @@ export function buildMobileInvoicePayload(values: MobileInvoiceFormValues): Invo
     discountValue: values.discountValue,
     taxPercent: values.taxPercent,
     shippingCharges: values.shippingCharges,
-    adjustment: values.adjustment,
+    packagingCharges: values.packagingCharges,
+    adjustment: values.roundOff ?? values.adjustment,
+    autoRoundOff: values.autoRoundOff,
   });
 
   if (totals.total <= 0) throw new Error("Invoice total must be greater than zero.");
 
-  return {
+  const payload: InvoicePayload = {
     invoiceNumber,
     customerId,
     date: values.date,
@@ -130,10 +138,6 @@ export function buildMobileInvoicePayload(values: MobileInvoiceFormValues): Invo
     status: values.status,
     items,
     amount: totals.total,
-    referenceNumber: values.referenceNumber?.trim() || undefined,
-    billingAddress: values.billingAddress?.trim() || undefined,
-    shippingAddress: values.shippingAddress?.trim() || undefined,
-    terms: values.terms?.trim() || undefined,
     discountType: totals.discountType || undefined,
     discountValue: totals.discountValue,
     discountAmount: totals.discountAmount,
@@ -141,10 +145,18 @@ export function buildMobileInvoicePayload(values: MobileInvoiceFormValues): Invo
     adjustment: totals.adjustment,
     taxPercent: totals.taxPercent,
     taxAmount: totals.taxAmount,
-    notes: values.notes?.trim() || undefined,
-    termsConditions: values.termsConditions?.trim() || undefined,
-    customFields: values.customFields,
   };
+
+  if (values.referenceNumber?.trim()) payload.referenceNumber = values.referenceNumber.trim();
+  if (values.billingAddress?.trim()) payload.billingAddress = values.billingAddress.trim();
+  if (values.shippingAddress?.trim()) payload.shippingAddress = values.shippingAddress.trim();
+  if (values.terms?.trim()) payload.terms = values.terms.trim();
+  if (totals.packagingCharges) payload.packagingCharges = totals.packagingCharges;
+  if (values.notes?.trim()) payload.notes = values.notes.trim();
+  if (values.termsConditions?.trim()) payload.termsConditions = values.termsConditions.trim();
+  if (values.customFields) payload.customFields = values.customFields;
+
+  return payload;
 }
 
 export function buildMobileEstimatePayload(values: MobileEstimateFormValues): EstimatePayload {
@@ -176,12 +188,14 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
     discountValue: values.discountValue,
     taxPercent: values.taxPercent,
     shippingCharges: values.shippingCharges,
-    adjustment: values.adjustment,
+    packagingCharges: values.packagingCharges,
+    adjustment: values.roundOff ?? values.adjustment,
+    autoRoundOff: values.autoRoundOff,
   });
 
   if (totals.total <= 0) throw new Error("Estimate total must be greater than zero.");
 
-  return {
+  const payload: EstimatePayload = {
     estimateNumber,
     customerId,
     date: values.date,
@@ -189,10 +203,6 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
     status: values.status,
     items,
     amount: totals.total,
-    referenceNumber: values.referenceNumber?.trim() || undefined,
-    billingAddress: values.billingAddress?.trim() || undefined,
-    shippingAddress: values.shippingAddress?.trim() || undefined,
-    terms: values.terms?.trim() || undefined,
     discountType: totals.discountType || undefined,
     discountValue: totals.discountValue,
     discountAmount: totals.discountAmount,
@@ -200,10 +210,18 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
     adjustment: totals.adjustment,
     taxPercent: totals.taxPercent,
     taxAmount: totals.taxAmount,
-    notes: values.notes?.trim() || undefined,
-    termsConditions: values.termsConditions?.trim() || undefined,
-    customFields: values.customFields,
   };
+
+  if (values.referenceNumber?.trim()) payload.referenceNumber = values.referenceNumber.trim();
+  if (values.billingAddress?.trim()) payload.billingAddress = values.billingAddress.trim();
+  if (values.shippingAddress?.trim()) payload.shippingAddress = values.shippingAddress.trim();
+  if (values.terms?.trim()) payload.terms = values.terms.trim();
+  if (totals.packagingCharges) payload.packagingCharges = totals.packagingCharges;
+  if (values.notes?.trim()) payload.notes = values.notes.trim();
+  if (values.termsConditions?.trim()) payload.termsConditions = values.termsConditions.trim();
+  if (values.customFields) payload.customFields = values.customFields;
+
+  return payload;
 }
 
 export function buildMobileCreditNotePayload(

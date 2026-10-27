@@ -330,9 +330,20 @@ export function InvoicePreviewModal({ visible, invoice, onClose }: InvoicePrevie
                     </View>
                   ) : null}
 
+                  {summary.packagingCharges > 0 ? (
+                    <View style={styles.totalsRow}>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Packaging / Packing</Text>
+                      <Text style={[styles.totalsValue, { color: colors.foreground }]}>
+                        {formatCurrency(summary.packagingCharges, currency)}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {summary.adjustment !== 0 ? (
                     <View style={styles.totalsRow}>
-                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>
+                        {Math.abs(summary.adjustment) < 1 ? 'Round Off' : 'Adjustment'}
+                      </Text>
                       <Text style={[styles.totalsValue, { color: colors.foreground }]}>
                         {summary.adjustment > 0 ? '+' : ''}{formatCurrency(summary.adjustment, currency)}
                       </Text>

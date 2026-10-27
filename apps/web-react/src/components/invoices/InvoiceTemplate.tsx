@@ -92,6 +92,8 @@ export function InvoiceTemplate({
   const tax = summary.taxAmount;
   const taxPercent = summary.taxPercent;
   const shippingCharges = summary.shippingCharges;
+  const packagingCharges = summary.packagingCharges;
+  const roundOff = summary.roundOff || summary.adjustment;
   const adjustment = summary.adjustment;
   const total = summary.total;
 
@@ -305,11 +307,17 @@ export function InvoiceTemplate({
                   <span className="text-slate-700 font-bold font-mono">{formatCurrency(shippingCharges)}</span>
                 </div>
               )}
-              {adjustment !== 0 && (
+              {packagingCharges > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Adjustment</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Packaging</span>
+                  <span className="text-slate-700 font-bold font-mono">{formatCurrency(packagingCharges)}</span>
+                </div>
+              )}
+              {roundOff !== 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Round Off</span>
                   <span className="text-slate-700 font-bold font-mono">
-                    {adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}
+                    {roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}
                   </span>
                 </div>
               )}
@@ -454,11 +462,17 @@ export function InvoiceTemplate({
                   <span className="font-mono font-bold text-slate-800">{formatCurrency(shippingCharges)}</span>
                 </div>
               )}
-              {adjustment !== 0 && (
+              {packagingCharges > 0 && (
                 <div className="flex justify-between text-slate-500">
-                  <span>Adjustment</span>
+                  <span>Packaging</span>
+                  <span className="font-mono font-bold text-slate-800">{formatCurrency(packagingCharges)}</span>
+                </div>
+              )}
+              {roundOff !== 0 && (
+                <div className="flex justify-between text-slate-500">
+                  <span>Round Off</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}
+                    {roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}
                   </span>
                 </div>
               )}
@@ -547,10 +561,16 @@ export function InvoiceTemplate({
                   <span>{formatCurrency(shippingCharges)}</span>
                 </div>
               )}
-              {adjustment !== 0 && (
+              {packagingCharges > 0 && (
                 <div className="flex justify-between opacity-60">
-                  <span>Adjustment</span>
-                  <span>{adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}</span>
+                  <span>Packaging</span>
+                  <span>{formatCurrency(packagingCharges)}</span>
+                </div>
+              )}
+              {roundOff !== 0 && (
+                <div className="flex justify-between opacity-60">
+                  <span>Round Off</span>
+                  <span>{roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-100">
@@ -671,10 +691,16 @@ export function InvoiceTemplate({
                     <span className="font-mono">{formatCurrency(shippingCharges)}</span>
                   </div>
                 )}
-                {adjustment !== 0 && (
+                {packagingCharges > 0 && (
                   <div className="flex justify-between text-slate-500 italic">
-                    <span>Adjustment</span>
-                    <span className="font-mono">{adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}</span>
+                    <span>Packaging</span>
+                    <span className="font-mono">{formatCurrency(packagingCharges)}</span>
+                  </div>
+                )}
+                {roundOff !== 0 && (
+                  <div className="flex justify-between text-slate-500 italic">
+                    <span>Round Off</span>
+                    <span className="font-mono">{roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100">

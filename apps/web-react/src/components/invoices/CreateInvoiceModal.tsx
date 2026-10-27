@@ -121,6 +121,9 @@ export function CreateInvoiceModal({
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [taxPercent, setTaxPercent] = useState<number>(18);
   const [shippingCharges, setShippingCharges] = useState<number>(0);
+  const [packagingCharges, setPackagingCharges] = useState<number>(0);
+  const [autoRoundOff, setAutoRoundOff] = useState<boolean>(true);
+  const [roundOff, setRoundOff] = useState<number>(0);
   const [adjustment, setAdjustment] = useState<number>(0);
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
 
@@ -185,7 +188,9 @@ export function CreateInvoiceModal({
         setDiscountValue(Number(invoiceToEdit.discountValue) || 0);
         setTaxPercent(Number(invoiceToEdit.taxPercent) || 0);
         setShippingCharges(Number(invoiceToEdit.shippingCharges) || 0);
-        setAdjustment(Number(invoiceToEdit.adjustment) || 0);
+        setPackagingCharges(Number((invoiceToEdit as any).packagingCharges || (invoiceToEdit as any).packaging_charges) || 0);
+        setRoundOff(Number((invoiceToEdit as any).roundOff ?? invoiceToEdit.adjustment) || 0);
+        setAdjustment(Number((invoiceToEdit as any).roundOff ?? invoiceToEdit.adjustment) || 0);
         setCustomFields(invoiceToEdit.customFields || invoiceToEdit.custom_fields || {});
 
         if (Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0) {
@@ -266,9 +271,12 @@ export function CreateInvoiceModal({
       discountValue,
       taxPercent,
       shippingCharges,
+      packagingCharges,
+      roundOff,
+      autoRoundOff,
       adjustment,
     });
-  }, [items, manualAmount, discountType, discountValue, taxPercent, shippingCharges, adjustment]);
+  }, [items, manualAmount, discountType, discountValue, taxPercent, shippingCharges, packagingCharges, roundOff, autoRoundOff, adjustment]);
 
   const {
     subtotal,
@@ -368,7 +376,9 @@ export function CreateInvoiceModal({
       discountValue: Number(discountValue) || 0,
       discountAmount,
       shippingCharges: Number(shippingCharges) || 0,
-      adjustment: Number(adjustment) || 0,
+      packagingCharges: Number(packagingCharges) || 0,
+      roundOff: totals.roundOff,
+      adjustment: totals.roundOff,
       date,
       dueDate,
       status,
@@ -887,12 +897,37 @@ export function CreateInvoiceModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Adjustment ({currencySymbol})</Label>
+                    <Label className="text-xs font-medium">Packaging Charges ({currencySymbol})</Label>
                     <Input
                       type="number"
-                      value={adjustment}
-                      onChange={(e) => setAdjustment(Number(e.target.value) || 0)}
+                      value={packagingCharges}
+                      onChange={(e) => setPackagingCharges(Number(e.target.value) || 0)}
                       placeholder="0"
+                      className="text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Round Off ({currencySymbol})</Label>
+                      <button
+                        type="button"
+                        onClick={() => setAutoRoundOff((prev) => !prev)}
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer ${
+                          autoRoundOff
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Auto {autoRoundOff ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={autoRoundOff ? totals.roundOff : roundOff}
+                      disabled={autoRoundOff}
+                      onChange={(e) => setRoundOff(Number(e.target.value) || 0)}
+                      placeholder="0.00"
                       className="text-xs font-mono"
                     />
                   </div>
@@ -946,12 +981,21 @@ export function CreateInvoiceModal({
               </div>
             )}
 
-            {Number(adjustment) !== 0 && (
+            {Number(packagingCharges) > 0 && (
               <div className="flex items-center justify-between font-medium text-muted-foreground">
-                <span>Adjustment</span>
+                <span>Packaging Charges</span>
                 <span className="font-mono text-foreground font-semibold">
-                  {Number(adjustment) > 0 ? "+" : ""}
-                  {formatCurrency(Number(adjustment), currencyCode)}
+                  +{formatCurrency(Number(packagingCharges), currencyCode)}
+                </span>
+              </div>
+            )}
+
+            {totals.roundOff !== 0 && (
+              <div className="flex items-center justify-between font-medium text-muted-foreground">
+                <span>Round Off</span>
+                <span className="font-mono text-foreground font-semibold">
+                  {totals.roundOff > 0 ? "+" : ""}
+                  {formatCurrency(totals.roundOff, currencyCode)}
                 </span>
               </div>
             )}

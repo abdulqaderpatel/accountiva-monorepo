@@ -29,6 +29,10 @@ interface Invoice {
   discountType?: string;
   discountValue?: number;
   discountAmount?: number;
+  shippingCharges?: number;
+  packagingCharges?: number;
+  adjustment?: number;
+  roundOff?: number;
   customFields?: Array<{
     name: string;
     value: any;
@@ -129,11 +133,23 @@ const discount = computed(() => {
   return 0;
 });
 
+const shipping = computed(() => {
+  return Number((props.invoice as any).shippingCharges || (props.invoice as any).shipping_charges) || 0;
+});
+
+const packaging = computed(() => {
+  return Number((props.invoice as any).packagingCharges || (props.invoice as any).packaging_charges) || 0;
+});
+
+const roundOff = computed(() => {
+  return Number((props.invoice as any).roundOff || (props.invoice as any).adjustment) || 0;
+});
+
 const total = computed(() => {
   if (props.invoice.amount !== undefined && props.invoice.amount !== null && Number(props.invoice.amount) > 0) {
     return Number(props.invoice.amount);
   }
-  return subtotal.value + tax.value;
+  return subtotal.value - discount.value + tax.value + shipping.value + packaging.value + roundOff.value;
 });
 const documentLogoUrl = computed(() =>
   props.organization?.large_logo_url || props.organization?.logo_url,
@@ -235,6 +251,18 @@ const printableCustomFields = computed(() => {
           <div v-if="settings.showTax" class="flex justify-between text-xs">
             <span class="text-slate-400 font-bold uppercase tracking-wider">GST (18%)</span>
             <span class="text-slate-700 font-bold">{{ formatCurrency(tax) }}</span>
+          </div>
+          <div v-if="shipping > 0" class="flex justify-between text-xs">
+            <span class="text-slate-400 font-bold uppercase tracking-wider">Shipping</span>
+            <span class="text-slate-700 font-bold font-mono">{{ formatCurrency(shipping) }}</span>
+          </div>
+          <div v-if="packaging > 0" class="flex justify-between text-xs">
+            <span class="text-slate-400 font-bold uppercase tracking-wider">Packaging</span>
+            <span class="text-slate-700 font-bold font-mono">{{ formatCurrency(packaging) }}</span>
+          </div>
+          <div v-if="roundOff !== 0" class="flex justify-between text-xs">
+            <span class="text-slate-400 font-bold uppercase tracking-wider">Round Off</span>
+            <span class="text-slate-700 font-bold font-mono">{{ roundOff > 0 ? '+' : '' }}{{ formatCurrency(roundOff) }}</span>
           </div>
           <div class="h-px bg-slate-100 my-2"></div>
           <div class="flex justify-between items-center">
@@ -396,6 +424,18 @@ const printableCustomFields = computed(() => {
              <span>Tax</span>
              <span>{{ formatCurrency(tax) }}</span>
            </div>
+           <div v-if="shipping > 0" class="flex justify-between opacity-50">
+             <span>Shipping</span>
+             <span>{{ formatCurrency(shipping) }}</span>
+           </div>
+           <div v-if="packaging > 0" class="flex justify-between opacity-50">
+             <span>Packaging</span>
+             <span>{{ formatCurrency(packaging) }}</span>
+           </div>
+           <div v-if="roundOff !== 0" class="flex justify-between opacity-50">
+             <span>Round Off</span>
+             <span>{{ roundOff > 0 ? '+' : '' }}{{ formatCurrency(roundOff) }}</span>
+           </div>
            <div class="flex justify-between font-bold text-sm pt-2 border-t border-gray-50 mt-2">
              <span>Total</span>
              <span>{{ formatCurrency(total) }}</span>
@@ -481,10 +521,23 @@ const printableCustomFields = computed(() => {
                 <span>Discount<template v-if="invoice.discountType === 'percentage' && invoice.discountValue"> ({{ invoice.discountValue }}%)</template></span>
                 <span>- {{ formatCurrency(discount) }}</span>
               </div>
-              <div v-if="settings.showTax" class="flex justify-between text-sm italic text-slate-500 pb-4 border-b border-slate-100">
+              <div v-if="settings.showTax" class="flex justify-between text-sm italic text-slate-500">
                 <span>Tax (GST 18%)</span>
                 <span>{{ formatCurrency(tax) }}</span>
               </div>
+              <div v-if="shipping > 0" class="flex justify-between text-sm italic text-slate-500">
+                <span>Shipping</span>
+                <span class="font-mono">{{ formatCurrency(shipping) }}</span>
+              </div>
+              <div v-if="packaging > 0" class="flex justify-between text-sm italic text-slate-500">
+                <span>Packaging</span>
+                <span class="font-mono">{{ formatCurrency(packaging) }}</span>
+              </div>
+              <div v-if="roundOff !== 0" class="flex justify-between text-sm italic text-slate-500">
+                <span>Round Off</span>
+                <span class="font-mono">{{ roundOff > 0 ? '+' : '' }}{{ formatCurrency(roundOff) }}</span>
+              </div>
+              <div class="border-b border-slate-100 pb-2"></div>
               <div class="flex justify-between items-center pt-2">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grand Total</span>
                 <span class="text-4xl font-black text-slate-900">{{ formatCurrency(total) }}</span>

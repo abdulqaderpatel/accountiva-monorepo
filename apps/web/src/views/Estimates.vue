@@ -55,6 +55,7 @@ import AddItemModal from "@/components/AddItemModal.vue";
 import { usePermissions } from "@/composables/usePermissions";
 import { useFormValidation } from "@/composables/useFormValidation";
 import { estimateSchema } from "@/utils/validationSchemas";
+import { calculateDocumentTotals } from "@accountiva/shared";
 import Modal from "@/components/Modal.vue";
 import CustomFieldRenderer from "@/components/ui/CustomFieldRenderer.vue";
 import StickyPageHeader from "@/components/ui/StickyPageHeader.vue";
@@ -146,6 +147,7 @@ const displayedEstimates = computed(() => {
 
 const showAdvanced = ref(false);
 const showTaxesDiscounts = ref(false);
+const autoRoundOff = ref(true);
 
 const newEstimate = ref<Omit<Estimate, "id">>({
   estimateNumber: '',
@@ -165,7 +167,9 @@ const newEstimate = ref<Omit<Estimate, "id">>({
   discountValue: 0,
   discountAmount: 0,
   shippingCharges: 0,
+  packagingCharges: 0,
   adjustment: 0,
+  roundOff: 0,
   notes: "",
   termsConditions: "",
   taxPercent: 0,
@@ -237,7 +241,9 @@ const startEditEstimate = async (estimate: Estimate) => {
     discountValue: source.discountValue || 0,
     discountAmount: source.discountAmount || 0,
     shippingCharges: source.shippingCharges || 0,
-    adjustment: source.adjustment || 0,
+    packagingCharges: (source as any).packagingCharges ?? (source as any).packaging_charges ?? 0,
+    adjustment: (source as any).roundOff ?? source.adjustment ?? 0,
+    roundOff: (source as any).roundOff ?? source.adjustment ?? 0,
     notes: source.notes || "",
     termsConditions: source.termsConditions || "",
     taxPercent: source.taxPercent || 0,
@@ -275,7 +281,9 @@ const startEditEstimate = async (estimate: Estimate) => {
       discountValue: details.discountValue || 0,
       discountAmount: details.discountAmount || 0,
       shippingCharges: details.shippingCharges || 0,
-      adjustment: details.adjustment || 0,
+      packagingCharges: (details as any).packagingCharges ?? (details as any).packaging_charges ?? 0,
+      adjustment: (details as any).roundOff ?? details.adjustment ?? 0,
+      roundOff: (details as any).roundOff ?? details.adjustment ?? 0,
       notes: details.notes || "",
       termsConditions: details.termsConditions || "",
       taxPercent: details.taxPercent || 0,
@@ -313,7 +321,9 @@ const resetEstimateForm = () => {
     discountValue: 0,
     discountAmount: 0,
     shippingCharges: 0,
+    packagingCharges: 0,
     adjustment: 0,
+    roundOff: 0,
     notes: "",
     termsConditions: "",
     taxPercent: 0,
@@ -387,27 +397,22 @@ const updateEstimateItemRate = (index: number, rate: number) => {
 
 const recalculateEstimateTotalAmount = () => {
   if (!newEstimate.value.items) return;
-  const subtotal = newEstimate.value.items.reduce((sum, item) => sum + item.amount, 0);
+  const totals = calculateDocumentTotals({
+    items: newEstimate.value.items,
+    discountType: newEstimate.value.discountType,
+    discountValue: newEstimate.value.discountValue,
+    taxPercent: newEstimate.value.taxPercent,
+    shippingCharges: newEstimate.value.shippingCharges,
+    packagingCharges: newEstimate.value.packagingCharges,
+    roundOff: newEstimate.value.adjustment,
+    autoRoundOff: autoRoundOff.value,
+  });
 
-  // Calculate discount
-  let discount = 0;
-  if (newEstimate.value.discountType === 'Percentage') {
-    discount = subtotal * ((newEstimate.value.discountValue || 0) / 100);
-  } else if (newEstimate.value.discountType === 'Flat') {
-    discount = newEstimate.value.discountValue || 0;
-  }
-  newEstimate.value.discountAmount = discount;
-
-  // Calculate tax (on subtotal after discount)
-  const taxableAmount = Math.max(0, subtotal - discount);
-  const tax = taxableAmount * ((newEstimate.value.taxPercent || 0) / 100);
-  newEstimate.value.taxAmount = tax;
-
-  // Calculate total
-  const shipping = Number(newEstimate.value.shippingCharges) || 0;
-  const adj = Number(newEstimate.value.adjustment) || 0;
-
-  newEstimate.value.amount = Number((taxableAmount + tax + shipping + adj).toFixed(2));
+  newEstimate.value.discountAmount = totals.discountAmount;
+  newEstimate.value.taxAmount = totals.taxAmount;
+  newEstimate.value.adjustment = totals.roundOff;
+  newEstimate.value.roundOff = totals.roundOff;
+  newEstimate.value.amount = totals.total;
 };
 
 watch(
@@ -416,7 +421,9 @@ watch(
     newEstimate.value.discountValue,
     newEstimate.value.taxPercent,
     newEstimate.value.shippingCharges,
-    newEstimate.value.adjustment
+    newEstimate.value.packagingCharges,
+    newEstimate.value.adjustment,
+    autoRoundOff.value,
   ],
   () => {
     recalculateEstimateTotalAmount();
@@ -1322,16 +1329,53 @@ onUnmounted(() => {
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
-              <Label class="text-xs font-medium">{{ t('modals.estimates.fields.adjustment') }}</Label>
-              <Input type="number" v-model.number="newEstimate.adjustment" placeholder="0" />
+              <Label class="text-xs font-medium">Packaging Charges</Label>
+              <Input type="number" v-model.number="newEstimate.packagingCharges" placeholder="0" />
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <Label class="text-xs font-medium">Round Off</Label>
+                <button
+                  type="button"
+                  @click="autoRoundOff = !autoRoundOff"
+                  :class="[
+                    'text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer',
+                    autoRoundOff
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  ]"
+                >
+                  Auto {{ autoRoundOff ? 'ON' : 'OFF' }}
+                </button>
+              </div>
+              <Input
+                type="number"
+                step="0.01"
+                v-model.number="newEstimate.adjustment"
+                :disabled="autoRoundOff"
+                placeholder="0.00"
+              />
             </div>
           </div>
-          <div class="flex flex-col items-end pt-1 pr-1 space-y-1 text-right text-xs">
+          <div class="flex flex-col items-end pt-2 pr-1 space-y-1 text-right text-xs">
+            <p v-if="newEstimate.discountAmount > 0" class="text-emerald-600 font-medium">
+              {{ t('modals.estimates.fields.calculatedDiscount') }} <span class="font-mono font-semibold">-{{ currencySymbol }}{{ Number(newEstimate.discountAmount || 0).toFixed(2) }}</span>
+            </p>
             <p class="text-muted-foreground">
               {{ t('modals.estimates.fields.calculatedTax') }} <span class="font-mono text-foreground font-semibold">{{ currencySymbol }}{{ Number(newEstimate.taxAmount || 0).toFixed(2) }}</span>
             </p>
-            <p class="text-muted-foreground">
-              {{ t('modals.estimates.fields.calculatedDiscount') }} <span class="font-mono text-foreground font-semibold">{{ currencySymbol }}{{ Number(newEstimate.discountAmount || 0).toFixed(2) }}</span>
+            <p v-if="Number(newEstimate.shippingCharges) > 0" class="text-muted-foreground">
+              Shipping: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newEstimate.shippingCharges || 0).toFixed(2) }}</span>
+            </p>
+            <p v-if="Number(newEstimate.packagingCharges) > 0" class="text-muted-foreground">
+              Packaging: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newEstimate.packagingCharges || 0).toFixed(2) }}</span>
+            </p>
+            <p v-if="Number(newEstimate.adjustment) !== 0" class="text-muted-foreground">
+              Round Off: <span class="font-mono text-foreground font-semibold">{{ Number(newEstimate.adjustment) > 0 ? '+' : '' }}{{ currencySymbol }}{{ Number(newEstimate.adjustment || 0).toFixed(2) }}</span>
+            </p>
+            <div class="h-px w-36 bg-border my-1"></div>
+            <p class="text-sm font-bold text-foreground">
+              Total Amount: <span class="font-mono">{{ currencySymbol }}{{ Number(newEstimate.amount || 0).toFixed(2) }}</span>
             </p>
           </div>
         </div>

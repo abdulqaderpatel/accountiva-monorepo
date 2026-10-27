@@ -8,6 +8,8 @@ import {
   Modal,
   FlatList,
   StyleSheet,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import {
   SlidersHorizontal,
@@ -51,6 +53,7 @@ export interface CustomFieldRendererProps {
   readonly?: boolean;
   title?: string;
   showTitle?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function CustomFieldRenderer({
@@ -61,6 +64,7 @@ export function CustomFieldRenderer({
   readonly = false,
   title = 'Custom Fields',
   showTitle = true,
+  style,
 }: CustomFieldRendererProps) {
   const { colors } = useTheme();
   const [allFields, setAllFields] = useState<MobileCustomField[]>([]);
@@ -123,9 +127,9 @@ export function CustomFieldRenderer({
     onChange?.(next);
   };
 
-  // 1. Loading State: Render Skeleton loader for smooth UX without jarring layout jump
+  // 1. Loading State: Render Skeleton loader matching card layout without jarring jumps
   if (loading) {
-    return <SkeletonCustomFields count={2} />;
+    return <SkeletonCustomFields count={2} showHeader={showTitle} style={style as any} />;
   }
 
   // If no fields apply to this entity, return null
@@ -133,9 +137,15 @@ export function CustomFieldRenderer({
     return null;
   }
 
-  // 2. Non-load State: Clean, responsive, and mobile-native UI
+  // 2. Non-load State: Clean, responsive, and mobile-native UI matching card style
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.cardContainer,
+        { backgroundColor: colors.card, borderColor: colors.border },
+        style,
+      ]}
+    >
       {showTitle && (
         <View style={[styles.headerRow, { borderBottomColor: colors.border }]}>
           <View style={styles.titleWrap}>
@@ -440,8 +450,11 @@ export function CustomFieldRenderer({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 10,
+  cardContainer: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   headerRow: {
     flexDirection: 'row',
@@ -507,7 +520,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: fonts.regular,
-    paddingVertical: 10,
+    height: 42,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   dateInputWrap: {
     flexDirection: 'row',
@@ -521,6 +537,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: fonts.regular,
+    height: 42,
+    paddingVertical: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   todayChip: {
     paddingHorizontal: 8,

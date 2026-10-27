@@ -29,7 +29,9 @@ export interface Invoice {
   discountValue?: number;
   discountAmount?: number;
   shippingCharges?: number;
+  packagingCharges?: number;
   adjustment?: number;
+  roundOff?: number;
   notes?: string;
   termsConditions?: string;
   taxPercent?: number;

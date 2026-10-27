@@ -16,7 +16,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { formatCurrency, formatDate } from "@accountiva/shared";
+import { formatCurrency, formatDate, getDocumentSummaryDetails } from "@accountiva/shared";
 import { toast } from "sonner";
 import { InvoiceTemplate, TemplateId } from "@/components/invoices/InvoiceTemplate";
 import { cn } from "@/lib/utils";
@@ -116,9 +116,7 @@ export function PublicInvoiceView() {
     );
   }
 
-  const rawAmount = Number(invoice.amount) || 0;
-  const rawSubtotal = Number(invoice.subtotal) || rawAmount * 0.847;
-  const rawTax = Number(invoice.taxAmount) || rawAmount - rawSubtotal;
+  const summary = getDocumentSummaryDetails(invoice);
   const isPaid = String(invoice.status || "").toUpperCase() === "PAID";
   const isOverdue =
     invoice.dueDate &&
@@ -182,7 +180,7 @@ export function PublicInvoiceView() {
             {!isPaid && (
               <Button size="sm" onClick={handleSimulatePayment} disabled={isPaying} className="gap-1.5 text-xs font-bold shadow-xs">
                 <CreditCard className="size-3.5" />
-                <span>{isPaying ? "Processing..." : `Pay ${formatCurrency(rawAmount)}`}</span>
+                <span>{isPaying ? "Processing..." : `Pay ${formatCurrency(summary.total)}`}</span>
               </Button>
             )}
           </div>

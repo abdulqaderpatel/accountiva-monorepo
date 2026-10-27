@@ -89,24 +89,37 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     ? apiEstimates.data
     : [];
 
-  const estimates: EstimateRecord[] = rawList.map((item: any) => ({
-    ...item,
-    id: item.id,
-    customer:
-      typeof item.customer === 'string'
-        ? item.customer
-        : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
-    number: item.estimateNumber || item.number || 'EST-000',
-    date: item.date || item.estimateDate || 'Recent',
-    amount: Number(item.amount) || 0,
-    subtotal: Number(item.subtotal) || (Array.isArray(item.items)
-      ? item.items.reduce((sum: number, line: any) => sum + Number(line.amount || 0), 0)
-      : 0),
-    taxAmount: Number(item.taxAmount) || 0,
-    status: item.status || 'Draft',
-    variant: getStatusVariant(item.status || 'Draft'),
-    items: item.items || [],
-  }));
+  const estimates: EstimateRecord[] = rawList.map((item: any) => {
+    const items = Array.isArray(item.items) ? item.items : [];
+    const itemsSubtotal = items.reduce(
+      (sum: number, line: any) =>
+        sum + Number(line.amount ?? (Number(line.quantity || 1) * Number(line.rate || 0)) ?? 0),
+      0
+    );
+
+    return {
+      ...item,
+      id: item.id,
+      customer:
+        typeof item.customer === 'string'
+          ? item.customer
+          : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
+      number: item.estimateNumber || item.number || 'EST-000',
+      date: item.date || item.estimateDate || 'Recent',
+      amount: Number(item.amount) || 0,
+      subtotal: items.length > 0 ? itemsSubtotal : Number(item.subtotal) || Number(item.amount) || 0,
+      taxPercent: Number(item.taxPercent ?? item.tax_percent ?? 0),
+      taxAmount: Number(item.taxAmount ?? item.tax_amount ?? 0),
+      discountType: item.discountType ?? item.discount_type,
+      discountValue: Number(item.discountValue ?? item.discount_value ?? 0),
+      discountAmount: Number(item.discountAmount ?? item.discount_amount ?? 0),
+      shippingCharges: Number(item.shippingCharges ?? item.shipping_charges ?? 0),
+      adjustment: Number(item.adjustment ?? 0),
+      status: item.status || 'Draft',
+      variant: getStatusVariant(item.status || 'Draft'),
+      items,
+    };
+  });
 
   const filteredEstimates = estimates.filter((est) => {
     const matchesSearch =

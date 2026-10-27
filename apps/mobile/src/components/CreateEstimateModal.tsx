@@ -27,6 +27,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from './ui/Card';
 import {
+  calculateDocumentTotals,
   formatCurrency,
   isDuplicateDocumentNumberError,
   type EstimateStatus,
@@ -114,6 +115,7 @@ export function CreateEstimateModal({
   const [items, setItems] = useState<EstimateLineItem[]>([]);
   const [discountValue, setDiscountValue] = useState('');
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [taxPercent, setTaxPercent] = useState('18');
   const [shippingCharges, setShippingCharges] = useState('');
   const [adjustment, setAdjustment] = useState('');
   const [notes, setNotes] = useState('');
@@ -164,6 +166,7 @@ export function CreateEstimateModal({
       setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
       setDiscountValue(initialEstimate.discountValue != null ? String(initialEstimate.discountValue) : '');
       setDiscountType(initialEstimate.discountType === 'fixed' ? 'fixed' : 'percentage');
+      setTaxPercent(initialEstimate.taxPercent != null ? String(initialEstimate.taxPercent) : '18');
       setShippingCharges(initialEstimate.shippingCharges != null ? String(initialEstimate.shippingCharges) : '');
       setAdjustment(initialEstimate.adjustment != null ? String(initialEstimate.adjustment) : '');
       setNotes(initialEstimate.notes || '');
@@ -219,6 +222,7 @@ export function CreateEstimateModal({
       setExpiryDate(formatDateToISO(d));
       setDiscountValue('');
       setDiscountType('percentage');
+      setTaxPercent('18');
       setShippingCharges('');
       setAdjustment('');
       setNotes('');
@@ -236,24 +240,16 @@ export function CreateEstimateModal({
   }, [initialEstimate, visible, loadNextEstimateNumber]);
 
   // Calculations
-  const subtotal = useMemo(() => {
-    return items.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
-  }, [items]);
-
-  const discountAmount = useMemo(() => {
-    const val = Number(discountValue) || 0;
-    if (val <= 0) return 0;
-    if (discountType === 'percentage') {
-      return (subtotal * val) / 100;
-    }
-    return Math.min(val, subtotal);
-  }, [subtotal, discountValue, discountType]);
-
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const tax = taxableAmount * 0.18;
-  const shipping = Number(shippingCharges) || 0;
-  const adj = Number(adjustment) || 0;
-  const grandTotal = Math.max(0, taxableAmount + tax + shipping + adj);
+  const totals = useMemo(() => {
+    return calculateDocumentTotals({
+      items,
+      discountType,
+      discountValue,
+      taxPercent,
+      shippingCharges,
+      adjustment,
+    });
+  }, [items, discountType, discountValue, taxPercent, shippingCharges, adjustment]);
 
   const applyValidityDays = (days: number) => {
     const d = new Date(date || new Date());
@@ -401,7 +397,7 @@ export function CreateEstimateModal({
         discountValue,
         shippingCharges,
         adjustment,
-        taxPercent: 18,
+        taxPercent,
         notes,
         termsConditions,
         customFields,
@@ -780,7 +776,7 @@ export function CreateEstimateModal({
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                {formatCurrency(subtotal, currency)}
+                {formatCurrency(totals.subtotal, currency)}
               </Text>
             </View>
 
@@ -836,19 +832,44 @@ export function CreateEstimateModal({
                     { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
                   ]}
                 />
-                {discountAmount > 0 ? (
+                {totals.discountAmount > 0 ? (
                   <Text style={[styles.summaryDiscountSub, { color: colors.success }]}>
-                    -{formatCurrency(discountAmount, currency)}
+                    -{formatCurrency(totals.discountAmount, currency)}
                   </Text>
                 ) : null}
               </View>
             </View>
 
-            <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
-              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                {formatCurrency(tax, currency)}
+            {totals.discountAmount > 0 ? (
+              <View style={styles.summaryRow}>
+                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Taxable Amount</Text>
+                <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                  {formatCurrency(totals.taxableAmount, currency)}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* GST / Tax Row */}
+            <View style={styles.summaryInputRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+                GST ({totals.taxPercent}%)
               </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TextInput
+                  value={taxPercent}
+                  onChangeText={setTaxPercent}
+                  keyboardType="decimal-pad"
+                  placeholder="18"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[
+                    styles.summarySmallInput,
+                    { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground, width: 55 },
+                  ]}
+                />
+                <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                  {formatCurrency(totals.taxAmount, currency)}
+                </Text>
+              </View>
             </View>
 
             {/* Shipping Charges */}
@@ -888,7 +909,7 @@ export function CreateEstimateModal({
             <View style={styles.summaryRow}>
               <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Estimated Total</Text>
               <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
-                {formatCurrency(grandTotal, currency)}
+                {formatCurrency(totals.total, currency)}
               </Text>
             </View>
           </Card>

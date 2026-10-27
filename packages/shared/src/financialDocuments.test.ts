@@ -5,8 +5,10 @@ import {
   ESTIMATE_STATUSES,
   INVOICE_STATUSES,
   buildInvoiceFromEstimate,
+  calculateDocumentTotals,
   calculateFinancialDocumentSubtotal,
   calculateInvoiceOutstandingAmount,
+  getDocumentSummaryDetails,
   isDuplicateDocumentNumberError,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
@@ -214,5 +216,106 @@ describe("isDuplicateDocumentNumberError", () => {
   it("does not treat other responses as number conflicts", () => {
     expect(isDuplicateDocumentNumberError({ response: { status: 400 } })).toBe(false);
     expect(isDuplicateDocumentNumberError(new Error("network unavailable"))).toBe(false);
+  });
+});
+
+describe("calculateDocumentTotals", () => {
+  it("calculates subtotal, percentage discount, GST, shipping, adjustment, and total per standard accounting principles", () => {
+    const result = calculateDocumentTotals({
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discountType: "percentage",
+      discountValue: 10,
+      taxPercent: 18,
+      shippingCharges: 1500,
+      adjustment: -250,
+    });
+
+    // Subtotal = 119,000 + 6,000 = 125,000
+    expect(result.subtotal).toBe(125000);
+    // Discount = 10% of 125,000 = 12,500
+    expect(result.discountAmount).toBe(12500);
+    // Taxable = 125,000 - 12,500 = 112,500
+    expect(result.taxableAmount).toBe(112500);
+    // GST (18%) = 112,500 * 0.18 = 20,250
+    expect(result.taxAmount).toBe(20250);
+    expect(result.shippingCharges).toBe(1500);
+    expect(result.adjustment).toBe(-250);
+    // Total = 112,500 + 20,250 + 1,500 - 250 = 134,000
+    expect(result.total).toBe(134000);
+  });
+
+  it("calculates fixed discount capped at subtotal", () => {
+    const result = calculateDocumentTotals({
+      items: [{ quantity: 2, rate: 500, amount: 1000 }],
+      discountType: "fixed",
+      discountValue: 200,
+      taxPercent: 18,
+      shippingCharges: 50,
+    });
+
+    expect(result.subtotal).toBe(1000);
+    expect(result.discountAmount).toBe(200);
+    expect(result.taxableAmount).toBe(800);
+    expect(result.taxAmount).toBe(144);
+    expect(result.total).toBe(994);
+  });
+
+  it("caps fixed discount to subtotal if discount exceeds subtotal", () => {
+    const result = calculateDocumentTotals({
+      items: [{ quantity: 1, rate: 100, amount: 100 }],
+      discountType: "fixed",
+      discountValue: 250,
+      taxPercent: 18,
+    });
+
+    expect(result.subtotal).toBe(100);
+    expect(result.discountAmount).toBe(100);
+    expect(result.taxableAmount).toBe(0);
+    expect(result.taxAmount).toBe(0);
+    expect(result.total).toBe(0);
+  });
+
+  it("handles documents without line items using manualAmount", () => {
+    const result = calculateDocumentTotals({
+      items: [],
+      manualAmount: 5000,
+      discountType: "fixed",
+      discountValue: 500,
+      taxPercent: 18,
+      shippingCharges: 100,
+    });
+
+    expect(result.subtotal).toBe(5000);
+    expect(result.discountAmount).toBe(500);
+    expect(result.taxableAmount).toBe(4500);
+    expect(result.taxAmount).toBe(810);
+    expect(result.total).toBe(5410);
+  });
+});
+
+describe("getDocumentSummaryDetails", () => {
+  it("normalizes both snake_case and camelCase fields from backend", () => {
+    const doc = {
+      estimate_items: [
+        { name: "Item A", quantity: "2", rate: "1000", amount: "2000" },
+      ],
+      discount_type: "percentage",
+      discount_value: "5",
+      tax_percent: "18",
+      shipping_charges: "120",
+      adjustment: "-10",
+    };
+
+    const summary = getDocumentSummaryDetails(doc);
+    expect(summary.subtotal).toBe(2000);
+    expect(summary.discountAmount).toBe(100);
+    expect(summary.taxableAmount).toBe(1900);
+    expect(summary.taxAmount).toBe(342);
+    expect(summary.shippingCharges).toBe(120);
+    expect(summary.adjustment).toBe(-10);
+    expect(summary.total).toBe(2352);
   });
 });

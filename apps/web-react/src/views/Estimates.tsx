@@ -17,6 +17,7 @@ import {
   Check,
   Send,
   Mail,
+  Eye,
   Bookmark as BookmarkIcon,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -60,6 +61,7 @@ import {
   useUpdateEstimateStatus,
 } from "@accountiva/api";
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
+import { EstimatePreviewModal } from "@/components/estimates/EstimatePreviewModal";
 import { SendEstimateModal } from "@/components/estimates/SendEstimateModal";
 import { useBookmarks } from "@/context/BookmarkContext";
 import { useAuth } from "@/context/AuthContext";
@@ -104,6 +106,7 @@ export function Estimates() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingEstimate, setEditingEstimate] = useState<EstimateRecord | null>(null);
+  const [selectedEstimate, setSelectedEstimate] = useState<EstimateRecord | null>(null);
   const [sendingEstimate, setSendingEstimate] = useState<EstimateRecord | null>(null);
 
   // Bulk selection state
@@ -132,6 +135,7 @@ export function Estimates() {
   // Reset page-level state and selections when workspace changes
   React.useEffect(() => {
     setSelectedIds(new Set());
+    setSelectedEstimate(null);
     setEditingEstimate(null);
     setIsCreateOpen(false);
     setPage(1);
@@ -664,6 +668,7 @@ export function Estimates() {
                     <TableRow
                       key={est.id}
                       data-state={isRowSelected ? "selected" : undefined}
+                      onClick={() => setSelectedEstimate(est)}
                       className={`hover:bg-muted/40 transition-colors group cursor-pointer ${
                         isRowSelected ? "bg-primary/5" : ""
                       }`}
@@ -745,6 +750,14 @@ export function Estimates() {
                                   }`}
                                 />
                                 {isBookmarked("estimate", est.id) ? "Remove Bookmark" : "Bookmark Estimate"}
+                              </DropdownMenuItem>
+
+                              <DropdownMenuItem
+                                onClick={() => setSelectedEstimate(est)}
+                                className="cursor-pointer gap-2 text-xs font-medium"
+                              >
+                                <Eye className="size-3.5 text-muted-foreground" />
+                                Preview Estimate
                               </DropdownMenuItem>
 
                               <DropdownMenuItem
@@ -867,6 +880,14 @@ export function Estimates() {
           setIsCreateOpen(false);
           setEditingEstimate(null);
         }}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Estimate Multi-Template Preview Modal */}
+      <EstimatePreviewModal
+        open={Boolean(selectedEstimate)}
+        estimate={selectedEstimate}
+        onClose={() => setSelectedEstimate(null)}
         onSuccess={() => refetch()}
       />
 

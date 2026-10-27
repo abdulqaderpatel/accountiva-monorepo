@@ -1,4 +1,5 @@
 import {
+  calculateDocumentTotals,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
   type CreditNotePayload,
@@ -110,25 +111,16 @@ export function buildMobileInvoicePayload(values: MobileInvoiceFormValues): Invo
   const dateError = validateFinancialDocumentDates(values.date, values.dueDate, "Due date");
   if (dateError) throw new Error(dateError);
 
-  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.amount, 0));
-  const discountValue = Math.max(0, asFiniteNumber(values.discountValue));
-  const discountAmount = roundMoney(
-    values.discountType === "percentage"
-      ? subtotal * (discountValue / 100)
-      : values.discountType === "fixed"
-        ? Math.min(discountValue, subtotal)
-        : 0,
-  );
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxPercent = Math.max(0, asFiniteNumber(values.taxPercent));
-  const taxAmount = roundMoney(taxableAmount * (taxPercent / 100));
-  const shippingCharges = asFiniteNumber(values.shippingCharges);
-  const adjustment = asFiniteNumber(values.adjustment);
-  const amount = roundMoney(
-    Math.max(0, taxableAmount + taxAmount + shippingCharges + adjustment),
-  );
+  const totals = calculateDocumentTotals({
+    items,
+    discountType: values.discountType,
+    discountValue: values.discountValue,
+    taxPercent: values.taxPercent,
+    shippingCharges: values.shippingCharges,
+    adjustment: values.adjustment,
+  });
 
-  if (amount <= 0) throw new Error("Invoice total must be greater than zero.");
+  if (totals.total <= 0) throw new Error("Invoice total must be greater than zero.");
 
   return {
     invoiceNumber,
@@ -137,18 +129,18 @@ export function buildMobileInvoicePayload(values: MobileInvoiceFormValues): Invo
     dueDate: values.dueDate,
     status: values.status,
     items,
-    amount,
+    amount: totals.total,
     referenceNumber: values.referenceNumber?.trim() || undefined,
     billingAddress: values.billingAddress?.trim() || undefined,
     shippingAddress: values.shippingAddress?.trim() || undefined,
     terms: values.terms?.trim() || undefined,
-    discountType: values.discountType || undefined,
-    discountValue,
-    discountAmount,
-    shippingCharges,
-    adjustment,
-    taxPercent,
-    taxAmount,
+    discountType: totals.discountType || undefined,
+    discountValue: totals.discountValue,
+    discountAmount: totals.discountAmount,
+    shippingCharges: totals.shippingCharges,
+    adjustment: totals.adjustment,
+    taxPercent: totals.taxPercent,
+    taxAmount: totals.taxAmount,
     notes: values.notes?.trim() || undefined,
     termsConditions: values.termsConditions?.trim() || undefined,
     customFields: values.customFields,
@@ -178,25 +170,16 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
   const dateError = validateFinancialDocumentDates(values.date, values.expiryDate, "Expiry date");
   if (dateError) throw new Error(dateError);
 
-  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.amount, 0));
-  const discountValue = Math.max(0, asFiniteNumber(values.discountValue));
-  const discountAmount = roundMoney(
-    values.discountType === "percentage"
-      ? subtotal * (discountValue / 100)
-      : values.discountType === "fixed"
-        ? Math.min(discountValue, subtotal)
-        : 0,
-  );
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxPercent = Math.max(0, asFiniteNumber(values.taxPercent));
-  const taxAmount = roundMoney(taxableAmount * (taxPercent / 100));
-  const shippingCharges = asFiniteNumber(values.shippingCharges);
-  const adjustment = asFiniteNumber(values.adjustment);
-  const amount = roundMoney(
-    Math.max(0, taxableAmount + taxAmount + shippingCharges + adjustment),
-  );
+  const totals = calculateDocumentTotals({
+    items,
+    discountType: values.discountType,
+    discountValue: values.discountValue,
+    taxPercent: values.taxPercent,
+    shippingCharges: values.shippingCharges,
+    adjustment: values.adjustment,
+  });
 
-  if (amount <= 0) throw new Error("Estimate total must be greater than zero.");
+  if (totals.total <= 0) throw new Error("Estimate total must be greater than zero.");
 
   return {
     estimateNumber,
@@ -205,18 +188,18 @@ export function buildMobileEstimatePayload(values: MobileEstimateFormValues): Es
     expiryDate: values.expiryDate,
     status: values.status,
     items,
-    amount,
+    amount: totals.total,
     referenceNumber: values.referenceNumber?.trim() || undefined,
     billingAddress: values.billingAddress?.trim() || undefined,
     shippingAddress: values.shippingAddress?.trim() || undefined,
     terms: values.terms?.trim() || undefined,
-    discountType: values.discountType || undefined,
-    discountValue,
-    discountAmount,
-    shippingCharges,
-    adjustment,
-    taxPercent,
-    taxAmount,
+    discountType: totals.discountType || undefined,
+    discountValue: totals.discountValue,
+    discountAmount: totals.discountAmount,
+    shippingCharges: totals.shippingCharges,
+    adjustment: totals.adjustment,
+    taxPercent: totals.taxPercent,
+    taxAmount: totals.taxAmount,
     notes: values.notes?.trim() || undefined,
     termsConditions: values.termsConditions?.trim() || undefined,
     customFields: values.customFields,
@@ -248,22 +231,15 @@ export function buildMobileCreditNotePayload(
   const dateError = validateFinancialDocumentDates(values.date);
   if (dateError) throw new Error(dateError);
 
-  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.amount, 0));
-  const discountValue = Math.max(0, asFiniteNumber(values.discountValue));
-  const discountAmount = roundMoney(
-    values.discountType === "percentage"
-      ? subtotal * (discountValue / 100)
-      : values.discountType === "fixed"
-        ? Math.min(discountValue, subtotal)
-        : 0,
-  );
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxPercent = Math.max(0, asFiniteNumber(values.taxPercent));
-  const taxAmount = roundMoney(taxableAmount * (taxPercent / 100));
-  const adjustment = asFiniteNumber(values.adjustment);
-  const amount = roundMoney(Math.max(0, taxableAmount + taxAmount + adjustment));
+  const totals = calculateDocumentTotals({
+    items,
+    discountType: values.discountType,
+    discountValue: values.discountValue,
+    taxPercent: values.taxPercent,
+    adjustment: values.adjustment,
+  });
 
-  if (amount <= 0) throw new Error("Credit note total must be greater than zero.");
+  if (totals.total <= 0) throw new Error("Credit note total must be greater than zero.");
 
   return {
     creditNoteNumber,
@@ -271,18 +247,18 @@ export function buildMobileCreditNotePayload(
     date: values.date,
     status: values.status,
     items,
-    amount,
-    subtotal,
+    amount: totals.total,
+    subtotal: totals.subtotal,
     referenceNumber: values.referenceNumber?.trim() || undefined,
     referenceInvoiceId: values.referenceInvoiceId?.trim() || undefined,
     billingAddress: values.billingAddress?.trim() || undefined,
     shippingAddress: values.shippingAddress?.trim() || undefined,
-    discountType: values.discountType || undefined,
-    discountValue,
-    discountAmount,
-    adjustment,
-    taxPercent,
-    taxAmount,
+    discountType: totals.discountType || undefined,
+    discountValue: totals.discountValue,
+    discountAmount: totals.discountAmount,
+    adjustment: totals.adjustment,
+    taxPercent: totals.taxPercent,
+    taxAmount: totals.taxAmount,
     notes: values.notes?.trim() || undefined,
     termsConditions: values.termsConditions?.trim() || undefined,
     customFields: values.customFields,

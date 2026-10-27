@@ -19,6 +19,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import {
+  calculateDocumentTotals,
   formatCurrency,
   getCurrencySymbol,
   isDuplicateDocumentNumberError,
@@ -256,28 +257,26 @@ export function CreateInvoiceModal({
     }
   };
 
-  // Calculations
-  const subtotal = useMemo(() => {
-    if (items.length > 0) {
-      return items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-    }
-    return Number(manualAmount) || 0;
-  }, [items, manualAmount]);
+  // Calculations using core accounting engine
+  const totals = useMemo(() => {
+    return calculateDocumentTotals({
+      items,
+      manualAmount,
+      discountType,
+      discountValue,
+      taxPercent,
+      shippingCharges,
+      adjustment,
+    });
+  }, [items, manualAmount, discountType, discountValue, taxPercent, shippingCharges, adjustment]);
 
-  const discountAmount = useMemo(() => {
-    if (!discountType || !discountValue) return 0;
-    if (discountType === "percentage") {
-      return (subtotal * Number(discountValue)) / 100;
-    }
-    return Math.min(Number(discountValue), subtotal);
-  }, [subtotal, discountType, discountValue]);
-
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxAmount = (taxableAmount * Number(taxPercent || 0)) / 100;
-  const grandTotal = Math.max(
-    0,
-    taxableAmount + taxAmount + Number(shippingCharges || 0) + Number(adjustment || 0)
-  );
+  const {
+    subtotal,
+    discountAmount,
+    taxableAmount,
+    taxAmount,
+    total: grandTotal,
+  } = totals;
 
   // Line Item Helpers
   const addItemToInvoice = (catItem: any) => {
@@ -898,23 +897,71 @@ export function CreateInvoiceModal({
                     />
                   </div>
                 </div>
-
-                <div className="flex flex-col items-end pt-2 pr-1 space-y-1 text-right text-xs">
-                  <p className="text-muted-foreground">
-                    Calculated Tax:{" "}
-                    <span className="font-mono text-foreground font-semibold">
-                      {formatCurrency(taxAmount, currencyCode)}
-                    </span>
-                  </p>
-                  <p className="text-muted-foreground">
-                    Calculated Discount:{" "}
-                    <span className="font-mono text-foreground font-semibold">
-                      {formatCurrency(discountAmount, currencyCode)}
-                    </span>
-                  </p>
-                </div>
               </div>
             )}
+          </div>
+
+          {/* Invoice Live Breakdown Card */}
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-4 space-y-2 text-xs">
+            <div className="flex items-center justify-between font-medium text-muted-foreground">
+              <span>Line Items Subtotal</span>
+              <span className="font-mono text-foreground font-semibold">
+                {formatCurrency(subtotal, currencyCode)}
+              </span>
+            </div>
+
+            {Boolean(discountType && discountAmount > 0) && (
+              <div className="flex items-center justify-between font-medium text-emerald-600 dark:text-emerald-400">
+                <span>
+                  Discount {discountType === "percentage" ? `(${discountValue}%)` : "(Fixed)"}
+                </span>
+                <span className="font-mono font-semibold">
+                  -{formatCurrency(discountAmount, currencyCode)}
+                </span>
+              </div>
+            )}
+
+            {Boolean(discountType && discountAmount > 0) && (
+              <div className="flex items-center justify-between font-medium text-muted-foreground">
+                <span>Taxable Base</span>
+                <span className="font-mono text-foreground">
+                  {formatCurrency(taxableAmount, currencyCode)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between font-medium text-muted-foreground">
+              <span>GST / Tax ({taxPercent || 0}%)</span>
+              <span className="font-mono text-foreground font-semibold">
+                {formatCurrency(taxAmount, currencyCode)}
+              </span>
+            </div>
+
+            {Number(shippingCharges) > 0 && (
+              <div className="flex items-center justify-between font-medium text-muted-foreground">
+                <span>Shipping Charges</span>
+                <span className="font-mono text-foreground font-semibold">
+                  +{formatCurrency(Number(shippingCharges), currencyCode)}
+                </span>
+              </div>
+            )}
+
+            {Number(adjustment) !== 0 && (
+              <div className="flex items-center justify-between font-medium text-muted-foreground">
+                <span>Adjustment</span>
+                <span className="font-mono text-foreground font-semibold">
+                  {Number(adjustment) > 0 ? "+" : ""}
+                  {formatCurrency(Number(adjustment), currencyCode)}
+                </span>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-border flex items-center justify-between font-bold text-sm text-foreground">
+              <span>Total Invoice Amount</span>
+              <span className="font-mono text-primary text-base">
+                {formatCurrency(grandTotal, currencyCode)}
+              </span>
+            </div>
           </div>
 
           {/* Section 3: Custom Fields */}

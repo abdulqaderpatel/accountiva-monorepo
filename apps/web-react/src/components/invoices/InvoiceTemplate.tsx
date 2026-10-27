@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { formatCurrency, formatDate } from "@accountiva/shared";
+import { formatCurrency, formatDate, getDocumentSummaryDetails } from "@accountiva/shared";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -82,40 +82,18 @@ export function InvoiceTemplate({
     ];
   }, [invoice]);
 
-  const subtotal = useMemo(() => {
-    if (invoice?.subtotal !== undefined && invoice?.subtotal !== null && Number(invoice.subtotal) > 0) {
-      return Number(invoice.subtotal);
-    }
-    return invoiceItems.reduce((acc: number, item: any) => acc + (Number(item.amount) || 0), 0);
-  }, [invoice, invoiceItems]);
+  const summary = useMemo(() => {
+    return getDocumentSummaryDetails(invoice);
+  }, [invoice]);
 
-  const tax = useMemo(() => {
-    const rawTax = Number(invoice?.taxAmount ?? invoice?.tax_amount);
-    if (!isNaN(rawTax) && rawTax > 0) return rawTax;
-    if (invoice?.taxPercent && Number(invoice.taxPercent) > 0) {
-      return (subtotal * Number(invoice.taxPercent)) / 100;
-    }
-    return 0;
-  }, [invoice, subtotal]);
-
-  const discount = useMemo(() => {
-    const rawDisc = Number(invoice?.discountAmount);
-    if (!isNaN(rawDisc) && rawDisc > 0) return rawDisc;
-    if (invoice?.discountType === "percentage" && invoice?.discountValue) {
-      return (subtotal * Number(invoice.discountValue)) / 100;
-    }
-    if (invoice?.discountType === "fixed" && invoice?.discountValue) {
-      return Number(invoice.discountValue);
-    }
-    return 0;
-  }, [invoice, subtotal]);
-
-  const total = useMemo(() => {
-    if (invoice?.amount !== undefined && invoice?.amount !== null && Number(invoice.amount) > 0) {
-      return Number(invoice.amount);
-    }
-    return subtotal + tax - discount;
-  }, [invoice, subtotal, tax, discount]);
+  const subtotal = summary.subtotal;
+  const discount = summary.discountAmount;
+  const taxableAmount = summary.taxableAmount;
+  const tax = summary.taxAmount;
+  const taxPercent = summary.taxPercent;
+  const shippingCharges = summary.shippingCharges;
+  const adjustment = summary.adjustment;
+  const total = summary.total;
 
   const printableCustomFields = useMemo(() => {
     if (!invoice?.customFields) return [];
@@ -130,6 +108,13 @@ export function InvoiceTemplate({
     }
     return [];
   }, [invoice]);
+
+  const isEstimate = Boolean(invoice?.estimateNumber && !invoice?.invoiceNumber);
+  const docTitle = isEstimate ? "Estimate" : "Invoice";
+  const docNumber = invoice?.estimateNumber || invoice?.invoiceNumber || invoice?.number || "";
+  const docEndDate = invoice?.expiryDate || invoice?.dueDate;
+  const docEndDateLabel = invoice?.expiryDate ? "Expiry Date" : "Due Date";
+  const docEndDateShortLabel = invoice?.expiryDate ? "Expires" : "Due";
 
   const customerName =
     invoice?.customers?.name ||
@@ -182,11 +167,11 @@ export function InvoiceTemplate({
 
             <div className="text-right">
               <h2 className="text-4xl font-light text-slate-300 uppercase tracking-widest mb-3">
-                Invoice
+                {docTitle}
               </h2>
               {settings.showInvoiceNumber && (
                 <p className="text-sm font-bold text-slate-800 font-mono">
-                  #{invoice.invoiceNumber || invoice.number}
+                  #{docNumber}
                 </p>
               )}
               {settings.showDate && invoice.date && (
@@ -214,13 +199,13 @@ export function InvoiceTemplate({
             </div>
 
             <div className="text-right">
-              {settings.showDueDate && invoice.dueDate && (
+              {settings.showDueDate && docEndDate && (
                 <>
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                    Due Date:
+                    {docEndDateLabel}:
                   </h3>
                   <p className="text-sm font-bold text-slate-800">
-                    {formatDate(invoice.dueDate)}
+                    {formatDate(docEndDate)}
                   </p>
                 </>
               )}
@@ -294,14 +279,38 @@ export function InvoiceTemplate({
               )}
               {discount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Discount</span>
-                  <span className="text-slate-700 font-bold font-mono">- {formatCurrency(discount)}</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">
+                    Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}
+                  </span>
+                  <span className="text-emerald-600 font-bold font-mono">- {formatCurrency(discount)}</span>
                 </div>
               )}
-              {settings.showTax && (
+              {discount > 0 && tax > 0 && (
+                <div className="flex justify-between text-slate-400">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Taxable Amount</span>
+                  <span className="font-mono text-slate-600 font-semibold">{formatCurrency(taxableAmount)}</span>
+                </div>
+              )}
+              {settings.showTax && (tax > 0 || taxPercent > 0) && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Tax</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">
+                    GST {taxPercent > 0 ? `(${taxPercent}%)` : ""}
+                  </span>
                   <span className="text-slate-700 font-bold font-mono">{formatCurrency(tax)}</span>
+                </div>
+              )}
+              {shippingCharges > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Shipping</span>
+                  <span className="text-slate-700 font-bold font-mono">{formatCurrency(shippingCharges)}</span>
+                </div>
+              )}
+              {adjustment !== 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">Adjustment</span>
+                  <span className="text-slate-700 font-bold font-mono">
+                    {adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}
+                  </span>
                 </div>
               )}
               <div className="h-px bg-slate-100 my-1.5" />
@@ -337,16 +346,18 @@ export function InvoiceTemplate({
                 </div>
               )}
               <h1 className="text-4xl font-black uppercase tracking-tight opacity-20 mb-1 leading-none">
-                Invoice
+                {docTitle}
               </h1>
               <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest opacity-60">
-                {settings.showInvoiceNumber && <span>#{invoice.invoiceNumber || invoice.number}</span>}
+                {settings.showInvoiceNumber && <span>#{docNumber}</span>}
                 {settings.showDate && invoice.date && <span>Issued: {formatDate(invoice.date)}</span>}
               </div>
             </div>
             <div className="text-right">
               <div className="text-3xl sm:text-4xl font-black mb-1 font-mono">{formatCurrency(total)}</div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.25em] opacity-40">Total Due</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.25em] opacity-40">
+                {isEstimate ? "Estimated Total" : "Total Due"}
+              </div>
             </div>
           </div>
 
@@ -362,10 +373,10 @@ export function InvoiceTemplate({
             </div>
 
             <div className="flex flex-col justify-between py-1 space-y-3">
-              {settings.showDueDate && invoice.dueDate && (
+              {settings.showDueDate && docEndDate && (
                 <div>
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Due Date</h3>
-                  <p className="text-xs font-bold text-slate-900">{formatDate(invoice.dueDate)}</p>
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{docEndDateLabel}</h3>
+                  <p className="text-xs font-bold text-slate-900">{formatDate(docEndDate)}</p>
                 </div>
               )}
               {settings.showOrgAddress && org.address && (
@@ -412,15 +423,49 @@ export function InvoiceTemplate({
             </div>
           </div>
 
-          <div className="p-8 sm:p-10 bg-slate-50 flex justify-between items-center border-t border-slate-100">
+          <div className="p-8 sm:p-10 bg-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 border-t border-slate-100">
             {settings.showFooter && (
               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic max-w-xs">
                 Please remit payment within the specified timeframe.
               </div>
             )}
-            <div className="text-right space-y-1">
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grand Total</div>
-              <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">{formatCurrency(total)}</div>
+            <div className="w-full sm:w-64 space-y-1.5 text-xs ml-auto">
+              {settings.showSubtotal && (
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal</span>
+                  <span className="font-mono font-bold text-slate-800">{formatCurrency(subtotal)}</span>
+                </div>
+              )}
+              {discount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-semibold">
+                  <span>Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}</span>
+                  <span className="font-mono">- {formatCurrency(discount)}</span>
+                </div>
+              )}
+              {settings.showTax && (tax > 0 || taxPercent > 0) && (
+                <div className="flex justify-between text-slate-500">
+                  <span>GST {taxPercent > 0 ? `(${taxPercent}%)` : ""}</span>
+                  <span className="font-mono font-bold text-slate-800">{formatCurrency(tax)}</span>
+                </div>
+              )}
+              {shippingCharges > 0 && (
+                <div className="flex justify-between text-slate-500">
+                  <span>Shipping</span>
+                  <span className="font-mono font-bold text-slate-800">{formatCurrency(shippingCharges)}</span>
+                </div>
+              )}
+              {adjustment !== 0 && (
+                <div className="flex justify-between text-slate-500">
+                  <span>Adjustment</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    {adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}
+                  </span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grand Total</span>
+                <span className="text-2xl font-black text-slate-900 font-mono">{formatCurrency(total)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -437,7 +482,7 @@ export function InvoiceTemplate({
               )}
             </div>
             <div className="text-right">
-              {settings.showInvoiceNumber && <p className="font-bold">INVOICE #{invoice.invoiceNumber || invoice.number}</p>}
+              {settings.showInvoiceNumber && <p className="font-bold">{docTitle.toUpperCase()} #{docNumber}</p>}
               {settings.showDate && invoice.date && <p className="mt-1 opacity-60">{formatDate(invoice.date)}</p>}
             </div>
           </div>
@@ -477,17 +522,35 @@ export function InvoiceTemplate({
           </div>
 
           <div className="border-t border-gray-100 pt-6 flex justify-end">
-            <div className="w-44 space-y-1.5 text-[11px]">
+            <div className="w-56 space-y-1.5 text-[11px]">
               {settings.showSubtotal && (
                 <div className="flex justify-between opacity-60">
                   <span>Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
               )}
-              {settings.showTax && (
+              {discount > 0 && (
+                <div className="flex justify-between text-emerald-600 font-medium">
+                  <span>Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}</span>
+                  <span>- {formatCurrency(discount)}</span>
+                </div>
+              )}
+              {settings.showTax && (tax > 0 || taxPercent > 0) && (
                 <div className="flex justify-between opacity-60">
-                  <span>Tax</span>
+                  <span>Tax {taxPercent > 0 ? `(${taxPercent}%)` : ""}</span>
                   <span>{formatCurrency(tax)}</span>
+                </div>
+              )}
+              {shippingCharges > 0 && (
+                <div className="flex justify-between opacity-60">
+                  <span>Shipping</span>
+                  <span>{formatCurrency(shippingCharges)}</span>
+                </div>
+              )}
+              {adjustment !== 0 && (
+                <div className="flex justify-between opacity-60">
+                  <span>Adjustment</span>
+                  <span>{adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-100">
@@ -520,14 +583,14 @@ export function InvoiceTemplate({
               </div>
               <div className="text-right">
                 <h2 className="text-5xl font-black text-slate-100 uppercase mb-2 leading-none select-none">
-                  Invoice
+                  {docTitle}
                 </h2>
                 <div className="space-y-0.5 text-xs text-slate-600 font-sans">
                   {settings.showInvoiceNumber && (
-                    <p className="font-bold text-slate-900 font-mono">Ref: {invoice.invoiceNumber || invoice.number}</p>
+                    <p className="font-bold text-slate-900 font-mono">Ref: {docNumber}</p>
                   )}
                   {settings.showDate && invoice.date && <p>Date: {formatDate(invoice.date)}</p>}
-                  {settings.showDueDate && invoice.dueDate && <p>Due: {formatDate(invoice.dueDate)}</p>}
+                  {settings.showDueDate && docEndDate && <p>{docEndDateShortLabel}: {formatDate(docEndDate)}</p>}
                 </div>
               </div>
             </div>
@@ -590,10 +653,28 @@ export function InvoiceTemplate({
                     <span className="font-mono">{formatCurrency(subtotal)}</span>
                   </div>
                 )}
-                {settings.showTax && (
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium italic">
+                    <span>Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}</span>
+                    <span className="font-mono">- {formatCurrency(discount)}</span>
+                  </div>
+                )}
+                {settings.showTax && (tax > 0 || taxPercent > 0) && (
                   <div className="flex justify-between text-slate-500 italic">
-                    <span>Tax</span>
+                    <span>Tax {taxPercent > 0 ? `(${taxPercent}%)` : ""}</span>
                     <span className="font-mono">{formatCurrency(tax)}</span>
+                  </div>
+                )}
+                {shippingCharges > 0 && (
+                  <div className="flex justify-between text-slate-500 italic">
+                    <span>Shipping</span>
+                    <span className="font-mono">{formatCurrency(shippingCharges)}</span>
+                  </div>
+                )}
+                {adjustment !== 0 && (
+                  <div className="flex justify-between text-slate-500 italic">
+                    <span>Adjustment</span>
+                    <span className="font-mono">{adjustment > 0 ? "+" : ""}{formatCurrency(adjustment)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100">

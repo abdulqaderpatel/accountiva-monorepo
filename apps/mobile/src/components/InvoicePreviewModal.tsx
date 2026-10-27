@@ -25,7 +25,7 @@ import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { fonts } from '../theme/typography';
-import { formatCurrency, calculateFinancialDocumentSubtotal } from '@accountiva/shared';
+import { formatCurrency, calculateFinancialDocumentSubtotal, getDocumentSummaryDetails } from '@accountiva/shared';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../context/FeedbackContext';
 
@@ -55,17 +55,8 @@ export function InvoicePreviewModal({ visible, invoice, onClose }: InvoicePrevie
 
   if (!visible || !invoice) return null;
 
-  const rawAmount = Number(invoice.amount) || 0;
   const lineItems: any[] = Array.isArray(invoice.items) ? invoice.items : [];
-  const calculatedSubtotal = calculateFinancialDocumentSubtotal(lineItems);
-  const explicitSubtotal = Number(invoice.subtotal);
-  const rawSubtotal =
-    invoice.subtotal !== null &&
-    invoice.subtotal !== undefined &&
-    Number.isFinite(explicitSubtotal)
-      ? explicitSubtotal
-      : calculatedSubtotal;
-  const rawTax = Number(invoice.taxAmount) || Number(invoice.tax_amount) || 0;
+  const summary = getDocumentSummaryDetails(invoice);
   const status = String(invoice.status || 'Draft').toUpperCase();
   const isPaid = status === 'PAID';
 
@@ -97,13 +88,24 @@ export function InvoicePreviewModal({ visible, invoice, onClose }: InvoicePrevie
         )
         .join('\n');
 
-      const fullMessage = `--- INVOICE ${invoiceNum} ---\nOrganization: ${orgName}\nBilled To: ${clientName}\nDate: ${invoiceDate}\nDue Date: ${invoiceDueDate}\nStatus: ${status}\n\nITEMS:\n${itemsSummary}\n\nSubtotal: ${formatCurrency(
-        rawSubtotal,
-        currency
-      )}\nTax: ${formatCurrency(rawTax, currency)}\nTOTAL AMOUNT: ${formatCurrency(
-        rawAmount,
-        currency
-      )}\n\nGenerated via Accountiva™`;
+      const chargesLines: string[] = [
+        `Subtotal: ${formatCurrency(summary.subtotal, currency)}`,
+      ];
+      if (summary.discountAmount > 0) {
+        chargesLines.push(`Discount${summary.discountType === 'percentage' && summary.discountValue ? ` (${summary.discountValue}%)` : ''}: -${formatCurrency(summary.discountAmount, currency)}`);
+      }
+      if (summary.taxAmount > 0 || summary.taxPercent > 0) {
+        chargesLines.push(`Tax (GST ${summary.taxPercent}%): ${formatCurrency(summary.taxAmount, currency)}`);
+      }
+      if (summary.shippingCharges > 0) {
+        chargesLines.push(`Shipping: ${formatCurrency(summary.shippingCharges, currency)}`);
+      }
+      if (summary.adjustment !== 0) {
+        chargesLines.push(`Adjustment: ${summary.adjustment > 0 ? '+' : ''}${formatCurrency(summary.adjustment, currency)}`);
+      }
+      chargesLines.push(`TOTAL AMOUNT: ${formatCurrency(summary.total, currency)}`);
+
+      const fullMessage = `--- INVOICE ${invoiceNum} ---\nOrganization: ${orgName}\nBilled To: ${clientName}\nDate: ${invoiceDate}\nDue Date: ${invoiceDueDate}\nStatus: ${status}\n\nITEMS:\n${itemsSummary}\n\n${chargesLines.join('\n')}\n\nGenerated via Accountiva™`;
 
       await Share.share({
         message: fullMessage,
@@ -284,17 +286,55 @@ export function InvoicePreviewModal({ visible, invoice, onClose }: InvoicePrevie
                   <View style={styles.totalsRow}>
                     <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
                     <Text style={[styles.totalsValue, { color: colors.foreground }]}>
-                      {formatCurrency(rawSubtotal, currency)}
+                      {formatCurrency(summary.subtotal, currency)}
                     </Text>
                   </View>
 
-                  {rawTax > 0 ? (
+                  {summary.discountAmount > 0 ? (
                     <View style={styles.totalsRow}>
                       <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>
-                        Tax {invoice.taxPercent ? `(${invoice.taxPercent}%)` : ''}
+                        Discount{summary.discountType === 'percentage' && summary.discountValue > 0 ? ` (${summary.discountValue}%)` : ''}
+                      </Text>
+                      <Text style={[styles.totalsValue, { color: colors.success }]}>
+                        -{formatCurrency(summary.discountAmount, currency)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {summary.discountAmount > 0 && summary.taxAmount > 0 ? (
+                    <View style={styles.totalsRow}>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Taxable Amount</Text>
+                      <Text style={[styles.totalsValue, { color: colors.foreground }]}>
+                        {formatCurrency(summary.taxableAmount, currency)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {summary.taxAmount > 0 || summary.taxPercent > 0 ? (
+                    <View style={styles.totalsRow}>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>
+                        Tax {summary.taxPercent > 0 ? `(${summary.taxPercent}%)` : ''}
                       </Text>
                       <Text style={[styles.totalsValue, { color: colors.foreground }]}>
-                        {formatCurrency(rawTax, currency)}
+                        {formatCurrency(summary.taxAmount, currency)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {summary.shippingCharges > 0 ? (
+                    <View style={styles.totalsRow}>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Shipping</Text>
+                      <Text style={[styles.totalsValue, { color: colors.foreground }]}>
+                        {formatCurrency(summary.shippingCharges, currency)}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {summary.adjustment !== 0 ? (
+                    <View style={styles.totalsRow}>
+                      <Text style={[styles.totalsLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
+                      <Text style={[styles.totalsValue, { color: colors.foreground }]}>
+                        {summary.adjustment > 0 ? '+' : ''}{formatCurrency(summary.adjustment, currency)}
                       </Text>
                     </View>
                   ) : null}
@@ -304,7 +344,7 @@ export function InvoicePreviewModal({ visible, invoice, onClose }: InvoicePrevie
                   <View style={styles.totalsRow}>
                     <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Total</Text>
                     <Text style={[styles.grandTotalValue, { color: colors.primary }]}>
-                      {formatCurrency(rawAmount, currency)}
+                      {formatCurrency(summary.total, currency)}
                     </Text>
                   </View>
                 </View>

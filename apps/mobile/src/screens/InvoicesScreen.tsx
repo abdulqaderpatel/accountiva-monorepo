@@ -88,26 +88,38 @@ export function InvoicesScreen({ onNavigate }: InvoicesScreenProps) {
     ? apiInvoices.data
     : [];
 
-  const invoices: InvoiceRecord[] = rawList.map((item: any) => ({
-    ...item,
-    id: item.id,
-    customer:
-      typeof item.customer === 'string'
-        ? item.customer
-        : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
-    number: item.number || item.invoiceNumber || 'INV-000',
-    date: item.date || item.dueDate || 'Recent',
-    dueDate: item.dueDate || item.date || 'Upon Receipt',
-    amount: Number(item.amount) || 0,
-    subtotal:
-      item.subtotal === null || item.subtotal === undefined
-        ? undefined
-        : Number(item.subtotal),
-    taxAmount: Number(item.taxAmount) || Number(item.tax_amount) || 0,
-    status: (item.status || 'Draft').toUpperCase(),
-    variant: getStatusVariant(item.status || 'Draft'),
-    items: item.items || [],
-  }));
+  const invoices: InvoiceRecord[] = rawList.map((item: any) => {
+    const items = Array.isArray(item.items) ? item.items : [];
+    const itemsSubtotal = items.reduce(
+      (sum: number, line: any) =>
+        sum + Number(line.amount ?? (Number(line.quantity || 1) * Number(line.rate || 0)) ?? 0),
+      0
+    );
+
+    return {
+      ...item,
+      id: item.id,
+      customer:
+        typeof item.customer === 'string'
+          ? item.customer
+          : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
+      number: item.number || item.invoiceNumber || 'INV-000',
+      date: item.date || item.dueDate || 'Recent',
+      dueDate: item.dueDate || item.date || 'Upon Receipt',
+      amount: Number(item.amount) || 0,
+      subtotal: items.length > 0 ? itemsSubtotal : Number(item.subtotal) || Number(item.amount) || 0,
+      taxPercent: Number(item.taxPercent ?? item.tax_percent ?? 0),
+      taxAmount: Number(item.taxAmount ?? item.tax_amount ?? 0),
+      discountType: item.discountType ?? item.discount_type,
+      discountValue: Number(item.discountValue ?? item.discount_value ?? 0),
+      discountAmount: Number(item.discountAmount ?? item.discount_amount ?? 0),
+      shippingCharges: Number(item.shippingCharges ?? item.shipping_charges ?? 0),
+      adjustment: Number(item.adjustment ?? 0),
+      status: (item.status || 'Draft').toUpperCase(),
+      variant: getStatusVariant(item.status || 'Draft'),
+      items,
+    };
+  });
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch =

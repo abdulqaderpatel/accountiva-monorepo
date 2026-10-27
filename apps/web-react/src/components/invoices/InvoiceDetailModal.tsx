@@ -3,7 +3,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { calculateFinancialDocumentSubtotal, formatCurrency } from "@accountiva/shared";
+import { calculateFinancialDocumentSubtotal, formatCurrency, getDocumentSummaryDetails } from "@accountiva/shared";
 import { useUpdateInvoiceStatus } from "@accountiva/api";
 import { toast } from "sonner";
 import {
@@ -40,20 +40,13 @@ export function InvoiceDetailModal({
   if (!invoice) return null;
 
   const lineItems = Array.isArray(invoice.items) ? invoice.items : [];
-  const rawAmount = Number(invoice.amount) || 0;
-  const rawTax = Number(invoice.taxAmount ?? invoice.tax_amount) || 0;
-  const rawDiscount = Number(invoice.discountAmount) || 0;
-  const rawShipping = Number(invoice.shippingCharges) || 0;
-  const rawAdjustment = Number(invoice.adjustment) || 0;
-  const explicitSubtotal = Number(invoice.subtotal);
-  const rawSubtotal =
-    invoice.subtotal !== null &&
-    invoice.subtotal !== undefined &&
-    Number.isFinite(explicitSubtotal)
-      ? explicitSubtotal
-      : lineItems.length > 0
-        ? calculateFinancialDocumentSubtotal(lineItems)
-        : Math.max(0, rawAmount - rawTax + rawDiscount - rawShipping - rawAdjustment);
+  const summary = getDocumentSummaryDetails(invoice);
+  const rawAmount = summary.total;
+  const rawTax = summary.taxAmount;
+  const rawDiscount = summary.discountAmount;
+  const rawShipping = summary.shippingCharges;
+  const rawAdjustment = summary.adjustment;
+  const rawSubtotal = summary.subtotal;
   const status = String(invoice.status || "Draft").toUpperCase();
 
   const isPaid = status === "PAID";
@@ -216,15 +209,25 @@ export function InvoiceDetailModal({
             </div>
             {rawDiscount > 0 ? (
               <div className="flex justify-between text-muted-foreground">
-                <span>Discount</span>
-                <span className="font-mono text-foreground font-semibold">
+                <span>
+                  Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}
+                </span>
+                <span className="font-mono text-emerald-600 font-semibold">
                   - {formatCurrency(rawDiscount)}
+                </span>
+              </div>
+            ) : null}
+            {rawDiscount > 0 && rawTax > 0 ? (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Taxable Amount</span>
+                <span className="font-mono text-foreground font-semibold">
+                  {formatCurrency(summary.taxableAmount)}
                 </span>
               </div>
             ) : null}
             <div className="flex justify-between text-muted-foreground">
               <span>
-                Tax{Number(invoice.taxPercent) > 0 ? ` (GST ${Number(invoice.taxPercent)}%)` : ""}
+                Tax{summary.taxPercent > 0 ? ` (GST ${summary.taxPercent}%)` : ""}
               </span>
               <span className="font-mono text-foreground font-semibold">
                 {formatCurrency(rawTax)}

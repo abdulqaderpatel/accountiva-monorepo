@@ -133,6 +133,189 @@ export function calculateFinancialDocumentSubtotal(
   return Number(subtotal.toFixed(2));
 }
 
+export interface DocumentLineItemCalculationInput {
+  id?: string;
+  itemId?: string | null;
+  itemName?: string;
+  name?: string;
+  description?: string;
+  quantity?: number | string | null;
+  rate?: number | string | null;
+  amount?: number | string | null;
+}
+
+export interface DocumentTotalsInput {
+  items?: DocumentLineItemCalculationInput[] | null;
+  manualAmount?: number | string | null;
+  subtotal?: number | string | null;
+  discountType?: "percentage" | "fixed" | string | null;
+  discountValue?: number | string | null;
+  discountAmount?: number | string | null;
+  taxPercent?: number | string | null;
+  taxAmount?: number | string | null;
+  shippingCharges?: number | string | null;
+  adjustment?: number | string | null;
+  amount?: number | string | null;
+}
+
+export interface DocumentTotalsResult {
+  subtotal: number;
+  discountType: "percentage" | "fixed" | "";
+  discountValue: number;
+  discountAmount: number;
+  taxableAmount: number;
+  taxPercent: number;
+  taxAmount: number;
+  shippingCharges: number;
+  adjustment: number;
+  total: number;
+}
+
+function roundToTwo(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTotalsResult {
+  const items = Array.isArray(input.items) ? input.items : [];
+  const calculatedItemsSubtotal = calculateFinancialDocumentSubtotal(items as FinancialLineItemAmounts[]);
+
+  let subtotal = 0;
+  if (items.length > 0 && calculatedItemsSubtotal > 0) {
+    subtotal = calculatedItemsSubtotal;
+  } else if (items.length > 0 && items.some((it) => (Number(it?.amount) || 0) > 0 || ((Number(it?.quantity) || 0) > 0 && (Number(it?.rate) || 0) > 0))) {
+    subtotal = calculatedItemsSubtotal;
+  } else if (input.manualAmount !== undefined && input.manualAmount !== null && input.manualAmount !== "") {
+    const parsedManual = Number(input.manualAmount);
+    subtotal = Number.isFinite(parsedManual) && parsedManual >= 0 ? roundToTwo(parsedManual) : 0;
+  } else if (input.subtotal !== undefined && input.subtotal !== null && input.subtotal !== "") {
+    const parsedSubtotal = Number(input.subtotal);
+    subtotal = Number.isFinite(parsedSubtotal) && parsedSubtotal >= 0 ? roundToTwo(parsedSubtotal) : 0;
+  } else {
+    subtotal = calculatedItemsSubtotal;
+  }
+
+  const rawDiscountType = String(input.discountType || "").toLowerCase().trim();
+  const discountType: "percentage" | "fixed" | "" =
+    rawDiscountType === "percentage" || rawDiscountType === "percent" || rawDiscountType === "%"
+      ? "percentage"
+      : rawDiscountType === "fixed" || rawDiscountType === "flat" || rawDiscountType === "amount"
+        ? "fixed"
+        : "";
+
+  const parsedDiscountValue = Number(input.discountValue);
+  const discountValue = Number.isFinite(parsedDiscountValue) && parsedDiscountValue > 0 ? parsedDiscountValue : 0;
+
+  const parsedExplicitDiscountAmount = Number(input.discountAmount);
+  const explicitDiscountAmount = Number.isFinite(parsedExplicitDiscountAmount) && parsedExplicitDiscountAmount > 0
+    ? parsedExplicitDiscountAmount
+    : 0;
+
+  let discountAmount = 0;
+  if (discountType === "percentage" && discountValue > 0) {
+    discountAmount = roundToTwo((subtotal * discountValue) / 100);
+  } else if (discountType === "fixed" && discountValue > 0) {
+    discountAmount = roundToTwo(Math.min(discountValue, subtotal));
+  } else if (explicitDiscountAmount > 0) {
+    discountAmount = roundToTwo(Math.min(explicitDiscountAmount, subtotal));
+  } else if (discountValue > 0) {
+    discountAmount = roundToTwo(Math.min(discountValue, subtotal));
+  }
+
+  // Discount cannot exceed subtotal
+  discountAmount = Math.min(discountAmount, subtotal);
+
+  const taxableAmount = roundToTwo(Math.max(0, subtotal - discountAmount));
+
+  const parsedTaxPercent = Number(input.taxPercent);
+  const taxPercent = Number.isFinite(parsedTaxPercent) && parsedTaxPercent >= 0 ? parsedTaxPercent : 0;
+
+  const parsedExplicitTaxAmount = Number(input.taxAmount);
+  const explicitTaxAmount = Number.isFinite(parsedExplicitTaxAmount) && parsedExplicitTaxAmount >= 0
+    ? parsedExplicitTaxAmount
+    : 0;
+
+  let taxAmount = 0;
+  if (taxPercent > 0) {
+    taxAmount = roundToTwo((taxableAmount * taxPercent) / 100);
+  } else if (explicitTaxAmount > 0) {
+    taxAmount = roundToTwo(explicitTaxAmount);
+  }
+
+  const parsedShipping = Number(input.shippingCharges);
+  const shippingCharges = Number.isFinite(parsedShipping) && parsedShipping > 0
+    ? roundToTwo(parsedShipping)
+    : 0;
+
+  const parsedAdjustment = Number(input.adjustment);
+  const adjustment = Number.isFinite(parsedAdjustment)
+    ? roundToTwo(parsedAdjustment)
+    : 0;
+
+  const calculatedTotal = roundToTwo(
+    Math.max(0, taxableAmount + taxAmount + shippingCharges + adjustment)
+  );
+
+  return {
+    subtotal,
+    discountType,
+    discountValue,
+    discountAmount,
+    taxableAmount,
+    taxPercent,
+    taxAmount,
+    shippingCharges,
+    adjustment,
+    total: calculatedTotal,
+  };
+}
+
+export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
+  if (!doc || typeof doc !== "object") {
+    return {
+      subtotal: 0,
+      discountType: "",
+      discountValue: 0,
+      discountAmount: 0,
+      taxableAmount: 0,
+      taxPercent: 0,
+      taxAmount: 0,
+      shippingCharges: 0,
+      adjustment: 0,
+      total: 0,
+    };
+  }
+
+  const items = Array.isArray(doc.items)
+    ? doc.items
+    : Array.isArray(doc.estimate_items)
+      ? doc.estimate_items
+      : Array.isArray(doc.invoice_items)
+        ? doc.invoice_items
+        : [];
+
+  const discountType = (doc.discountType ?? doc.discount_type ?? "") as string;
+  const discountValue = doc.discountValue ?? doc.discount_value;
+  const discountAmount = doc.discountAmount ?? doc.discount_amount;
+  const taxPercent = doc.taxPercent ?? doc.tax_percent;
+  const taxAmount = doc.taxAmount ?? doc.tax_amount;
+  const shippingCharges = doc.shippingCharges ?? doc.shipping_charges;
+  const adjustment = doc.adjustment;
+  const manualAmount = doc.subtotal ?? doc.amount;
+
+  return calculateDocumentTotals({
+    items,
+    manualAmount,
+    discountType,
+    discountValue,
+    discountAmount,
+    taxPercent,
+    taxAmount,
+    shippingCharges,
+    adjustment,
+    amount: doc.amount,
+  });
+}
+
 export function calculateInvoiceOutstandingAmount(invoice: InvoiceBalanceSource): number {
   const explicitBalance = [
     invoice.remainingAmount,

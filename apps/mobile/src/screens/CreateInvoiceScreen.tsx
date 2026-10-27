@@ -28,6 +28,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/Card';
 import {
+  calculateDocumentTotals,
   formatCurrency,
   isDuplicateDocumentNumberError,
   type InvoiceStatus,
@@ -154,6 +155,9 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(
     initialInvoice?.discountType === 'fixed' ? 'fixed' : 'percentage'
   );
+  const [taxPercent, setTaxPercent] = useState(
+    initialInvoice?.taxPercent != null ? String(initialInvoice.taxPercent) : '18'
+  );
   const [shippingCharges, setShippingCharges] = useState(
     initialInvoice?.shippingCharges != null ? String(initialInvoice.shippingCharges) : ''
   );
@@ -208,24 +212,16 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   }, [initialInvoice?.id, loadNextInvoiceNumber]);
 
   // Calculations
-  const subtotal = useMemo(() => {
-    return items.reduce((acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.rate) || 0), 0);
-  }, [items]);
-
-  const discountAmount = useMemo(() => {
-    const val = Number(discountValue) || 0;
-    if (val <= 0) return 0;
-    if (discountType === 'percentage') {
-      return (subtotal * val) / 100;
-    }
-    return Math.min(val, subtotal);
-  }, [subtotal, discountValue, discountType]);
-
-  const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const tax = taxableAmount * 0.18; // 18% GST standard
-  const shipping = Number(shippingCharges) || 0;
-  const adj = Number(adjustment) || 0;
-  const grandTotal = Math.max(0, taxableAmount + tax + shipping + adj);
+  const totals = useMemo(() => {
+    return calculateDocumentTotals({
+      items,
+      discountType,
+      discountValue,
+      taxPercent,
+      shippingCharges,
+      adjustment,
+    });
+  }, [items, discountType, discountValue, taxPercent, shippingCharges, adjustment]);
 
   // Helper date preset updater
   const applyDueDays = (days: number) => {
@@ -370,7 +366,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         discountValue,
         shippingCharges,
         adjustment,
-        taxPercent: 18,
+        taxPercent,
         notes,
         termsConditions,
         customFields,
@@ -758,7 +754,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
           <View style={styles.summaryRow}>
             <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {formatCurrency(subtotal, currency)}
+              {formatCurrency(totals.subtotal, currency)}
             </Text>
           </View>
 
@@ -814,19 +810,44 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                   { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
                 ]}
               />
-              {discountAmount > 0 ? (
+              {totals.discountAmount > 0 ? (
                 <Text style={[styles.summaryDiscountSub, { color: colors.success }]}>
-                  -{formatCurrency(discountAmount, currency)}
+                  -{formatCurrency(totals.discountAmount, currency)}
                 </Text>
               ) : null}
             </View>
           </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-              {formatCurrency(tax, currency)}
+          {totals.discountAmount > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Taxable Amount</Text>
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {formatCurrency(totals.taxableAmount, currency)}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* GST / Tax Row */}
+          <View style={styles.summaryInputRow}>
+            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+              GST ({totals.taxPercent}%)
             </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TextInput
+                value={taxPercent}
+                onChangeText={setTaxPercent}
+                keyboardType="decimal-pad"
+                placeholder="18"
+                placeholderTextColor={colors.mutedForeground}
+                style={[
+                  styles.summarySmallInput,
+                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground, width: 55 },
+                ]}
+              />
+              <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                {formatCurrency(totals.taxAmount, currency)}
+              </Text>
+            </View>
           </View>
 
           {/* Shipping Charges */}
@@ -866,7 +887,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
           <View style={styles.summaryRow}>
             <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Total Payable</Text>
             <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
-              {formatCurrency(grandTotal, currency)}
+              {formatCurrency(totals.total, currency)}
             </Text>
           </View>
         </Card>

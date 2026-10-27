@@ -13,7 +13,7 @@ import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, 
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
-import { formatCurrency } from '@accountiva/shared';
+import { formatCurrency, getDocumentSummaryDetails } from '@accountiva/shared';
 import {
   convertEstimateToInvoice,
   useUpdateEstimateStatus,
@@ -51,14 +51,8 @@ export function EstimateDetailModal({
 
   if (!estimate) return null;
 
-  const rawAmount = Number(estimate.amount) || 0;
   const lineItems: any[] = Array.isArray(estimate.items) ? estimate.items : [];
-  const calculatedSubtotal = lineItems.reduce((sum, item) => {
-    const lineAmount = Number(item.amount ?? (Number(item.quantity) * Number(item.rate)));
-    return sum + (Number.isFinite(lineAmount) ? lineAmount : 0);
-  }, 0);
-  const rawSubtotal = Number(estimate.subtotal) || calculatedSubtotal;
-  const rawTax = Number(estimate.taxAmount) || 0;
+  const summary = getDocumentSummaryDetails(estimate);
   const status = String(estimate.status || 'Draft').toUpperCase();
 
   const clientName = typeof estimate.customer === 'string'
@@ -82,7 +76,7 @@ export function EstimateDetailModal({
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Accountiva Quote ${estimateNum} for ${clientName} - Total: ${formatCurrency(rawAmount, currency)}`,
+        message: `Accountiva Quote ${estimateNum} for ${clientName} - Total: ${formatCurrency(summary.total, currency)}`,
         title: `Quote ${estimate.number || estimate.estimateNumber}`,
       });
     } catch (err: any) {
@@ -231,7 +225,7 @@ export function EstimateDetailModal({
                 <View>
                   <Text style={[styles.heroLabel, { color: colors.mutedForeground }]}>Estimated Total</Text>
                   <Text style={[styles.heroAmount, { color: colors.foreground }]}>
-                    {formatCurrency(rawAmount, currency)}
+                    {formatCurrency(summary.total, currency)}
                   </Text>
                 </View>
                 <Badge variant={variant}>{status}</Badge>
@@ -275,7 +269,12 @@ export function EstimateDetailModal({
                       </Text>
                     </View>
                     <Text style={[styles.itemTotal, { color: colors.foreground }]}>
-                      {formatCurrency((item.quantity || 1) * (Number(item.rate) || 0), currency)}
+                      {formatCurrency(
+                        Number.isFinite(Number(item.amount))
+                          ? Number(item.amount)
+                          : (item.quantity || 1) * (Number(item.rate) || 0),
+                        currency
+                      )}
                     </Text>
                   </View>
                   {idx < lineItems.length - 1 ? (
@@ -289,40 +288,55 @@ export function EstimateDetailModal({
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
                 <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawSubtotal, currency)}
+                  {formatCurrency(summary.subtotal, currency)}
                 </Text>
               </View>
 
-              {estimate.discountAmount || estimate.discountValue ? (
+              {summary.discountAmount > 0 ? (
                 <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+                    Discount{summary.discountType === 'percentage' && summary.discountValue > 0 ? ` (${summary.discountValue}%)` : ''}
+                  </Text>
                   <Text style={[styles.summaryValue, { color: colors.success }]}>
-                    -{formatCurrency(Number(estimate.discountAmount || estimate.discountValue) || 0, currency)}
+                    -{formatCurrency(summary.discountAmount, currency)}
                   </Text>
                 </View>
               ) : null}
 
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>GST (18%)</Text>
-                <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawTax, currency)}
-                </Text>
-              </View>
+              {summary.discountAmount > 0 && summary.taxAmount > 0 ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Taxable Amount</Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(summary.taxableAmount, currency)}
+                  </Text>
+                </View>
+              ) : null}
 
-              {estimate.shippingCharges ? (
+              {summary.taxAmount > 0 || summary.taxPercent > 0 ? (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+                    GST {summary.taxPercent > 0 ? `(${summary.taxPercent}%)` : ''}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+                    {formatCurrency(summary.taxAmount, currency)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {summary.shippingCharges > 0 ? (
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(estimate.shippingCharges) || 0, currency)}
+                    {formatCurrency(summary.shippingCharges, currency)}
                   </Text>
                 </View>
               ) : null}
 
-              {estimate.adjustment ? (
+              {summary.adjustment !== 0 ? (
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Adjustment</Text>
                   <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-                    {formatCurrency(Number(estimate.adjustment) || 0, currency)}
+                    {summary.adjustment > 0 ? '+' : ''}{formatCurrency(summary.adjustment, currency)}
                   </Text>
                 </View>
               ) : null}
@@ -330,7 +344,7 @@ export function EstimateDetailModal({
               <View style={styles.summaryRow}>
                 <Text style={[styles.grandLabel, { color: colors.foreground }]}>Total</Text>
                 <Text style={[styles.grandValue, { color: colors.foreground }]}>
-                  {formatCurrency(rawAmount, currency)}
+                  {formatCurrency(summary.total, currency)}
                 </Text>
               </View>
             </Card>

@@ -116,3 +116,84 @@ export function formatOrganizationAddress(org: OrganizationAddressPayload): stri
   }
   return org.address?.trim() || "";
 }
+
+/**
+ * Strips district/city, state, PIN code, and country suffixes from Address Line 1
+ * when they are populated in their own dedicated address fields.
+ */
+export function sanitizeAddressLine1(
+  rawAddress: string | null | undefined,
+  context: {
+    city?: string | null | undefined;
+    state?: string | null | undefined;
+    postal_code?: string | null | undefined;
+    pincode?: string | null | undefined;
+    country?: string | null | undefined;
+  } = {}
+): string {
+  if (!rawAddress || typeof rawAddress !== "string") return "";
+  let addr = rawAddress.trim();
+
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const pin = (context.pincode || context.postal_code || "").trim();
+  const state = (context.state || "").trim();
+  const city = (context.city || "").trim();
+  const country = (context.country || "").trim();
+
+  const termsToRemove: string[] = [];
+
+  if (pin) {
+    const cleanPin = pin.replace(/\s+/g, "");
+    if (cleanPin.length === 6) {
+      termsToRemove.push(`(?:(?:PIN(?:\\s*code)?|Postal\\s*code)?\\s*[:#-]?\\s*)?${cleanPin.slice(0, 3)}[\\s-]?${cleanPin.slice(3)}`);
+    } else {
+      termsToRemove.push(`(?:(?:PIN(?:\\s*code)?|Postal\\s*code)?\\s*[:#-]?\\s*)?${esc(pin)}`);
+    }
+  }
+  // Generic Indian PIN code (e.g. 401208 or 401 208)
+  termsToRemove.push(`(?:(?:PIN(?:\\s*code)?|Postal\\s*code)?\\s*[:#-]?\\s*)?\\b\\d{3}[\\s-]?\\d{3}\\b`);
+  // Dangling PIN/Postal label
+  termsToRemove.push(`(?:PIN(?:\\s*code)?|Postal\\s*code)\\s*[:#-]?`);
+
+  if (country) {
+    termsToRemove.push(esc(country));
+  }
+  termsToRemove.push("(?:India|IN)");
+
+  if (state) {
+    const cleanState = state.replace(/^\d{2}\s*-\s*/, "").replace(/^\d{2}\s*/, "").trim();
+    if (cleanState) {
+      termsToRemove.push(`(?:State\\s*[:#-]?\\s*)?${esc(cleanState)}`);
+    }
+    if (state !== cleanState) {
+      termsToRemove.push(`(?:State\\s*[:#-]?\\s*)?${esc(state)}`);
+    }
+  }
+
+  if (city) {
+    termsToRemove.push(`(?:Dist(?:t|rict)?\\.?\\s*[:#-]?\\s*|City\\s*[:#-]?\\s*)?${esc(city)}(?:\\s*Dist(?:t|rict)?\\.?)?`);
+  }
+
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 12) {
+    iterations++;
+    changed = false;
+    const trimmed = addr.replace(/[\s,.:;/#-]+$/, "");
+    if (trimmed !== addr) {
+      addr = trimmed;
+      changed = true;
+    }
+
+    for (const term of termsToRemove) {
+      const pattern = new RegExp(`(?:[\\s,.:;/#-]+|^)(?:\\()?(${term})(?:\\))?$`, "i");
+      if (pattern.test(addr)) {
+        addr = addr.replace(pattern, "").trim();
+        changed = true;
+      }
+    }
+  }
+
+  return addr.replace(/[\s,.:;/#-]+$/, "").trim();
+}

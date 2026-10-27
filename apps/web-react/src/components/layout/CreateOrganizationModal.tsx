@@ -23,7 +23,9 @@ import {
   COMMON_CURRENCIES,
   INDIAN_STATES,
   INDUSTRY_TYPES,
+  sanitizeAddressLine1,
 } from "@accountiva/shared";
+import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +105,78 @@ export function CreateOrganizationModal({
         setState(matched.name);
         setStateCode(matched.code);
       }
+    }
+  };
+
+  const [isFetchingGst, setIsFetchingGst] = useState(false);
+
+  const handleFetchGst = async () => {
+    const rawGstin = gstin.trim().toUpperCase();
+    if (!rawGstin) return;
+    try {
+      setIsFetchingGst(true);
+      const res = await api.get(`/organizations/gstin/${rawGstin}`);
+      const data = res.data;
+      if (!data) return;
+
+      if (data.name && !name) {
+        setName(data.name);
+      }
+
+      let updatedCity = city;
+      if (data.city && data.source !== "decoded") {
+        setCity(data.city);
+        updatedCity = data.city;
+      }
+
+      let updatedPostalCode = postalCode;
+      if (data.pincode && data.source !== "decoded") {
+        setPostalCode(data.pincode);
+        updatedPostalCode = data.pincode;
+      }
+
+      let updatedState = state;
+      if (data.stateCode || data.state) {
+        const match = INDIAN_STATES.find(
+          (s) =>
+            s.code === data.stateCode ||
+            s.name.toLowerCase() === (data.state || "").toLowerCase()
+        );
+        if (match) {
+          setState(match.name);
+          setStateCode(match.code);
+          updatedState = match.name;
+        } else if (data.state) {
+          setState(data.state);
+          updatedState = data.state;
+        }
+      }
+
+      const rawLine1 = data.address_line1 || data.address || "";
+      if (rawLine1 && data.source !== "decoded") {
+        const cleanLine1 = sanitizeAddressLine1(rawLine1, {
+          city: updatedCity,
+          state: updatedState,
+          postal_code: updatedPostalCode,
+        });
+        setAddressLine1(cleanLine1);
+      }
+
+      if (data.address_line2 && data.source !== "decoded" && !addressLine2) {
+        setAddressLine2(data.address_line2);
+      }
+
+      if (data.source === "decoded") {
+        toast.info("State auto-detected from GSTIN", {
+          description: "Live registry lookup unavailable. Address fields can be entered manually.",
+        });
+      } else {
+        toast.success("Business details fetched from GSTIN");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Invalid GSTIN or fetch failed");
+    } finally {
+      setIsFetchingGst(false);
     }
   };
 
@@ -293,14 +367,33 @@ export function CreateOrganizationModal({
                   <Label htmlFor="org-gstin" className="text-xs font-bold text-foreground">
                     GSTIN
                   </Label>
-                  <Input
-                    id="org-gstin"
-                    value={gstin}
-                    onChange={(e) => handleGstinChange(e.target.value)}
-                    placeholder="22AAAAA0000A1Z5"
-                    maxLength={15}
-                    className="h-9 font-mono uppercase text-xs"
-                  />
+                  <div className="relative flex items-center">
+                    <Input
+                      id="org-gstin"
+                      value={gstin}
+                      onChange={(e) => handleGstinChange(e.target.value)}
+                      placeholder="22AAAAA0000A1Z5"
+                      maxLength={15}
+                      className="h-9 font-mono uppercase text-xs pr-28"
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isFetchingGst || !gstin.trim()}
+                        onClick={handleFetchGst}
+                        className="h-7 text-xs px-2 text-primary hover:text-primary hover:bg-primary/10 gap-1 font-medium"
+                      >
+                        {isFetchingGst ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="w-3 h-3" />
+                        )}
+                        <span>{isFetchingGst ? "Fetching..." : "Fetch Details"}</span>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

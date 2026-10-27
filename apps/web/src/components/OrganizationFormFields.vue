@@ -27,6 +27,7 @@ import {
   COMMON_CURRENCIES,
   INDUSTRY_TYPES,
   INDIAN_STATES,
+  sanitizeAddressLine1,
 } from "@/constants/organization";
 
 export interface OrganizationFormData {
@@ -153,11 +154,6 @@ const handleFetchGst = async () => {
       }
     }
 
-    // Auto-populate Address Line 1
-    if (data.address && data.source !== "decoded") {
-      updated.address_line1 = data.address;
-    }
-
     // Auto-populate City
     if (data.city && data.source !== "decoded") {
       updated.city = data.city;
@@ -183,6 +179,21 @@ const handleFetchGst = async () => {
         updated.state_code = matchedState.code;
         updated.state = matchedState.name;
       }
+    }
+
+    // Auto-populate Address Line 1 (district, state, and pincode omitted from line 1)
+    const rawLine1 = data.address_line1 || data.address || "";
+    if (rawLine1 && data.source !== "decoded") {
+      updated.address_line1 = sanitizeAddressLine1(rawLine1, {
+        city: updated.city,
+        state: updated.state,
+        postal_code: updated.postal_code,
+      });
+    }
+
+    // Auto-populate Address Line 2 if available and empty
+    if (data.address_line2 && data.source !== "decoded" && !updated.address_line2) {
+      updated.address_line2 = data.address_line2;
     }
 
     emit("update:modelValue", updated);

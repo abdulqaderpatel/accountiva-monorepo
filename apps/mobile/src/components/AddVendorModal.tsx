@@ -8,12 +8,15 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { X, Building2, CircleAlert } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { toast } from '../context/FeedbackContext';
 import { fonts } from '../theme/typography';
 import api from '@accountiva/api';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface AddVendorModalProps {
   visible: boolean;
@@ -29,6 +32,7 @@ export function AddVendorModal({
   initialVendor,
 }: AddVendorModalProps) {
   const { colors } = useTheme();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
 
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -109,7 +113,10 @@ export function AddVendorModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -124,7 +131,15 @@ export function AddVendorModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             {apiError ? (
               <View style={[styles.errorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
                 <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
@@ -293,7 +308,7 @@ export function AddVendorModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

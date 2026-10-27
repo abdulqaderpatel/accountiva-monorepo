@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Users, Plus, Mail, Shield, Trash2, X, Check, Search } from 'lucide-react-native';
 import api from '@accountiva/api';
@@ -319,7 +321,10 @@ export function TeamMembersTab() {
         transparent
         onRequestClose={() => setIsInviteModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View>
@@ -414,7 +419,7 @@ export function TeamMembersTab() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

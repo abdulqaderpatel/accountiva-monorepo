@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -23,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from '../context/FeedbackContext';
 import { fonts } from '../theme/typography';
 import { Card } from './ui/Card';
+import { useKeyboard } from '../hooks/useKeyboard';
 import { Badge } from './ui/Badge';
 import { formatCurrency } from '@accountiva/shared';
 import api from '@accountiva/api';
@@ -59,6 +62,7 @@ export function CreateBillModal({
 }: CreateBillModalProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const currency = currentOrg?.currency || 'INR';
 
   const [vendors, setVendors] = useState<any[]>([]);
@@ -228,7 +232,10 @@ export function CreateBillModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -243,7 +250,15 @@ export function CreateBillModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             {apiError ? (
               <View style={[styles.errorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
                 <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
@@ -456,7 +471,7 @@ export function CreateBillModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {/* Vendor Picker Modal */}
       <Modal visible={vendorPickerOpen} animationType="slide" transparent onRequestClose={() => setVendorPickerOpen(false)}>

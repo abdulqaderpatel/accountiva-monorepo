@@ -8,12 +8,15 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Check, Building, Plus, ChevronRight, Settings as SettingsIcon } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useAuth, MobileOrganization } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface OrganizationSwitcherModalProps {
   visible: boolean;
@@ -23,6 +26,7 @@ interface OrganizationSwitcherModalProps {
 
 export function OrganizationSwitcherModal({ visible, onClose, onOpenOrgSettings }: OrganizationSwitcherModalProps) {
   const { colors } = useTheme();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
   const { currentOrg, organizations, setCurrentOrg, createOrganization } = useAuth();
 
   const [isCreating, setIsCreating] = useState(false);
@@ -65,7 +69,10 @@ export function OrganizationSwitcherModal({ visible, onClose, onOpenOrgSettings 
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <SafeAreaView style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]} edges={['bottom']}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -85,7 +92,15 @@ export function OrganizationSwitcherModal({ visible, onClose, onOpenOrgSettings 
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.scrollList} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            style={styles.scrollList}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 24 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             {/* Organizations List */}
             <View style={styles.orgList}>
               {organizations.map((org) => {
@@ -248,7 +263,7 @@ export function OrganizationSwitcherModal({ visible, onClose, onOpenOrgSettings 
             )}
           </ScrollView>
         </SafeAreaView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

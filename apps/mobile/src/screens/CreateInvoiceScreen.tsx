@@ -9,6 +9,8 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -43,6 +45,7 @@ import {
 import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { AddCustomerModal } from '../components/AddCustomerModal';
+import { useKeyboard } from '../hooks/useKeyboard';
 import { CustomFieldRenderer } from '../components/ui/CustomFieldRenderer';
 import { buildMobileInvoicePayload } from '../documents/payloads';
 
@@ -68,6 +71,7 @@ const formatDateToISO = (d: Date): string => {
 export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: CreateInvoiceScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const currency = currentOrg?.currency || 'INR';
 
   const createInvoiceMutation = useCreateInvoice();
@@ -419,7 +423,10 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Top Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.7}>
@@ -450,7 +457,15 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[
+          styles.formContent,
+          { paddingBottom: isKeyboardVisible ? keyboardHeight + 32 : 40 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* API Error Banner */}
         {apiError ? (
           <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
@@ -1004,7 +1019,10 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
       {/* Customer Selection Modal */}
       <Modal visible={customerModalOpen} animationType="slide" transparent onRequestClose={() => setCustomerModalOpen(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
@@ -1084,12 +1102,15 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               )}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Catalog Item Modal */}
       <Modal visible={itemModalOpen} animationType="slide" transparent onRequestClose={() => setItemModalOpen(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
@@ -1152,7 +1173,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               )}
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Embedded Add Customer Modal */}
@@ -1164,7 +1185,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
           setCreateCustomerModalOpen(false);
         }}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

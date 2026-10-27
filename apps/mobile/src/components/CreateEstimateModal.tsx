@@ -9,6 +9,8 @@ import {
   ScrollView,
   FlatList,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -43,6 +45,7 @@ import { fonts } from '../theme/typography';
 import { AddCustomerModal } from './AddCustomerModal';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 import { buildMobileEstimatePayload } from '../documents/payloads';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 export interface EstimateLineItem {
   id: string;
@@ -72,6 +75,7 @@ export function CreateEstimateModal({
 }: CreateEstimateModalProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const currency = currentOrg?.currency || 'INR';
 
   const createEstimateMutation = useCreateEstimate();
@@ -444,37 +448,49 @@ export function CreateEstimateModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-            <X size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {initialEstimate ? 'Edit Estimate' : 'New Estimate'}
-          </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={
-              createEstimateMutation.isPending ||
-              updateEstimateMutation.isPending ||
-              (!initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()))
-            }
-            style={[
-              styles.saveBtn,
-              { backgroundColor: colors.primary },
-              !initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()) ? styles.disabledBtn : null,
-            ]}
-            activeOpacity={0.8}
-          >
-            {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
-            ) : (
-              <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <X size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+              {initialEstimate ? 'Edit Estimate' : 'New Estimate'}
+            </Text>
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={
+                createEstimateMutation.isPending ||
+                updateEstimateMutation.isPending ||
+                (!initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()))
+              }
+              style={[
+                styles.saveBtn,
+                { backgroundColor: colors.primary },
+                !initialEstimate?.id && (isNumberLoading || !estimateNumber.trim()) ? styles.disabledBtn : null,
+              ]}
+              activeOpacity={0.8}
+            >
+              {createEstimateMutation.isPending || updateEstimateMutation.isPending ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 32 : 40 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           {/* API Error Banner */}
           {apiError ? (
             <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
@@ -1025,7 +1041,10 @@ export function CreateEstimateModal({
 
         {/* Customer Modal */}
         <Modal visible={customerModalOpen} animationType="slide" transparent onRequestClose={() => setCustomerModalOpen(false)}>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
@@ -1104,12 +1123,15 @@ export function CreateEstimateModal({
                 )}
               />
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Catalog Item Modal */}
         <Modal visible={itemModalOpen} animationType="slide" transparent onRequestClose={() => setItemModalOpen(false)}>
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
             <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
@@ -1172,7 +1194,7 @@ export function CreateEstimateModal({
                 )}
               />
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Embedded Add Customer Modal */}
@@ -1184,6 +1206,7 @@ export function CreateEstimateModal({
             setCreateCustomerModalOpen(false);
           }}
         />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

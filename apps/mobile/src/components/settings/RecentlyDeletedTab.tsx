@@ -260,6 +260,8 @@ export function RecentlyDeletedTab() {
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

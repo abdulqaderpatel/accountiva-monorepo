@@ -9,6 +9,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   Check,
@@ -43,6 +45,7 @@ import { fonts } from '../theme/typography';
 import { Card } from './ui/Card';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 import { buildMobileCreditNotePayload } from '../documents/payloads';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface CreditNoteLineItem {
   id: string;
@@ -70,6 +73,7 @@ export function CreateCreditNoteModal({
 }: CreateCreditNoteModalProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const currency = currentOrg?.currency || 'INR';
   const createMutation = useCreateCreditNote();
   const updateMutation = useUpdateCreditNote();
@@ -360,17 +364,29 @@ export function CreateCreditNoteModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.iconButton} activeOpacity={0.7}>
-            <X size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {initialCreditNote?.id ? 'Edit Credit Note' : 'New Credit Note'}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={onClose} style={styles.iconButton} activeOpacity={0.7}>
+              <X size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+              {initialCreditNote?.id ? 'Edit Credit Note' : 'New Credit Note'}
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 32 : 40 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           {apiError ? (
             <View style={[styles.errorBanner, { borderColor: colors.destructive, backgroundColor: colors.card }]}>
               <Text style={[styles.errorText, { color: colors.destructive }]}>{apiError}</Text>
@@ -665,6 +681,7 @@ export function CreateCreditNoteModal({
             </View>
           </View>
         </Modal>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

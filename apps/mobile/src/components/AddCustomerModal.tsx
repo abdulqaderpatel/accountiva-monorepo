@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { X, Sparkles, CircleAlert } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +19,7 @@ import { customerSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
 import { formatAddress } from './CustomerDetailModal';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface AddCustomerModalProps {
   visible: boolean;
@@ -27,6 +30,7 @@ interface AddCustomerModalProps {
 
 export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer }: AddCustomerModalProps) {
   const { colors } = useTheme();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const createCustomerMutation = useCreateCustomer();
   const updateCustomerMutation = useUpdateCustomer();
 
@@ -194,29 +198,41 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom', 'left', 'right']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-            <X size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            {initialCustomer ? 'Edit Customer' : 'New Customer'}
-          </Text>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
-            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-            activeOpacity={0.8}
-          >
-            {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
-              <ActivityIndicator size="small" color={colors.primaryForeground} />
-            ) : (
-              <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
+              <X size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {initialCustomer ? 'Edit Customer' : 'New Customer'}
+            </Text>
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={createCustomerMutation.isPending || updateCustomerMutation.isPending}
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              {createCustomerMutation.isPending || updateCustomerMutation.isPending ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 32 : 40 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
           {/* API Error Banner */}
           {apiError ? (
             <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
@@ -490,6 +506,7 @@ export function AddCustomerModal({ visible, onClose, onSuccess, initialCustomer 
             onChange={setCustomFields}
           />
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );

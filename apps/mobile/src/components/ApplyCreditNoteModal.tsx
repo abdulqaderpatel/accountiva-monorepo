@@ -8,6 +8,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Check, FileText, Link, X } from 'lucide-react-native';
 import { calculateInvoiceOutstandingAmount, formatCurrency } from '@accountiva/shared';
@@ -161,7 +163,10 @@ export function ApplyCreditNoteModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <View>
@@ -239,7 +244,7 @@ export function ApplyCreditNoteModal({
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

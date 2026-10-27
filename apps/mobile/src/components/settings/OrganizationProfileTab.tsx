@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Building2, Save, Trash2, Globe, Check, ChevronDown, CircleAlert } from 'lucide-react-native';
 import api from '@accountiva/api';
@@ -18,6 +20,7 @@ import { toast, confirm } from '../../context/FeedbackContext';
 import { Card } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
 import { fonts } from '../../theme/typography';
+import { useKeyboard } from '../../hooks/useKeyboard';
 
 const CURRENCIES = [
   { code: 'INR', label: 'INR - Indian Rupee (₹)' },
@@ -33,6 +36,7 @@ const CURRENCIES = [
 export function OrganizationProfileTab() {
   const { colors } = useTheme();
   const { currentOrg, refreshOrganizations, deleteOrganization } = useAuth();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -186,7 +190,19 @@ export function OrganizationProfileTab() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: isKeyboardVisible ? keyboardHeight + 40 : 40 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
       {/* Profile Card */}
       <Card style={styles.card}>
         <View style={styles.sectionHeader}>
@@ -498,6 +514,7 @@ export function OrganizationProfileTab() {
         </View>
       </Modal>
     </ScrollView>
+  </KeyboardAvoidingView>
   );
 }
 

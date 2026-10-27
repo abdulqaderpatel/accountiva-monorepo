@@ -9,6 +9,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { X, Check, Package, Wrench, CircleAlert } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -16,6 +18,7 @@ import { useCreateItem, useUpdateItem } from '@accountiva/api';
 import { itemSchema } from '@accountiva/shared';
 import { fonts } from '../theme/typography';
 import { CustomFieldRenderer } from './ui/CustomFieldRenderer';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface AddItemModalProps {
   visible: boolean;
@@ -26,6 +29,7 @@ interface AddItemModalProps {
 
 export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddItemModalProps) {
   const { colors } = useTheme();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const createItemMutation = useCreateItem();
   const updateItemMutation = useUpdateItem();
 
@@ -162,7 +166,10 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -174,7 +181,15 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.formContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.formContent,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             {/* API Error Banner */}
             {apiError ? (
               <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
@@ -507,7 +522,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

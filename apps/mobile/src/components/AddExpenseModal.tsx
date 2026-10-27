@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { X, Receipt, CircleAlert, Calendar, CreditCard, Tag } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
@@ -15,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from '../context/FeedbackContext';
 import { fonts } from '../theme/typography';
 import api from '@accountiva/api';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 interface AddExpenseModalProps {
   visible: boolean;
@@ -53,6 +56,7 @@ export function AddExpenseModal({
 }: AddExpenseModalProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { keyboardHeight, isKeyboardVisible } = useKeyboard();
   const currency = currentOrg?.currency || 'INR';
 
   const [amount, setAmount] = useState('');
@@ -139,7 +143,10 @@ export function AddExpenseModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
         <View style={[styles.sheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -154,7 +161,15 @@ export function AddExpenseModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+          >
             {apiError ? (
               <View style={[styles.errorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
                 <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
@@ -370,7 +385,7 @@ export function AddExpenseModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

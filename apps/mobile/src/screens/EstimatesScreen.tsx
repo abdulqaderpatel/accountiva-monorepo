@@ -93,7 +93,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
     const items = Array.isArray(item.items) ? item.items : [];
     const itemsSubtotal = items.reduce(
       (sum: number, line: any) =>
-        sum + Number(line.amount ?? (Number(line.quantity || 1) * Number(line.rate || 0)) ?? 0),
+        sum + Number(line.amount ?? (Number(line.quantity || 1) * Number(line.rate || 0))),
       0
     );
 

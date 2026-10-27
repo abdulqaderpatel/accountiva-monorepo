@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Share,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   X,
@@ -37,6 +38,7 @@ import { fonts } from '../theme/typography';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { toast } from '../context/FeedbackContext';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 export interface BulkImportModalProps {
   visible: boolean;
@@ -54,6 +56,7 @@ export function BulkImportModal({
   onSuccess,
 }: BulkImportModalProps) {
   const { colors } = useTheme();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
 
   // Steps: 1 = File/Text Input, 2 = Preview & Duplicate Strategy, 3 = Completed
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -242,26 +245,38 @@ export function BulkImportModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.foreground }]}>{modalTitle}</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              {step === 1
-                ? 'Upload a CSV file or paste formatted CSV rows'
-                : step === 2
-                ? 'Review parsed data and duplicate handling'
-                : 'Import summary'}
-            </Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.foreground }]}>{modalTitle}</Text>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                {step === 1
+                  ? 'Upload a CSV file or paste formatted CSV rows'
+                  : step === 2
+                  ? 'Review parsed data and duplicate handling'
+                  : 'Import summary'}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <X size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <X size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </View>
 
-        {/* Body Step 1: Input */}
-        {step === 1 && (
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Body Step 1: Input */}
+          {step === 1 && (
+            <ScrollView
+              contentContainerStyle={[
+                styles.content,
+                { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+              ]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
             {/* Input Method Switcher */}
             <View style={[styles.tabBar, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
               <TouchableOpacity
@@ -674,8 +689,9 @@ export function BulkImportModal({
             </TouchableOpacity>
           )}
         </View>
-      </SafeAreaView>
-    </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  </Modal>
   );
 }
 

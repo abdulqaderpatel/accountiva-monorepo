@@ -10,6 +10,8 @@ import {
   StyleSheet,
   StyleProp,
   ViewStyle,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   SlidersHorizontal,
@@ -370,7 +372,10 @@ export function CustomFieldRenderer({
           transparent
           onRequestClose={() => setActiveDropdownField(null)}
         >
-          <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
             <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <View>
@@ -442,7 +447,7 @@ export function CustomFieldRenderer({
                 }}
               />
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
       )}
     </View>

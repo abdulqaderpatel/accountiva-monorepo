@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Modal,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   SlidersHorizontal,
@@ -38,6 +40,7 @@ import { EmptyState } from '../ui/EmptyState';
 import { SkeletonList } from '../ui/Skeleton';
 import { fonts } from '../../theme/typography';
 import { useAuth } from '../../context/AuthContext';
+import { useKeyboard } from '../../hooks/useKeyboard';
 
 export interface CustomFieldRecord {
   id: string;
@@ -78,6 +81,7 @@ export function CustomFieldsTab() {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
   const currentOrgId = currentOrg?.id;
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
 
   const [fields, setFields] = useState<CustomFieldRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -388,7 +392,10 @@ export function CustomFieldsTab() {
         transparent
         onRequestClose={() => setIsModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View>
@@ -404,7 +411,15 @@ export function CustomFieldsTab() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.modalFormContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={[
+                styles.modalFormContent,
+                { paddingBottom: isKeyboardVisible ? keyboardHeight + 24 : 24 },
+              ]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
               {/* Field Label */}
               <View style={styles.fieldGroup}>
                 <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Field Label *</Text>
@@ -595,7 +610,7 @@ export function CustomFieldsTab() {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

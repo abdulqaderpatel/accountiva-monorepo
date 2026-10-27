@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { LayoutDashboard, FileText, Plus, Users, Settings } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { fonts } from '../theme/typography';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 export type ScreenType =
   | 'dashboard'
@@ -26,6 +27,11 @@ interface BottomNavProps {
 
 export function BottomNav({ currentScreen, onSelectScreen }: BottomNavProps) {
   const { colors } = useTheme();
+  const { isKeyboardVisible } = useKeyboard();
+
+  if (isKeyboardVisible || currentScreen === 'create_invoice') {
+    return null;
+  }
 
   return (
     <View

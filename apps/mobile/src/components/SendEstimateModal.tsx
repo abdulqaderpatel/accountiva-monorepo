@@ -8,6 +8,8 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { X, Mail, Send, FileText, CheckCircle2 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +19,7 @@ import { fonts } from '../theme/typography';
 import { Card } from './ui/Card';
 import { toast } from '../context/FeedbackContext';
 import { useAuth } from '../context/AuthContext';
+import { useKeyboard } from '../hooks/useKeyboard';
 
 export interface SendEstimateModalProps {
   visible: boolean;
@@ -33,6 +36,7 @@ export function SendEstimateModal({
 }: SendEstimateModalProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
   const sendEstimateMutation = useSendEstimate();
 
   const [recipientEmail, setRecipientEmail] = useState('');
@@ -109,20 +113,32 @@ export function SendEstimateModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.foreground }]}>Send Quote via Email</Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              Deliver {estimateNum} in official PDF format directly to your client
-            </Text>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          {/* Header */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: colors.foreground }]}>Send Quote via Email</Text>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                Deliver {estimateNum} in official PDF format directly to your client
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <X size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <X size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        </View>
 
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 20 : 20 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           {/* Recipient Input */}
           <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Recipient Email *</Text>
@@ -223,8 +239,9 @@ export function SendEstimateModal({
             )}
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
-    </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  </Modal>
   );
 }
 

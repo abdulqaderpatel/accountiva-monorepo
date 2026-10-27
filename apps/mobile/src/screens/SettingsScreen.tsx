@@ -9,6 +9,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   Sun,
@@ -527,7 +529,10 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps = {}) {
         transparent
         onRequestClose={() => setIsCreateOrgModalOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.modalSheet, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>Create Workspace</Text>
@@ -596,7 +601,7 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps = {}) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

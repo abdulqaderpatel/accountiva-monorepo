@@ -39,3 +39,4 @@ describe('useKeyboard', () => {
     expect(typeof effectCleanup).toBe('function');
   });
 });
+

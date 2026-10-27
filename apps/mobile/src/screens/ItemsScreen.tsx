@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Search, Plus, Package, Wrench, Boxes } from 'lucide-react-native';
+import { Search, Plus, Package, Wrench, Boxes, Upload } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,6 +20,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { AddItemModal } from '../components/AddItemModal';
 import { ItemDetailModal } from '../components/ItemDetailModal';
+import { BulkImportModal } from '../components/BulkImportModal';
 import { useAuth } from '../context/AuthContext';
 
 interface ItemsScreenProps {
@@ -43,6 +44,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'ALL' | 'Product' | 'Service'>('ALL');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemRecord | null>(null);
   const [editingItem, setEditingItem] = useState<any | null>(null);
 
@@ -51,6 +53,7 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
     setSelectedItem(null);
     setEditingItem(null);
     setIsAddModalOpen(false);
+    setIsImportModalOpen(false);
     setSearch('');
     setFilterType('ALL');
   }, [currentOrgId]);
@@ -91,14 +94,24 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Products & Services</Text>
-        <TouchableOpacity
-          onPress={() => setIsAddModalOpen(true)}
-          style={[styles.newBtn, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-        >
-          <Plus size={16} color={colors.primaryForeground} strokeWidth={2.5} />
-          <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>Add</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setIsImportModalOpen(true)}
+            style={[styles.importBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+            activeOpacity={0.7}
+          >
+            <Upload size={14} color={colors.foreground} />
+            <Text style={[styles.importBtnText, { color: colors.foreground }]}>Import</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsAddModalOpen(true)}
+            style={[styles.newBtn, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+          >
+            <Plus size={16} color={colors.primaryForeground} strokeWidth={2.5} />
+            <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>Add</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Input */}
@@ -262,6 +275,18 @@ export function ItemsScreen({ onNavigate }: ItemsScreenProps) {
         onRefresh={() => refetch()}
         onEdit={(it) => setEditingItem(it)}
       />
+
+      {/* Bulk CSV Import Modal */}
+      <BulkImportModal
+        visible={isImportModalOpen}
+        entity="items"
+        title="Import Products & Services"
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          refetch();
+          setIsImportModalOpen(false);
+        }}
+      />
     </View>
   );
 }
@@ -278,10 +303,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fonts.display,
+  },
+  importBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  importBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   newBtn: {
     flexDirection: 'row',

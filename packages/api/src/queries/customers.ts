@@ -63,3 +63,25 @@ export function useDeleteCustomer() {
     },
   });
 }
+
+export function useBulkImportCustomers() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      items,
+      duplicateStrategy = 'skip',
+    }: {
+      items: any[];
+      duplicateStrategy?: 'skip' | 'update' | 'error';
+    }) => {
+      const { data } = await api.post('/customers/bulk-import', {
+        items,
+        duplicateStrategy,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}

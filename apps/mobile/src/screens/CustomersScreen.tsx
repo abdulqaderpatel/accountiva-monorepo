@@ -8,7 +8,7 @@ import {
   TextInput,
   RefreshControl,
 } from 'react-native';
-import { Search, Plus, Mail, Phone, Users } from 'lucide-react-native';
+import { Search, Plus, Mail, Phone, Users, Upload } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,6 +20,7 @@ import { fonts } from '../theme/typography';
 
 import { AddCustomerModal } from '../components/AddCustomerModal';
 import { CustomerDetailModal, formatAddress } from '../components/CustomerDetailModal';
+import { BulkImportModal } from '../components/BulkImportModal';
 import { useAuth } from '../context/AuthContext';
 
 interface CustomersScreenProps {
@@ -54,6 +55,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<CustomerFilterType>('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
 
@@ -62,6 +64,7 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
     setSelectedCustomer(null);
     setEditingCustomer(null);
     setIsAddModalOpen(false);
+    setIsImportModalOpen(false);
     setSearch('');
     setFilter('all');
   }, [currentOrgId]);
@@ -125,14 +128,24 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Customers</Text>
-        <TouchableOpacity
-          onPress={() => setIsAddModalOpen(true)}
-          style={[styles.newBtn, { backgroundColor: colors.primary }]}
-          activeOpacity={0.8}
-        >
-          <Plus size={16} color={colors.primaryForeground} strokeWidth={2.5} />
-          <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>Add</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setIsImportModalOpen(true)}
+            style={[styles.importBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+            activeOpacity={0.7}
+          >
+            <Upload size={14} color={colors.foreground} />
+            <Text style={[styles.importBtnText, { color: colors.foreground }]}>Import</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setIsAddModalOpen(true)}
+            style={[styles.newBtn, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+          >
+            <Plus size={16} color={colors.primaryForeground} strokeWidth={2.5} />
+            <Text style={[styles.newBtnText, { color: colors.primaryForeground }]}>Add</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Input */}
@@ -296,6 +309,18 @@ export function CustomersScreen({ onNavigate }: CustomersScreenProps) {
         onEdit={(cust) => setEditingCustomer(cust)}
         onCreateInvoice={() => onNavigate('create_invoice')}
       />
+
+      {/* Bulk CSV Import Modal */}
+      <BulkImportModal
+        visible={isImportModalOpen}
+        entity="customers"
+        title="Import Customers"
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          refetch();
+          setIsImportModalOpen(false);
+        }}
+      />
     </View>
   );
 }
@@ -312,10 +337,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fonts.display,
+  },
+  importBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  importBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: fonts.semiBold,
   },
   newBtn: {
     flexDirection: 'row',

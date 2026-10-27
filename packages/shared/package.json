@@ -11,7 +11,9 @@
     "./features": "./src/features.ts",
     "./countries": "./src/countries.ts",
     "./organization": "./src/organization.ts",
-    "./financialDocuments": "./src/financialDocuments.ts"
+    "./financialDocuments": "./src/financialDocuments.ts",
+    "./csvParser": "./src/csvParser.ts",
+    "./csvTemplates": "./src/csvTemplates.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"

@@ -71,3 +71,25 @@ export function useDeleteItem() {
   });
 }
 
+export function useBulkImportItems() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      items,
+      duplicateStrategy = 'skip',
+    }: {
+      items: any[];
+      duplicateStrategy?: 'skip' | 'update' | 'error';
+    }) => {
+      const { data } = await api.post('/items/bulk-import', {
+        items,
+        duplicateStrategy,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+}
+

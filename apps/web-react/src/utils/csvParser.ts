@@ -85,129 +85,578 @@ export function parseRawCsv(text: string): string[][] {
 /**
  * Normalizes header string to clean lowercase token
  */
-function normalizeHeader(h: string): string {
-  return h.toLowerCase().replace(/[^a-z0-9]/g, '');
+export function normalizeHeader(h: string): string {
+  let cleaned = (h || '').toLowerCase().trim();
+  cleaned = cleaned.replace(/[\*\(\)\[\]]/g, ' ');
+  cleaned = cleaned.replace(/\b(required|mandatory|optional)\b/g, '');
+  return cleaned.replace(/[^a-z0-9]/g, '');
 }
 
 /**
  * Field alias mappings for each entity
  */
-const ENTITY_ALIASES: Record<string, Record<string, string[]>> = {
+export const ENTITY_ALIASES: Record<string, Record<string, string[]>> = {
   customers: {
-    name: ['customername', 'name', 'clientname', 'displayname', 'customer'],
-    customerCode: ['customercode', 'code', 'customerid'],
-    email: ['email', 'emailid', 'customeremail'],
-    phone: ['phone', 'mobile', 'phonenumber', 'mobilenumber', 'contact', 'contactnumber'],
-    company: ['companyname', 'company', 'organization', 'businessname'],
-    billingAddress: ['billingaddress', 'billingaddr', 'address', 'billingaddressline', 'street', 'streetaddress'],
-    shippingAddress: ['shippingaddress', 'shippingaddr', 'deliveryaddress', 'shipaddress', 'mailingaddress'],
-    gstNumber: ['gstnumber', 'gstin', 'gst', 'taxid'],
-    gstTreatment: ['gsttreatment', 'treatment', 'taxtreatment'],
-    paymentTerms: ['paymentterms', 'terms'],
-    openingBalance: ['openingbalance', 'balance'],
-    notes: ['notes', 'remarks', 'description']
+    name: [
+      'customername',
+      'name',
+      'clientname',
+      'displayname',
+      'customer',
+      'contactname',
+      'companycustomer',
+      'customerorcompany'
+    ],
+    customerCode: [
+      'customercode',
+      'code',
+      'customerid',
+      'customerno',
+      'custid',
+      'custcode',
+      'customernumber'
+    ],
+    email: [
+      'email',
+      'emailid',
+      'customeremail',
+      'clientemail',
+      'contactemail',
+      'primarycontactemailid',
+      'primarycontactemail'
+    ],
+    phone: [
+      'phone',
+      'mobile',
+      'phonenumber',
+      'mobilenumber',
+      'contact',
+      'contactnumber',
+      'customerphone',
+      'customermobile',
+      'clientphone',
+      'primarycontactmobile',
+      'primarycontactphone',
+      'telephone'
+    ],
+    company: [
+      'companyname',
+      'company',
+      'organization',
+      'businessname',
+      'orgname'
+    ],
+    billingAddress: [
+      'billingaddress',
+      'billingaddr',
+      'address',
+      'billingaddressline',
+      'street',
+      'streetaddress',
+      'billingstreet',
+      'billingstreetaddress',
+      'billaddress'
+    ],
+    shippingAddress: [
+      'shippingaddress',
+      'shippingaddr',
+      'deliveryaddress',
+      'shipaddress',
+      'mailingaddress',
+      'shippingstreet',
+      'shippingstreetaddress'
+    ],
+    gstNumber: [
+      'gstnumber',
+      'gstin',
+      'gst',
+      'taxid',
+      'gstno',
+      'gstid',
+      'taxnumber',
+      'vatnumber',
+      'gstidentificationnumber',
+      'gstidentificationnumbergstin'
+    ],
+    gstTreatment: [
+      'gsttreatment',
+      'treatment',
+      'taxtreatment',
+      'gsttype',
+      'taxtype'
+    ],
+    paymentTerms: [
+      'paymentterms',
+      'terms',
+      'paymentterm'
+    ],
+    openingBalance: [
+      'openingbalance',
+      'balance',
+      'openbalance'
+    ],
+    notes: [
+      'notes',
+      'remarks',
+      'description',
+      'note',
+      'comment',
+      'comments'
+    ]
   },
 
   vendors: {
-    name: ['vendorname', 'name', 'suppliername', 'supplier', 'vendor'],
-    vendorCode: ['vendorcode', 'code', 'vendorid'],
-    email: ['email', 'emailid', 'vendoremail'],
-    phone: ['phone', 'mobile', 'phonenumber', 'contact'],
-    company: ['companyname', 'company', 'organization'],
-    address: ['address', 'street', 'location'],
-    gstNumber: ['gstnumber', 'gstin', 'gst'],
-    gstTreatment: ['gsttreatment', 'treatment'],
-    paymentTerms: ['paymentterms', 'terms'],
-    bankName: ['bankname', 'bank'],
-    bankAccountNo: ['bankaccountnumber', 'bankaccountno', 'accountno', 'accountnumber'],
-    bankIfsc: ['bankifsc', 'ifsc', 'ifsccode'],
-    openingBalance: ['openingbalance', 'balance'],
-    notes: ['notes', 'remarks']
+    name: [
+      'vendorname',
+      'name',
+      'suppliername',
+      'supplier',
+      'vendor',
+      'contactname',
+      'payeename'
+    ],
+    vendorCode: [
+      'vendorcode',
+      'code',
+      'vendorid',
+      'vendorno',
+      'supplierid',
+      'suppliercode'
+    ],
+    email: [
+      'email',
+      'emailid',
+      'vendoremail',
+      'supplieremail',
+      'primarycontactemail'
+    ],
+    phone: [
+      'phone',
+      'mobile',
+      'phonenumber',
+      'mobilenumber',
+      'contact',
+      'vendorphone',
+      'supplierphone',
+      'telephone'
+    ],
+    company: [
+      'companyname',
+      'company',
+      'organization',
+      'businessname',
+      'orgname'
+    ],
+    address: [
+      'address',
+      'street',
+      'location',
+      'vendoraddress',
+      'supplieraddress'
+    ],
+    gstNumber: [
+      'gstnumber',
+      'gstin',
+      'gst',
+      'taxid',
+      'gstno',
+      'taxnumber',
+      'vatnumber',
+      'gstidentificationnumber',
+      'gstidentificationnumbergstin'
+    ],
+    gstTreatment: [
+      'gsttreatment',
+      'treatment',
+      'taxtreatment',
+      'gsttype'
+    ],
+    paymentTerms: [
+      'paymentterms',
+      'terms',
+      'paymentterm'
+    ],
+    bankName: [
+      'bankname',
+      'bank'
+    ],
+    bankAccountNo: [
+      'bankaccountnumber',
+      'bankaccountno',
+      'accountno',
+      'accountnumber',
+      'bankaccnumber',
+      'bankaccno'
+    ],
+    bankIfsc: [
+      'bankifsc',
+      'ifsc',
+      'ifsccode'
+    ],
+    openingBalance: [
+      'openingbalance',
+      'balance',
+      'openbalance'
+    ],
+    notes: [
+      'notes',
+      'remarks',
+      'description',
+      'note',
+      'comment',
+      'comments'
+    ]
   },
 
   items: {
-    name: ['itemname', 'name', 'productname', 'servicename', 'item', 'title'],
-    sku: ['sku', 'itemcode', 'code', 'barcode'],
-    type: ['type', 'itemtype'],
-    productType: ['classification', 'producttype', 'inventorytype', 'trackinventory', 'itemclassification'],
-    openingStock: ['openingstock', 'initialstock', 'stockonhand', 'stock', 'openingquantity', 'currentstock', 'quantityinstock'],
-    reorderPoint: ['reorderpoint', 'reorderlevel', 'reorder', 'lowstockthreshold', 'lowstocklevel', 'minimumstock'],
-    category: ['category', 'group'],
-    uom: ['unitofmeasurement', 'uom', 'unit', 'units'],
-    sellingPrice: ['sellingprice', 'price', 'unitprice', 'rate', 'salesprice'],
-    costPrice: ['costprice', 'cost', 'purchaseprice'],
-    salesTaxRate: ['salestaxrate', 'salestax', 'taxrate', 'taxpercent', 'gst'],
-    purchaseTaxRate: ['purchasetaxrate', 'purchasetax'],
-    hsnSacCode: ['hsnorsaccode', 'hsnsaccode', 'hsncode', 'saccode', 'hsn', 'sac'],
-    taxPreference: ['taxpreference', 'preference'],
-    description: ['description', 'salesdescription', 'details']
+    name: [
+      'itemname',
+      'productname',
+      'servicename',
+      'title',
+      'item',
+      'name'
+    ],
+    sku: [
+      'sku',
+      'itemcode',
+      'code',
+      'barcode',
+      'productcode',
+      'itemsku'
+    ],
+    type: [
+      'type',
+      'itemtype'
+    ],
+    productType: [
+      'classification',
+      'producttype',
+      'inventorytype',
+      'trackinventory',
+      'itemclassification'
+    ],
+    openingStock: [
+      'openingstock',
+      'initialstock',
+      'stockonhand',
+      'stock',
+      'openingquantity',
+      'currentstock',
+      'quantityinstock'
+    ],
+    reorderPoint: [
+      'reorderpoint',
+      'reorderlevel',
+      'reorder',
+      'lowstockthreshold',
+      'lowstocklevel',
+      'minimumstock'
+    ],
+    category: [
+      'category',
+      'group'
+    ],
+    uom: [
+      'unitofmeasurement',
+      'uom',
+      'unit',
+      'units',
+      'usageunit'
+    ],
+    sellingPrice: [
+      'sellingprice',
+      'unitprice',
+      'salesprice',
+      'price',
+      'rate',
+      'itemprice'
+    ],
+    costPrice: [
+      'costprice',
+      'cost',
+      'purchaseprice',
+      'purchaserate'
+    ],
+    salesTaxRate: [
+      'salestaxrate',
+      'salestax',
+      'taxrate',
+      'taxpercent',
+      'gst',
+      'itemtaxpercent'
+    ],
+    purchaseTaxRate: [
+      'purchasetaxrate',
+      'purchasetax'
+    ],
+    hsnSacCode: [
+      'hsnorsaccode',
+      'hsnsaccode',
+      'hsncode',
+      'saccode',
+      'hsn',
+      'sac',
+      'hsnsac'
+    ],
+    taxPreference: [
+      'taxpreference',
+      'preference'
+    ],
+    description: [
+      'description',
+      'salesdescription',
+      'details',
+      'itemdesc'
+    ]
   },
 
   invoices: {
-    invoiceNumber: ['invoicenumber', 'invoiceno', 'invoice', 'invnumber', 'invno'],
-    customerName: ['customername', 'customer', 'client', 'name'],
-    customerEmail: ['customeremail', 'email', 'emailid'],
-    date: ['invoicedate', 'date'],
-    dueDate: ['duedate', 'expirydate'],
-    itemName: ['itemname', 'item', 'product', 'service', 'description'],
-    quantity: ['quantity', 'qty'],
-    rate: ['rate', 'price', 'unitprice', 'itemprice'],
-    itemDescription: ['itemdescription', 'description', 'lineitemdescription'],
-    referenceNumber: ['referencenumber', 'refno', 'ponumber', 'orderid'],
-    discountPercent: ['discount', 'discountpercent', 'discountvalue'],
-    taxPercent: ['tax', 'taxpercent', 'vat', 'gst'],
-    notes: ['notes', 'remarks', 'termsconditions']
+    invoiceNumber: [
+      'invoicenumber',
+      'invoiceno',
+      'invoice',
+      'invnumber',
+      'invno'
+    ],
+    customerName: [
+      'customername',
+      'customer',
+      'client',
+      'name'
+    ],
+    customerEmail: [
+      'customeremail',
+      'email',
+      'emailid',
+      'primarycontactemailid'
+    ],
+    date: [
+      'invoicedate',
+      'date'
+    ],
+    dueDate: [
+      'duedate',
+      'expirydate'
+    ],
+    itemName: [
+      'itemname',
+      'product',
+      'service',
+      'item'
+    ],
+    quantity: [
+      'quantity',
+      'qty'
+    ],
+    rate: [
+      'rate',
+      'price',
+      'unitprice',
+      'itemprice'
+    ],
+    itemDescription: [
+      'itemdescription',
+      'description',
+      'lineitemdescription',
+      'itemdesc'
+    ],
+    referenceNumber: [
+      'referencenumber',
+      'refno',
+      'ponumber',
+      'orderid'
+    ],
+    discountPercent: [
+      'discount',
+      'discountpercent',
+      'discountvalue'
+    ],
+    taxPercent: [
+      'tax',
+      'taxpercent',
+      'vat',
+      'gst'
+    ],
+    notes: [
+      'notes',
+      'remarks',
+      'termsconditions'
+    ]
   },
 
   bills: {
-    billNumber: ['billnumber', 'billno', 'bill', 'invoice#', 'vendorinvoiceno'],
-    vendorName: ['vendorname', 'vendor', 'supplier', 'name'],
-    vendorEmail: ['vendoremail', 'email'],
-    date: ['billdate', 'date'],
-    dueDate: ['duedate'],
-    itemName: ['itemname', 'item', 'description'],
-    quantity: ['quantity', 'qty'],
-    rate: ['rate', 'price', 'unitprice'],
-    itemDescription: ['itemdescription', 'description'],
-    referenceNumber: ['referencenumber', 'refno', 'ponumber'],
-    taxPercent: ['tax', 'taxpercent'],
-    notes: ['notes', 'remarks']
+    billNumber: [
+      'billnumber',
+      'billno',
+      'bill',
+      'invoice#',
+      'vendorinvoiceno'
+    ],
+    vendorName: [
+      'vendorname',
+      'vendor',
+      'supplier',
+      'name'
+    ],
+    vendorEmail: [
+      'vendoremail',
+      'email'
+    ],
+    date: [
+      'billdate',
+      'date'
+    ],
+    dueDate: [
+      'duedate'
+    ],
+    itemName: [
+      'itemname',
+      'item',
+      'description'
+    ],
+    quantity: [
+      'quantity',
+      'qty'
+    ],
+    rate: [
+      'rate',
+      'price',
+      'unitprice'
+    ],
+    itemDescription: [
+      'itemdescription',
+      'description'
+    ],
+    referenceNumber: [
+      'referencenumber',
+      'refno',
+      'ponumber'
+    ],
+    taxPercent: [
+      'tax',
+      'taxpercent'
+    ],
+    notes: [
+      'notes',
+      'remarks'
+    ]
   },
 
   expenses: {
-    date: ['date', 'expensedate'],
-    expenseAccount: ['expenseaccount', 'account', 'category'],
-    amount: ['amount', 'total', 'cost'],
-    paidThrough: ['paidthrough', 'paidvia', 'paymentaccount', 'paymentmode'],
-    vendor: ['vendorname', 'vendor', 'payee'],
-    referenceNumber: ['referencenumber', 'refno', 'receiptno'],
-    notes: ['notes', 'description', 'remarks']
+    date: [
+      'date',
+      'expensedate'
+    ],
+    expenseAccount: [
+      'expenseaccount',
+      'account',
+      'category'
+    ],
+    amount: [
+      'amount',
+      'total',
+      'cost'
+    ],
+    paidThrough: [
+      'paidthrough',
+      'paidvia',
+      'paymentaccount',
+      'paymentmode'
+    ],
+    vendor: [
+      'vendorname',
+      'vendor',
+      'payee'
+    ],
+    referenceNumber: [
+      'referencenumber',
+      'refno',
+      'receiptno'
+    ],
+    notes: [
+      'notes',
+      'description',
+      'remarks'
+    ]
   }
 };
 
 /**
- * Maps raw CSV row cells to normalized schema keys
+ * Resolves each column index to a unique target schema key.
+ * Phase 1: Exact alias match (normH === alias).
+ * Phase 2: Longest alias prefix match (alias.length >= 4) for remaining unmapped columns.
  */
-function mapRowToSchema(
+export function resolveHeaderMapping(
+  headers: string[],
+  entityKey: string
+): Map<number, string> {
+  const aliases = ENTITY_ALIASES[entityKey] || {};
+  const columnIndexToField = new Map<number, string>();
+  const mappedFields = new Set<string>();
+
+  const normalizedHeaders = headers.map(normalizeHeader);
+
+  // Phase 1: Exact matches
+  normalizedHeaders.forEach((normH, idx) => {
+    if (!normH) return;
+    for (const [targetKey, aliasList] of Object.entries(aliases)) {
+      if (mappedFields.has(targetKey)) continue;
+      if (aliasList.some((alias) => normH === alias)) {
+        columnIndexToField.set(idx, targetKey);
+        mappedFields.add(targetKey);
+        break;
+      }
+    }
+  });
+
+  // Phase 2: Prefix / Containment for remaining unmapped columns
+  // Only match if the alias is specific (length >= 4) to avoid false collisions from short aliases like 'gst', 'code', 'name', 'unit'
+  normalizedHeaders.forEach((normH, idx) => {
+    if (columnIndexToField.has(idx) || !normH) return;
+
+    let bestMatchKey: string | null = null;
+    let longestMatchLen = 0;
+
+    for (const [targetKey, aliasList] of Object.entries(aliases)) {
+      if (mappedFields.has(targetKey)) continue;
+      for (const alias of aliasList) {
+        if (alias.length >= 4 && (normH.startsWith(alias) || alias.startsWith(normH))) {
+          if (alias.length > longestMatchLen) {
+            longestMatchLen = alias.length;
+            bestMatchKey = targetKey;
+          }
+        }
+      }
+    }
+
+    if (bestMatchKey) {
+      columnIndexToField.set(idx, bestMatchKey);
+      mappedFields.add(bestMatchKey);
+    }
+  });
+
+  return columnIndexToField;
+}
+
+/**
+ * Maps raw CSV row cells to normalized schema keys using pre-resolved column mapping
+ */
+export function mapRowToSchema(
   headerKeys: string[],
   cells: string[],
-  entityKey: string
+  columnMapping: Map<number, string>
 ): { rawData: Record<string, string>; mappedData: Record<string, any> } {
   const rawData: Record<string, string> = {};
   const mappedData: Record<string, any> = {};
-  const aliases = ENTITY_ALIASES[entityKey] || {};
 
   headerKeys.forEach((header, idx) => {
     const rawValue = cells[idx] || '';
     rawData[header] = rawValue;
 
-    const normH = normalizeHeader(header);
-    for (const [targetKey, aliasList] of Object.entries(aliases)) {
-      if (aliasList.some((alias) => normH === alias || normH.startsWith(alias))) {
-        if (mappedData[targetKey] === undefined) {
-          mappedData[targetKey] = rawValue;
-        }
-      }
+    const targetKey = columnMapping.get(idx);
+    if (targetKey && mappedData[targetKey] === undefined) {
+      mappedData[targetKey] = rawValue;
     }
   });
 
@@ -305,12 +754,13 @@ export function parseAndValidateCsv(csvText: string, entityKey: string): CsvPars
   const dataRows = matrix.slice(1);
 
   const parsedRows: ParsedRowResult[] = [];
+  const columnMapping = resolveHeaderMapping(rawHeaders, entityKey);
 
   dataRows.forEach((cells, index) => {
     // Skip completely empty rows
     if (cells.every((c) => !c.trim())) return;
 
-    const { rawData, mappedData } = mapRowToSchema(rawHeaders, cells, entityKey);
+    const { rawData, mappedData } = mapRowToSchema(rawHeaders, cells, columnMapping);
     const errors = validateMappedRow(mappedData, entityKey);
 
     parsedRows.push({
@@ -416,6 +866,30 @@ export function parseAndValidateCsv(csvText: string, entityKey: string): CsvPars
       return bill;
     });
   } else if (entityKey === 'customers') {
+    const knownTreatments = new Set([
+      'REGISTERED BUSINESS - REGULAR',
+      'REGISTERED BUSINESS - COMPOSITION',
+      'UNREGISTERED BUSINESS',
+      'CONSUMER',
+      'OVERSEAS',
+      'SPECIAL ECONOMIC ZONE',
+      'BUSINESS_GST',
+      'BUSINESS_REGISTERED',
+      'CONSUMER_GST',
+      'OVERSEAS_GST'
+    ]);
+    const placeholders = new Set([
+      'NA',
+      'N/A',
+      'NONE',
+      'NIL',
+      'NULL',
+      '-',
+      '--',
+      'NOT APPLICABLE',
+      'UNREGISTERED'
+    ]);
+
     // Sanitize common field values that may include label prefixes (e.g. "Phone: 123")
     payload = parsedRows.filter((r) => r.isValid).map((r) => {
       const m = { ...r.mappedData };
@@ -424,6 +898,47 @@ export function parseAndValidateCsv(csvText: string, entityKey: string): CsvPars
       }
       if (typeof m.email === 'string') {
         m.email = m.email.replace(/^email\s*:\s*/i, '').trim();
+      }
+      if (typeof m.gstNumber === 'string') {
+        const trimmedGst = m.gstNumber.trim();
+        const upperGst = trimmedGst.toUpperCase();
+        if (knownTreatments.has(upperGst)) {
+          if (!m.gstTreatment) {
+            m.gstTreatment = trimmedGst;
+          }
+          m.gstNumber = '';
+        } else if (placeholders.has(upperGst)) {
+          m.gstNumber = '';
+        }
+      }
+      return m;
+    });
+  } else if (entityKey === 'vendors') {
+    const placeholders = new Set([
+      'NA',
+      'N/A',
+      'NONE',
+      'NIL',
+      'NULL',
+      '-',
+      '--',
+      'NOT APPLICABLE',
+      'UNREGISTERED'
+    ]);
+    payload = parsedRows.filter((r) => r.isValid).map((r) => {
+      const m = { ...r.mappedData };
+      if (typeof m.phone === 'string') {
+        m.phone = m.phone.replace(/^phone\s*:\s*/i, '').replace(/^mobile\s*:\s*/i, '').trim();
+      }
+      if (typeof m.email === 'string') {
+        m.email = m.email.replace(/^email\s*:\s*/i, '').trim();
+      }
+      if (typeof m.gstNumber === 'string') {
+        const trimmedGst = m.gstNumber.trim();
+        const upperGst = trimmedGst.toUpperCase();
+        if (placeholders.has(upperGst)) {
+          m.gstNumber = '';
+        }
       }
       return m;
     });

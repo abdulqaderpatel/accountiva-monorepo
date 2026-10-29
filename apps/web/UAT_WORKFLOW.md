@@ -101,12 +101,15 @@ If `git pull --ff-only origin uat` fails because local `uat` has diverged, stop 
 For the frontend UAT Netlify site, confirm this server-side value is set:
 
 ```text
+APP_ENV=uat
 API_PROXY_TARGET=https://uat-accountiva-api.netlify.app
 ```
 
 Hosted browser builds call `/api` on the frontend domain. Netlify's API proxy uses
 `API_PROXY_TARGET` to reach the UAT backend without third-party auth cookies.
 `VITE_API_URL` is only a fallback for local development and native builds.
+Both server-side variables are required. Missing or invalid values return a
+configuration error instead of selecting an API from the request hostname.
 Do not use production API URLs for UAT.
 
 ## After Pushing UAT

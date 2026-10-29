@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:uat": "vite --mode uat",
     "build": "vite build",
+    "build:uat": "vite build --mode uat",
     "preview": "vite preview",
     "static:build": "vite build"
   },

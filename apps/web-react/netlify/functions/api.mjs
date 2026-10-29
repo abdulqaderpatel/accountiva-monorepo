@@ -4,27 +4,19 @@ const ALLOWED_API_ORIGINS = new Set([
   PRODUCTION_API_ORIGIN,
   UAT_API_ORIGIN,
 ]);
+const APP_ENVIRONMENTS = new Set(["development", "uat", "production"]);
 
-const resolveApiOrigin = (requestUrl) => {
-  const configuredOrigin = process.env.API_PROXY_TARGET?.replace(/\/$/, "");
-  if (configuredOrigin) {
-    if (!ALLOWED_API_ORIGINS.has(configuredOrigin)) {
-      throw new Error("API_PROXY_TARGET is not an approved Accountiva API origin");
-    }
-    return configuredOrigin;
+const resolveApiOrigin = () => {
+  const appEnv = process.env.APP_ENV?.trim();
+  if (!appEnv || !APP_ENVIRONMENTS.has(appEnv)) {
+    throw new Error("APP_ENV must be one of: development, uat, production");
   }
 
-  const hostname = new URL(requestUrl).hostname.toLowerCase();
-  const isUatHostname =
-    hostname === "uat.accountiva.ai" ||
-    hostname.endsWith(".uat.accountiva.ai") ||
-    hostname.includes("uat-accountiva") ||
-    hostname.includes("accountiva-uat") ||
-    hostname.includes("accountivaai-uat");
-
-  return isUatHostname
-    ? UAT_API_ORIGIN
-    : PRODUCTION_API_ORIGIN;
+  const configuredOrigin = process.env.API_PROXY_TARGET?.trim().replace(/\/$/, "");
+  if (!configuredOrigin || !ALLOWED_API_ORIGINS.has(configuredOrigin)) {
+    throw new Error("API_PROXY_TARGET is not an approved Accountiva API origin");
+  }
+  return configuredOrigin;
 };
 
 const getApiPath = (requestUrl) => {
@@ -39,7 +31,7 @@ const getApiPath = (requestUrl) => {
 export default async (request) => {
   try {
     const requestUrl = new URL(request.url);
-    const apiOrigin = resolveApiOrigin(request.url);
+    const apiOrigin = resolveApiOrigin();
     const upstreamUrl = `${apiOrigin}${getApiPath(request.url)}`;
     const headers = new Headers(request.headers);
 

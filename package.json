@@ -12,8 +12,11 @@
     "dev:web:uat": "pnpm --filter web dev:uat",
     "dev:react": "pnpm --filter web-react dev",
     "dev:react:uat": "pnpm --filter web-react dev:uat",
+    "dev:staff": "pnpm --filter staff dev",
     "build:web:uat": "pnpm --filter web build:uat",
-    "build:react:uat": "pnpm --filter web-react build:uat"
+    "build:react:uat": "pnpm --filter web-react build:uat",
+    "build:staff": "pnpm --filter staff build",
+    "build:staff:uat": "pnpm --filter staff build:uat"
   },
   "devDependencies": {
     "turbo": "^2.4.4",

@@ -70,4 +70,3 @@ Each Netlify site must explicitly set:
 - Backend: `APP_ENV`, `CLIENT_URL`, `BETTER_AUTH_URL`, `DATABASE_URL`, plus existing secrets
 
 Production and UAT isolation remains the responsibility of distinct values scoped to their respective Netlify sites or deploy contexts.
-

@@ -200,4 +200,3 @@ Run `git diff --check`, `git diff --stat`, and `git status --short` in both repo
 - [ ] **Step 3: Report deployment prerequisite**
 
 Before deploying strict code, verify or tell the user to set `APP_ENV` and all required direct variables on each Netlify site. Do not expose secret values.
-

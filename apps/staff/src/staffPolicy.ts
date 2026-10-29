@@ -2,6 +2,7 @@ export type StaffGate =
   | "loading"
   | "signed_out"
   | "denied"
+  | "unavailable"
   | "enroll_mfa"
   | "verify_mfa"
   | "ready";
@@ -22,7 +23,8 @@ export const getStaffGate = ({
   if (!hasSession) return "signed_out";
   if (staffStatus === 401) return "signed_out";
   if (staffStatus === 403) return "denied";
-  if (staffStatus !== 200) return "loading";
+  if (staffStatus === undefined) return "loading";
+  if (staffStatus !== 200) return "unavailable";
   if (!twoFactorEnabled) return "enroll_mfa";
   return mfaVerified ? "ready" : "verify_mfa";
 };

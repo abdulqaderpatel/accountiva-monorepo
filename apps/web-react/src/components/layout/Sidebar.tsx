@@ -10,7 +10,6 @@ import {
   Settings,
   Building2,
   ChevronRight,
-  ShieldCheck,
   Landmark,
   ArrowLeftRight,
   BookOpen,
@@ -19,7 +18,6 @@ import {
 } from "lucide-react";
 import { isFeatureEnabled, FeatureFlags } from "@accountiva/shared";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
 interface SidebarProps {
@@ -42,7 +40,6 @@ interface NavSection {
 
 export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
-  const { isAdmin } = useAuth();
 
   const sections: NavSection[] = [
     {
@@ -67,13 +64,6 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
       ],
     },
   ];
-
-  if (isAdmin) {
-    sections.push({
-      title: "Admin",
-      items: [{ name: "Admin", icon: ShieldCheck, route: "/admin" }],
-    });
-  }
 
   const visibleSections = sections
     .map((section) => ({

@@ -5,6 +5,7 @@ describe("staff portal policy", () => {
   it("keeps non-staff users out and requires enrollment or fresh MFA", () => {
     expect(getStaffGate({ hasSession: false })).toBe("signed_out");
     expect(getStaffGate({ hasSession: true, staffStatus: 403 })).toBe("denied");
+    expect(getStaffGate({ hasSession: true, staffStatus: 500 })).toBe("unavailable");
     expect(
       getStaffGate({
         hasSession: true,

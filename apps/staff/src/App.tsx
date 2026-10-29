@@ -21,6 +21,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  TriangleAlert,
   UserRound,
   Users,
   X,
@@ -98,6 +99,19 @@ const LoadingView = () => (
     <div className="loading-block">
       <RefreshCw className="spin" size={24} />
       <p>Checking your staff access…</p>
+    </div>
+  </SecureShell>
+);
+
+const UnavailableView = ({ onRetry }: { onRetry: () => Promise<void> }) => (
+  <SecureShell>
+    <div className="loading-block">
+      <TriangleAlert size={24} />
+      <h1>Staff access is unavailable</h1>
+      <p>We could not verify your access securely. No customer data was loaded.</p>
+      <button className="primary-button" onClick={() => void onRetry()} type="button">
+        Try again
+      </button>
     </div>
   </SecureShell>
 );
@@ -623,6 +637,11 @@ export default function App() {
     setGate("loading");
     try {
       const session = await authClient.getSession();
+      if (session.error) {
+        setProfile(null);
+        setGate("unavailable");
+        return;
+      }
       if (!session.data?.session) {
         setProfile(null);
         setGate("signed_out");
@@ -652,7 +671,7 @@ export default function App() {
       }
     } catch {
       setProfile(null);
-      setGate("signed_out");
+      setGate("unavailable");
     }
   }, []);
 
@@ -677,6 +696,7 @@ export default function App() {
 
   const content = useMemo(() => {
     if (gate === "loading") return <LoadingView />;
+    if (gate === "unavailable") return <UnavailableView onRetry={refreshAccess} />;
     if (gate === "signed_out") {
       return (
         <SignInView

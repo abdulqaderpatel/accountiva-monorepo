@@ -282,11 +282,7 @@ const notificationsRedirectRoute = createRoute({
 const adminRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/admin",
-  component: () => (
-    <ProtectedRoute requireAdmin={true}>
-      <AdminPanel />
-    </ProtectedRoute>
-  ),
+  component: AdminPanel,
 });
 
 // 4. Create Route Tree

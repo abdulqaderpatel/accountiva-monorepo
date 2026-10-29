@@ -4,12 +4,10 @@ import { useAuth } from "@/context/AuthContext";
 
 export function ProtectedRoute({
   children,
-  requireAdmin = false,
 }: {
   children?: React.ReactNode;
-  requireAdmin?: boolean;
 }) {
-  const { isAuthenticated, loading, organizations, isAdmin } = useAuth();
+  const { isAuthenticated, loading, organizations } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -27,11 +25,6 @@ export function ProtectedRoute({
     const searchStr = location.searchStr ? `?${location.searchStr}` : "";
     const redirectUrl = `${location.pathname}${searchStr}`;
     return <Navigate to="/login" search={{ redirect: redirectUrl }} replace />;
-  }
-
-  // Admin access control matching Vue
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to={organizations.length > 0 ? "/dashboard" : "/onboarding"} replace />;
   }
 
   // Force onboarding if user has no organizations and is not currently on /onboarding

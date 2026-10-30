@@ -2,7 +2,12 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import api, { cancelOrganizationRequests } from "@/lib/api";
-import { revokeAuthSession } from "@/lib/logout";
+import {
+  clearLogoutPending,
+  isLogoutPending,
+  markLogoutPending,
+  revokeAuthSession,
+} from "@/lib/logout";
 import { setActiveOrganizationId, cancelOrganizationRequests as apiCancelRequests } from "@accountiva/api";
 
 export interface User {
@@ -220,6 +225,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     async function initAuth() {
+      if (isLogoutPending()) {
+        if (mounted) setLoading(false);
+        return;
+      }
       try {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Auth session check timed out")), 8000)
@@ -251,6 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    clearLogoutPending();
     const result = await authClient.signIn.email({
       email,
       password,
@@ -268,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signup = async (signupData: { name: string; email: string; password: string; redirect?: string }) => {
+    clearLogoutPending();
     const verificationUrl = new URL("/verify-email", window.location.origin);
     if (signupData.redirect) {
       verificationUrl.searchParams.set("redirect", signupData.redirect);
@@ -294,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const socialLogin = async (provider: "google") => {
+    clearLogoutPending();
     const params = new URLSearchParams(window.location.search);
     let redirect = params.get("redirect") || "/dashboard";
 
@@ -350,13 +362,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    await revokeAuthSession(() => (authClient.signOut as any)());
+    markLogoutPending();
+    setLoading(true);
     setUser(null);
     setIsAdmin(false);
     setOrganizations([]);
     setCurrentOrganization(null);
     localStorage.removeItem("accountiva_org_id");
     localStorage.removeItem("accountiva_org_currency");
+    const revoked = await revokeAuthSession((signal) =>
+      (authClient.signOut as any)({ fetchOptions: { signal } }),
+    );
+    if (revoked) clearLogoutPending();
+    setLoading(false);
   };
 
   const isAuthenticated = Boolean(user);

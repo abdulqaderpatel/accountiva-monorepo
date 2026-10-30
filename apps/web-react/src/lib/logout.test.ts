@@ -1,22 +1,79 @@
 import { describe, expect, it, vi } from "vitest";
-import { redirectToLogin, revokeAuthSession } from "./logout";
+import {
+  isLogoutPending,
+  markLogoutPending,
+  redirectToLogin,
+  revokeAuthSession,
+} from "./logout";
+
+const createStorage = () => {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
+  };
+};
 
 describe("logout", () => {
-  it("waits for the server session to be revoked", async () => {
-    const signOut = vi.fn().mockResolvedValue({ data: { success: true }, error: null });
+  it("aborts a stalled server revocation at the logout deadline", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let settled = false;
+    let aborted = false;
 
-    await revokeAuthSession(signOut);
+    const revocation = revokeAuthSession(
+      (signal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            aborted = true;
+            reject(signal.reason);
+          });
+        }),
+      1_000,
+    );
+    void revocation.then(() => {
+      settled = true;
+    });
 
-    expect(signOut).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(revocation).resolves.toBe(false);
+    expect(aborted).toBe(true);
+    warn.mockRestore();
+    vi.useRealTimers();
   });
 
-  it("does not report success when the server rejects sign-out", async () => {
+  it("reports a rejected server revocation without blocking logout", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     await expect(
       revokeAuthSession(async () => ({
         data: null,
         error: { message: "Sign-out failed" },
       })),
-    ).rejects.toThrow("Sign-out failed");
+    ).resolves.toBe(false);
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+
+    warn.mockRestore();
+  });
+
+  it("suppresses session restoration while logout is pending", () => {
+    const storage = createStorage();
+
+    markLogoutPending(storage, 1_000);
+
+    expect(isLogoutPending(storage, 5_000)).toBe(true);
+  });
+
+  it("allows session restoration after the logout marker expires", () => {
+    const storage = createStorage();
+
+    markLogoutPending(storage, 1_000);
+
+    expect(isLogoutPending(storage, 31_001)).toBe(false);
   });
 
   it("uses one canonical slash when redirecting to login", () => {

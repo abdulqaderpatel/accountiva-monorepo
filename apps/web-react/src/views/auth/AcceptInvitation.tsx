@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { redirectToLogin } from "@/lib/logout";
 import { toast } from "sonner";
 import {
   Card,
@@ -101,11 +102,15 @@ export function AcceptInvitation() {
   };
 
   const handleSwitchAccount = async () => {
-    await logout();
-    navigate({
-      to: "/login" as any,
-      search: { email: invitation?.email, redirect: `/invite/${token}` } as any,
-    });
+    try {
+      await logout();
+      redirectToLogin(window.location, {
+        email: invitation?.email,
+        redirect: `/invite/${token}`,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to sign out");
+    }
   };
 
   return (
@@ -270,4 +275,3 @@ export function AcceptInvitation() {
     </div>
   );
 }
-

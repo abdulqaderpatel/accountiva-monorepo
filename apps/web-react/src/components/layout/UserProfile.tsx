@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { LogOut, Settings, Building2, User } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
+import { redirectToLogin } from "@/lib/logout";
+import { toast } from "sonner";
 
 interface UserProfileProps {
   variant?: "topbar" | "sidebar";
@@ -19,15 +21,14 @@ interface UserProfileProps {
 
 export function UserProfile({ variant = "topbar", collapsed = false }: UserProfileProps) {
   const { user, profile, signOut } = useAuth();
-  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await signOut();
-    } catch {
-      // Continue navigation even if signOut encounters network issue
+      redirectToLogin();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to sign out");
     }
-    navigate({ to: "/login" });
   };
 
   const displayName = profile?.full_name || user?.name || "User";
@@ -133,4 +134,3 @@ export function UserProfile({ variant = "topbar", collapsed = false }: UserProfi
     </DropdownMenu>
   );
 }
-

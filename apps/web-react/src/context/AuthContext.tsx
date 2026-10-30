@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import api, { cancelOrganizationRequests } from "@/lib/api";
+import { revokeAuthSession } from "@/lib/logout";
 import { setActiveOrganizationId, cancelOrganizationRequests as apiCancelRequests } from "@accountiva/api";
 
 export interface User {
@@ -349,16 +350,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    try {
-      await (authClient.signOut as any)();
-    } finally {
-      setUser(null);
-      setIsAdmin(false);
-      setOrganizations([]);
-      setCurrentOrganization(null);
-      localStorage.removeItem("accountiva_org_id");
-      localStorage.removeItem("accountiva_org_currency");
-    }
+    await revokeAuthSession(() => (authClient.signOut as any)());
+    setUser(null);
+    setIsAdmin(false);
+    setOrganizations([]);
+    setCurrentOrganization(null);
+    localStorage.removeItem("accountiva_org_id");
+    localStorage.removeItem("accountiva_org_currency");
   };
 
   const isAuthenticated = Boolean(user);

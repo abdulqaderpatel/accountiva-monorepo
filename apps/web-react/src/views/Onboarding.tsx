@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/Select";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { useAuth } from "@/context/AuthContext";
+import { redirectToLogin } from "@/lib/logout";
 import { toast } from "sonner";
 
 export function Onboarding() {
@@ -103,8 +104,12 @@ export function Onboarding() {
   };
 
   const handleSignOut = async () => {
-    await logout();
-    navigate({ to: "/login" as any });
+    try {
+      await logout();
+      redirectToLogin();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to sign out");
+    }
   };
 
   return (
@@ -373,4 +378,3 @@ export function Onboarding() {
 }
 
 export default Onboarding;
-

@@ -1,6 +1,7 @@
+import { calculateDocumentTotals } from "@accountiva/shared";
 import { describe, expect, it } from "vitest";
 import {
-  getAmountOnlyInvoiceSubtotal,
+  getAmountOnlyInvoiceEditState,
   validateInvoiceForm,
 } from "./invoiceFormValidation";
 
@@ -49,16 +50,33 @@ describe("validateInvoiceForm", () => {
     ).toEqual({ items: "Line item 1 quantity must be greater than zero." });
   });
 
-  it("restores the pre-tax amount when editing an amount-only invoice", () => {
-    expect(
-      getAmountOnlyInvoiceSubtotal({
-        amount: 1195,
-        discountAmount: 50,
-        taxAmount: 180,
-        shippingCharges: 40,
-        packagingCharges: 20,
-        adjustment: 5,
-      }),
-    ).toBe(1000);
+  it("preserves the total and manual round-off when reopening an amount-only invoice", () => {
+    const persistedInvoice = {
+      amount: 1186,
+      discountType: "fixed",
+      discountValue: 50,
+      discountAmount: 50,
+      taxPercent: 18,
+      taxAmount: 171,
+      shippingCharges: 40,
+      packagingCharges: 20,
+      adjustment: 5,
+    };
+
+    const editState = getAmountOnlyInvoiceEditState(persistedInvoice);
+    const recalculated = calculateDocumentTotals({
+      manualAmount: editState.manualAmount,
+      discountType: persistedInvoice.discountType,
+      discountValue: persistedInvoice.discountValue,
+      taxPercent: persistedInvoice.taxPercent,
+      shippingCharges: persistedInvoice.shippingCharges,
+      packagingCharges: persistedInvoice.packagingCharges,
+      roundOff: editState.roundOff,
+      autoRoundOff: editState.autoRoundOff,
+    });
+
+    expect(editState).toEqual({ manualAmount: 1000, roundOff: 5, autoRoundOff: false });
+    expect(recalculated.total).toBe(1186);
+    expect(recalculated.roundOff).toBe(5);
   });
 });

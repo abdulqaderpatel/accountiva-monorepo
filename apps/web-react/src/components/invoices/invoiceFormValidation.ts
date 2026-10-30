@@ -59,7 +59,7 @@ const finiteAmount = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export function getAmountOnlyInvoiceSubtotal(invoice: AmountOnlyInvoice): number {
+function getAmountOnlyInvoiceSubtotal(invoice: AmountOnlyInvoice): number {
   const subtotal =
     finiteAmount(invoice.amount) +
     finiteAmount(invoice.discountAmount ?? invoice.discount_amount) -
@@ -69,4 +69,12 @@ export function getAmountOnlyInvoiceSubtotal(invoice: AmountOnlyInvoice): number
     finiteAmount(invoice.roundOff ?? invoice.round_off ?? invoice.adjustment);
 
   return Math.max(0, Math.round((subtotal + Number.EPSILON) * 100) / 100);
+}
+
+export function getAmountOnlyInvoiceEditState(invoice: AmountOnlyInvoice) {
+  return {
+    manualAmount: getAmountOnlyInvoiceSubtotal(invoice),
+    roundOff: finiteAmount(invoice.roundOff ?? invoice.round_off ?? invoice.adjustment),
+    autoRoundOff: false as const,
+  };
 }

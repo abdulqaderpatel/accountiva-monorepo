@@ -36,7 +36,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  getAmountOnlyInvoiceSubtotal,
+  getAmountOnlyInvoiceEditState,
   validateInvoiceForm,
   type InvoiceFormErrors,
 } from "./invoiceFormValidation";
@@ -168,6 +168,7 @@ export function CreateInvoiceModal({
       setFormErrors({});
       if (invoiceToEdit) {
         const hasLineItems = Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0;
+        const amountOnlyEditState = getAmountOnlyInvoiceEditState(invoiceToEdit);
         numberRequestRef.current += 1;
         setIsNumberLoading(false);
         setNumberError("");
@@ -177,7 +178,7 @@ export function CreateInvoiceModal({
         setManualAmount(
           hasLineItems
             ? Number(invoiceToEdit.amount) || 0
-            : getAmountOnlyInvoiceSubtotal(invoiceToEdit),
+            : amountOnlyEditState.manualAmount,
         );
         setCustomerId(invoiceToEdit.customerId || invoiceToEdit.customers?.id || "");
         setDate(invoiceToEdit.date || invoiceToEdit.issueDate || today());
@@ -200,8 +201,9 @@ export function CreateInvoiceModal({
         setTaxPercent(Number(invoiceToEdit.taxPercent) || 0);
         setShippingCharges(Number(invoiceToEdit.shippingCharges) || 0);
         setPackagingCharges(Number((invoiceToEdit as any).packagingCharges || (invoiceToEdit as any).packaging_charges) || 0);
-        setRoundOff(Number((invoiceToEdit as any).roundOff ?? invoiceToEdit.adjustment) || 0);
-        setAdjustment(Number((invoiceToEdit as any).roundOff ?? invoiceToEdit.adjustment) || 0);
+        setAutoRoundOff(false);
+        setRoundOff(amountOnlyEditState.roundOff);
+        setAdjustment(amountOnlyEditState.roundOff);
         setCustomFields(invoiceToEdit.customFields || invoiceToEdit.custom_fields || {});
 
         if (hasLineItems) {

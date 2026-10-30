@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import rootHandler from "./api.mjs";
-import vueHandler from "../../apps/web/netlify/functions/api.mjs";
-import reactHandler from "../../apps/web-react/netlify/functions/api.mjs";
+import rootHandler from "./functions/api.mjs";
+import vueHandler from "../apps/web/netlify/functions/api.mjs";
+import reactHandler from "../apps/web-react/netlify/functions/api.mjs";
 
 const handlers = [
   ["root", rootHandler],

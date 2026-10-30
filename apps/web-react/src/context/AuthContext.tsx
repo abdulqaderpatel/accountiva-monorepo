@@ -249,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("Session restore error:", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
 
@@ -363,18 +363,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     markLogoutPending();
-    setLoading(true);
-    setUser(null);
-    setIsAdmin(false);
-    setOrganizations([]);
-    setCurrentOrganization(null);
-    localStorage.removeItem("accountiva_org_id");
-    localStorage.removeItem("accountiva_org_currency");
-    const revoked = await revokeAuthSession((signal) =>
-      (authClient.signOut as any)({ fetchOptions: { signal } }),
-    );
-    if (revoked) clearLogoutPending();
-    setLoading(false);
+    try {
+      await revokeAuthSession((signal) =>
+        (authClient.signOut as any)({ fetchOptions: { signal } }),
+      );
+    } catch (error) {
+      console.warn("Sign-out revocation error:", error);
+    } finally {
+      setUser(null);
+      setIsAdmin(false);
+      setOrganizations([]);
+      setCurrentOrganization(null);
+      localStorage.removeItem("accountiva_org_id");
+      localStorage.removeItem("accountiva_org_currency");
+      queryClient.cancelQueries();
+      queryClient.clear();
+    }
   };
 
   const isAuthenticated = Boolean(user);

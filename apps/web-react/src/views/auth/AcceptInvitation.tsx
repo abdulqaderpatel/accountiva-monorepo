@@ -104,12 +104,13 @@ export function AcceptInvitation() {
   const handleSwitchAccount = async () => {
     try {
       await logout();
+    } catch (error) {
+      console.warn("Sign-out error:", error);
+    } finally {
       redirectToLogin(window.location, {
         email: invitation?.email,
         redirect: `/invite/${token}`,
       });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign out");
     }
   };
 

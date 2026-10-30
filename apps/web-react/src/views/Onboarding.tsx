@@ -106,9 +106,10 @@ export function Onboarding() {
   const handleSignOut = async () => {
     try {
       await logout();
-      redirectToLogin();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign out");
+      console.warn("Sign-out error:", error);
+    } finally {
+      redirectToLogin();
     }
   };
 

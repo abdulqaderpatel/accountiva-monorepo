@@ -46,6 +46,34 @@ describe("logout", () => {
     vi.useRealTimers();
   });
 
+  it("uses the default 3000ms deadline when no timeout is passed", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let settled = false;
+    let aborted = false;
+
+    const revocation = revokeAuthSession((signal) =>
+      new Promise<never>((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          aborted = true;
+          reject(signal.reason);
+        });
+      }),
+    );
+    void revocation.then(() => {
+      settled = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(2_999);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(revocation).resolves.toBe(false);
+    expect(aborted).toBe(true);
+    warn.mockRestore();
+    vi.useRealTimers();
+  });
+
   it("reports a rejected server revocation without blocking logout", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 

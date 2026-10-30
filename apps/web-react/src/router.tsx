@@ -19,7 +19,6 @@ import { Items } from "./views/Items";
 import { Settings } from "./views/Settings";
 import { OrganizationSettings } from "./views/OrganizationSettings";
 import { Notifications } from "./views/Notifications";
-import { AdminPanel } from "./views/AdminPanel";
 import { PublicInvoiceView } from "./views/PublicInvoiceView";
 import { Onboarding } from "./views/Onboarding";
 import { Landing } from "./views/Landing";
@@ -279,12 +278,6 @@ const notificationsRedirectRoute = createRoute({
   component: () => <Navigate to="/settings" search={{ tab: "notifications" }} replace />,
 });
 
-const adminRoute = createRoute({
-  getParentRoute: () => protectedLayoutRoute,
-  path: "/admin",
-  component: AdminPanel,
-});
-
 // 4. Create Route Tree
 const routeTree = rootRoute.addChildren([
   rootIndexRoute,
@@ -310,7 +303,6 @@ const routeTree = rootRoute.addChildren([
     organizationSettingsRoute,
     notificationsRoute,
     notificationsRedirectRoute,
-    adminRoute,
     trashRedirectRoute,
     teamRedirectRoute,
     itemsRedirectRoute,

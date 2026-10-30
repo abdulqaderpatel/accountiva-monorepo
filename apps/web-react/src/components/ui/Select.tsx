@@ -197,6 +197,7 @@ export const Select: React.FC<SelectProps> = ({
         onKeyDown={handleKeydown}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        aria-invalid={Boolean(error) || undefined}
         data-slot="select-trigger"
         className={cn(
           "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 dark:bg-input/30 cursor-pointer",
@@ -267,4 +268,3 @@ export const Select: React.FC<SelectProps> = ({
 };
 
 export default Select;
-

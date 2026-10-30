@@ -37,6 +37,10 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  validateInvoiceForm,
+  type InvoiceFormErrors,
+} from "./invoiceFormValidation";
 
 interface InvoiceItemRow {
   id?: string;
@@ -100,6 +104,7 @@ export function CreateInvoiceModal({
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [isNumberLoading, setIsNumberLoading] = useState(false);
   const [numberError, setNumberError] = useState("");
+  const [formErrors, setFormErrors] = useState<InvoiceFormErrors>({});
   const numberRequestRef = useRef(0);
   const [manualAmount, setManualAmount] = useState<number | string>(0);
   const [customerId, setCustomerId] = useState("");
@@ -160,6 +165,7 @@ export function CreateInvoiceModal({
 
   useEffect(() => {
     if (isOpen) {
+      setFormErrors({});
       if (invoiceToEdit) {
         numberRequestRef.current += 1;
         setIsNumberLoading(false);
@@ -238,6 +244,9 @@ export function CreateInvoiceModal({
         setDiscountValue(0);
         setTaxPercent(18);
         setShippingCharges(0);
+        setPackagingCharges(0);
+        setAutoRoundOff(true);
+        setRoundOff(0);
         setAdjustment(0);
         setCustomFields({});
         void loadNextInvoiceNumber();
@@ -251,6 +260,7 @@ export function CreateInvoiceModal({
   // When customer is selected, auto-fill address if available
   const handleCustomerChange = (cId: string) => {
     setCustomerId(cId);
+    setFormErrors((current) => ({ ...current, customerId: undefined }));
     const selected = customerList.find((c) => c.id === cId);
     if (selected) {
       if (selected.billingAddress || selected.address) {
@@ -339,32 +349,38 @@ export function CreateInvoiceModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerId) {
-      toast.error("Please select a customer");
+    const validationErrors = validateInvoiceForm({
+      invoiceNumber: invoiceNumber.trim(),
+      customerId,
+      amount: grandTotal,
+      date,
+      dueDate,
+    });
+    if (Object.keys(validationErrors).length > 0) {
+      setFormErrors(validationErrors);
+      toast.error("Invoice validation failed", {
+        description: "Please resolve the highlighted errors in the form.",
+      });
       return;
     }
 
-    if (!invoiceNumber.trim()) {
-      toast.error("Invoice number is required");
-      return;
-    }
-
-    const itemError = validateFinancialLineItems(items);
-    if (itemError) {
-      toast.error(itemError);
-      return;
+    if (items.length > 0) {
+      const itemError = validateFinancialLineItems(items);
+      if (itemError) {
+        setFormErrors({ items: itemError });
+        toast.error(itemError);
+        return;
+      }
     }
 
     const dateError = validateFinancialDocumentDates(date, dueDate, "Due date");
     if (dateError) {
+      setFormErrors({ dueDate: dateError });
       toast.error(dateError);
       return;
     }
 
-    if (!Number.isFinite(grandTotal) || grandTotal <= 0) {
-      toast.error("Invoice total must be greater than zero");
-      return;
-    }
+    setFormErrors({});
 
     const payload: InvoicePayload = {
       customerId,
@@ -515,7 +531,10 @@ export function CreateInvoiceModal({
               <Input
                 id="invNumber"
                 value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
+                onChange={(e) => {
+                  setInvoiceNumber(e.target.value);
+                  setFormErrors((current) => ({ ...current, invoiceNumber: undefined }));
+                }}
                 disabled={autoGenerateNumber && !isEditing}
                 placeholder={
                   autoGenerateNumber && !isEditing
@@ -525,7 +544,13 @@ export function CreateInvoiceModal({
                     : "INV-001"
                 }
                 className="font-mono text-xs"
+                error={formErrors.invoiceNumber || numberError}
               />
+              {formErrors.invoiceNumber && (
+                <p className="text-[11px] font-semibold text-destructive">
+                  {formErrors.invoiceNumber}
+                </p>
+              )}
               {numberError && (
                 <div className="flex items-center justify-between gap-3 text-[11px] text-destructive">
                   <span>{numberError}</span>
@@ -554,12 +579,21 @@ export function CreateInvoiceModal({
                   id="invAmount"
                   type="number"
                   value={items.length > 0 ? grandTotal.toFixed(2) : manualAmount}
-                  onChange={(e) => setManualAmount(e.target.value)}
+                  onChange={(e) => {
+                    setManualAmount(e.target.value);
+                    setFormErrors((current) => ({ ...current, amount: undefined }));
+                  }}
                   disabled={items.length > 0}
                   placeholder="0.00"
                   className="pl-7 font-mono text-xs"
+                  error={formErrors.amount}
                 />
               </div>
+              {formErrors.amount && (
+                <p className="text-[11px] font-semibold text-destructive">
+                  {formErrors.amount}
+                </p>
+              )}
               {items.length > 0 && (
                 <p className="text-[10px] text-muted-foreground">
                   Computed dynamically from {items.length} line item(s).
@@ -586,22 +620,48 @@ export function CreateInvoiceModal({
               value={customerId}
               onChange={handleCustomerChange}
               placeholder="Select a client..."
+              error={formErrors.customerId}
               options={customerList.map((c) => ({
                 id: c.id,
                 name: `${c.name}${c.company ? ` (${c.company})` : ""}`,
               }))}
             />
+            {formErrors.customerId && (
+              <p className="text-[11px] font-semibold text-destructive">
+                {formErrors.customerId}
+              </p>
+            )}
           </div>
 
           {/* Dates 2-Column Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Invoice Date</Label>
-              <DatePicker value={date} onChange={setDate} />
+              <DatePicker
+                value={date}
+                error={formErrors.date}
+                onChange={(value) => {
+                  setDate(value);
+                  setFormErrors((current) => ({ ...current, date: undefined }));
+                }}
+              />
+              {formErrors.date && (
+                <p className="text-[11px] font-semibold text-destructive">{formErrors.date}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Due Date</Label>
-              <DatePicker value={dueDate} onChange={setDueDate} />
+              <DatePicker
+                value={dueDate}
+                error={formErrors.dueDate}
+                onChange={(value) => {
+                  setDueDate(value);
+                  setFormErrors((current) => ({ ...current, dueDate: undefined }));
+                }}
+              />
+              {formErrors.dueDate && (
+                <p className="text-[11px] font-semibold text-destructive">{formErrors.dueDate}</p>
+              )}
             </div>
           </div>
 
@@ -692,6 +752,10 @@ export function CreateInvoiceModal({
                 <Plus className="size-3" /> New Item
               </button>
             </div>
+
+            {formErrors.items && (
+              <p className="text-[11px] font-semibold text-destructive">{formErrors.items}</p>
+            )}
 
             {catalogItems.length > 0 ? (
               <div className="grid grid-cols-1 gap-2">

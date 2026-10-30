@@ -21,13 +21,16 @@ interface UserProfileProps {
 
 export function UserProfile({ variant = "topbar", collapsed = false }: UserProfileProps) {
   const { user, profile, signOut } = useAuth();
+  const [loggingOut, setLoggingOut] = React.useState(false);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       await signOut();
-      redirectToLogin();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign out");
+      console.warn("Sign-out error:", error);
+    } finally {
+      redirectToLogin();
     }
   };
 
@@ -125,10 +128,15 @@ export function UserProfile({ variant = "topbar", collapsed = false }: UserProfi
         {/* Sign Out Action */}
         <DropdownMenuItem
           onClick={handleLogout}
+          disabled={loggingOut}
           className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-colors"
         >
-          <LogOut className="size-3.5" />
-          <span>Sign Out</span>
+          {loggingOut ? (
+            <div className="size-3.5 rounded-full border-2 border-muted-foreground border-t-transparent animate-spin" />
+          ) : (
+            <LogOut className="size-3.5" />
+          )}
+          <span>{loggingOut ? "Signing Out..." : "Sign Out"}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

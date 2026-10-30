@@ -55,7 +55,7 @@ export function isLogoutPending(
 
 export async function revokeAuthSession(
   signOut: (signal: AbortSignal) => Promise<SignOutResult>,
-  timeoutMs = 8_000,
+  timeoutMs = 3_000,
 ): Promise<boolean> {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | undefined;

@@ -23,8 +23,6 @@ import {
   formatCurrency,
   getCurrencySymbol,
   isDuplicateDocumentNumberError,
-  validateFinancialDocumentDates,
-  validateFinancialLineItems,
   type InvoicePayload,
 } from "@accountiva/shared";
 import {
@@ -38,6 +36,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
+  getAmountOnlyInvoiceSubtotal,
   validateInvoiceForm,
   type InvoiceFormErrors,
 } from "./invoiceFormValidation";
@@ -144,6 +143,7 @@ export function CreateInvoiceModal({
       const nextNumber = await fetchNextInvoiceNumber();
       if (numberRequestRef.current === requestId) {
         setInvoiceNumber(nextNumber);
+        setFormErrors((current) => ({ ...current, invoiceNumber: undefined }));
       }
       return nextNumber;
     } catch (error: any) {
@@ -167,13 +167,18 @@ export function CreateInvoiceModal({
     if (isOpen) {
       setFormErrors({});
       if (invoiceToEdit) {
+        const hasLineItems = Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0;
         numberRequestRef.current += 1;
         setIsNumberLoading(false);
         setNumberError("");
         setIsEditing(true);
         setAutoGenerateNumber(false);
         setInvoiceNumber(invoiceToEdit.invoiceNumber || "");
-        setManualAmount(Number(invoiceToEdit.amount) || 0);
+        setManualAmount(
+          hasLineItems
+            ? Number(invoiceToEdit.amount) || 0
+            : getAmountOnlyInvoiceSubtotal(invoiceToEdit),
+        );
         setCustomerId(invoiceToEdit.customerId || invoiceToEdit.customers?.id || "");
         setDate(invoiceToEdit.date || invoiceToEdit.issueDate || today());
         setDueDate(invoiceToEdit.dueDate || defaultDueDate());
@@ -199,7 +204,7 @@ export function CreateInvoiceModal({
         setAdjustment(Number((invoiceToEdit as any).roundOff ?? invoiceToEdit.adjustment) || 0);
         setCustomFields(invoiceToEdit.customFields || invoiceToEdit.custom_fields || {});
 
-        if (Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0) {
+        if (hasLineItems) {
           setItems(
             invoiceToEdit.items.map((it: any) => ({
               id: it.id,
@@ -296,8 +301,15 @@ export function CreateInvoiceModal({
     total: grandTotal,
   } = totals;
 
+  useEffect(() => {
+    if (formErrors.amount && Number.isFinite(grandTotal) && grandTotal > 0) {
+      setFormErrors((current) => ({ ...current, amount: undefined }));
+    }
+  }, [grandTotal, formErrors.amount]);
+
   // Line Item Helpers
   const addItemToInvoice = (catItem: any) => {
+    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
     const rate = Number(catItem.sellingPrice) || Number(catItem.unitPrice) || 0;
     const existingIdx = items.findIndex((it) => it.itemId === catItem.id);
     if (existingIdx >= 0) {
@@ -321,6 +333,7 @@ export function CreateInvoiceModal({
   };
 
   const updateItemQuantity = (index: number, newQty: number) => {
+    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
     const qty = Math.max(1, newQty);
     const updated = [...items];
     updated[index].quantity = qty;
@@ -329,6 +342,7 @@ export function CreateInvoiceModal({
   };
 
   const updateItemRate = (index: number, newRate: number) => {
+    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
     const rate = Math.max(0, newRate);
     const updated = [...items];
     updated[index].rate = rate;
@@ -343,6 +357,7 @@ export function CreateInvoiceModal({
   };
 
   const removeItem = (index: number) => {
+    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
     setItems(items.filter((_, i) => i !== index));
   };
 
@@ -355,28 +370,13 @@ export function CreateInvoiceModal({
       amount: grandTotal,
       date,
       dueDate,
+      items,
     });
     if (Object.keys(validationErrors).length > 0) {
       setFormErrors(validationErrors);
       toast.error("Invoice validation failed", {
         description: "Please resolve the highlighted errors in the form.",
       });
-      return;
-    }
-
-    if (items.length > 0) {
-      const itemError = validateFinancialLineItems(items);
-      if (itemError) {
-        setFormErrors({ items: itemError });
-        toast.error(itemError);
-        return;
-      }
-    }
-
-    const dateError = validateFinancialDocumentDates(date, dueDate, "Due date");
-    if (dateError) {
-      setFormErrors({ dueDate: dateError });
-      toast.error(dateError);
       return;
     }
 
@@ -642,7 +642,11 @@ export function CreateInvoiceModal({
                 error={formErrors.date}
                 onChange={(value) => {
                   setDate(value);
-                  setFormErrors((current) => ({ ...current, date: undefined }));
+                  setFormErrors((current) => ({
+                    ...current,
+                    date: undefined,
+                    dueDate: undefined,
+                  }));
                 }}
               />
               {formErrors.date && (

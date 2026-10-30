@@ -1,7 +1,7 @@
 import { calculateDocumentTotals } from "@accountiva/shared";
 import { describe, expect, it } from "vitest";
 import {
-  getAmountOnlyInvoiceEditState,
+  getInvoiceEditCalculationState,
   validateInvoiceForm,
 } from "./invoiceFormValidation";
 
@@ -63,7 +63,7 @@ describe("validateInvoiceForm", () => {
       adjustment: 5,
     };
 
-    const editState = getAmountOnlyInvoiceEditState(persistedInvoice);
+    const editState = getInvoiceEditCalculationState(persistedInvoice, false);
     const recalculated = calculateDocumentTotals({
       manualAmount: editState.manualAmount,
       discountType: persistedInvoice.discountType,
@@ -78,5 +78,21 @@ describe("validateInvoiceForm", () => {
     expect(editState).toEqual({ manualAmount: 1000, roundOff: 5, autoRoundOff: false });
     expect(recalculated.total).toBe(1186);
     expect(recalculated.roundOff).toBe(5);
+  });
+
+  it("recalculates round-off when editing an invoice with line items", () => {
+    const editState = getInvoiceEditCalculationState(
+      { amount: 100, adjustment: -0.4 },
+      true,
+    );
+    const recalculated = calculateDocumentTotals({
+      items: [{ itemName: "Consulting", quantity: 1, rate: 100.7, amount: 100.7 }],
+      roundOff: editState.roundOff,
+      autoRoundOff: editState.autoRoundOff,
+    });
+
+    expect(editState.autoRoundOff).toBe(true);
+    expect(recalculated.roundOff).toBe(0.3);
+    expect(recalculated.total).toBe(101);
   });
 });

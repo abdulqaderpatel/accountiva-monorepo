@@ -71,10 +71,15 @@ function getAmountOnlyInvoiceSubtotal(invoice: AmountOnlyInvoice): number {
   return Math.max(0, Math.round((subtotal + Number.EPSILON) * 100) / 100);
 }
 
-export function getAmountOnlyInvoiceEditState(invoice: AmountOnlyInvoice) {
+export function getInvoiceEditCalculationState(
+  invoice: AmountOnlyInvoice,
+  hasLineItems: boolean,
+) {
   return {
-    manualAmount: getAmountOnlyInvoiceSubtotal(invoice),
+    manualAmount: hasLineItems
+      ? finiteAmount(invoice.amount)
+      : getAmountOnlyInvoiceSubtotal(invoice),
     roundOff: finiteAmount(invoice.roundOff ?? invoice.round_off ?? invoice.adjustment),
-    autoRoundOff: false as const,
+    autoRoundOff: hasLineItems,
   };
 }

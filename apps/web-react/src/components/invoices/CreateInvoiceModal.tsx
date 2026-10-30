@@ -36,7 +36,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  getAmountOnlyInvoiceEditState,
+  getInvoiceEditCalculationState,
   validateInvoiceForm,
   type InvoiceFormErrors,
 } from "./invoiceFormValidation";
@@ -168,18 +168,17 @@ export function CreateInvoiceModal({
       setFormErrors({});
       if (invoiceToEdit) {
         const hasLineItems = Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0;
-        const amountOnlyEditState = getAmountOnlyInvoiceEditState(invoiceToEdit);
+        const editCalculationState = getInvoiceEditCalculationState(
+          invoiceToEdit,
+          hasLineItems,
+        );
         numberRequestRef.current += 1;
         setIsNumberLoading(false);
         setNumberError("");
         setIsEditing(true);
         setAutoGenerateNumber(false);
         setInvoiceNumber(invoiceToEdit.invoiceNumber || "");
-        setManualAmount(
-          hasLineItems
-            ? Number(invoiceToEdit.amount) || 0
-            : amountOnlyEditState.manualAmount,
-        );
+        setManualAmount(editCalculationState.manualAmount);
         setCustomerId(invoiceToEdit.customerId || invoiceToEdit.customers?.id || "");
         setDate(invoiceToEdit.date || invoiceToEdit.issueDate || today());
         setDueDate(invoiceToEdit.dueDate || defaultDueDate());
@@ -201,9 +200,9 @@ export function CreateInvoiceModal({
         setTaxPercent(Number(invoiceToEdit.taxPercent) || 0);
         setShippingCharges(Number(invoiceToEdit.shippingCharges) || 0);
         setPackagingCharges(Number((invoiceToEdit as any).packagingCharges || (invoiceToEdit as any).packaging_charges) || 0);
-        setAutoRoundOff(false);
-        setRoundOff(amountOnlyEditState.roundOff);
-        setAdjustment(amountOnlyEditState.roundOff);
+        setAutoRoundOff(editCalculationState.autoRoundOff);
+        setRoundOff(editCalculationState.roundOff);
+        setAdjustment(editCalculationState.roundOff);
         setCustomFields(invoiceToEdit.customFields || invoiceToEdit.custom_fields || {});
 
         if (hasLineItems) {

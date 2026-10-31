@@ -17,7 +17,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/Select";
 import { CountrySelect } from "@/components/ui/CountrySelect";
 import { useAuth } from "@/context/AuthContext";
-import { redirectToLogin } from "@/lib/logout";
 import { toast } from "sonner";
 
 export function Onboarding() {
@@ -108,8 +107,6 @@ export function Onboarding() {
       await logout();
     } catch (error) {
       console.warn("Sign-out error:", error);
-    } finally {
-      redirectToLogin();
     }
   };
 

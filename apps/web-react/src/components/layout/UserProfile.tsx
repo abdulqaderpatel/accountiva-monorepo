@@ -11,8 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import { redirectToLogin } from "@/lib/logout";
-import { toast } from "sonner";
 
 interface UserProfileProps {
   variant?: "topbar" | "sidebar";
@@ -29,8 +27,7 @@ export function UserProfile({ variant = "topbar", collapsed = false }: UserProfi
       await signOut();
     } catch (error) {
       console.warn("Sign-out error:", error);
-    } finally {
-      redirectToLogin();
+      setLoggingOut(false);
     }
   };
 

@@ -61,10 +61,14 @@ export function configureApi(config: Partial<ApiClientConfig>) {
 }
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  // Ensure non-browser / mobile environments always provide a valid trusted origin
-  const currentOrigin = config.headers.get('Origin');
-  if (!currentOrigin || currentOrigin === 'null') {
-    config.headers.set('Origin', 'https://accountiva.ai');
+  const isBrowserRuntime = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  // Browsers own these forbidden headers. Native/mobile clients must provide them explicitly.
+  if (!isBrowserRuntime) {
+    const currentOrigin = config.headers.get('Origin');
+    if (!currentOrigin || currentOrigin === 'null') {
+      config.headers.set('Origin', 'https://accountiva.ai');
+    }
   }
 
   let orgId = activeOrganizationId;
@@ -90,13 +94,15 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     const token = await currentConfig.getAuthToken();
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`);
-      const existingCookie = config.headers.get('Cookie');
-      const cookieStr = typeof existingCookie === 'string' ? existingCookie : '';
-      if (!cookieStr.includes('session_token')) {
-        config.headers.set(
-          'Cookie',
-          `better-auth.session_token=${token}; __Secure-better-auth.session_token=${token}${cookieStr ? '; ' + cookieStr : ''}`
-        );
+      if (!isBrowserRuntime) {
+        const existingCookie = config.headers.get('Cookie');
+        const cookieStr = typeof existingCookie === 'string' ? existingCookie : '';
+        if (!cookieStr.includes('session_token')) {
+          config.headers.set(
+            'Cookie',
+            `better-auth.session_token=${token}; __Secure-better-auth.session_token=${token}${cookieStr ? '; ' + cookieStr : ''}`
+          );
+        }
       }
     }
   }
@@ -119,4 +125,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   isLogoutPending,
+  logoutAndRedirect,
   markLogoutPending,
   redirectToLogin,
   revokeAuthSession,
@@ -123,5 +124,45 @@ describe("logout", () => {
     expect(replace).toHaveBeenCalledWith(
       "/login?email=member%40example.com&redirect=%2Finvite%2Finvite-token",
     );
+  });
+
+  it("owns the complete logout flow and redirects exactly once", async () => {
+    const events: string[] = [];
+    const replace = vi.fn((url: string) => events.push(`redirect:${url}`));
+
+    await logoutAndRedirect({
+      signOut: async () => {
+        events.push("revoke");
+        return { error: null };
+      },
+      clearPersistentState: () => events.push("clear-persistent-state"),
+      location: { replace },
+    });
+
+    expect(events).toEqual([
+      "revoke",
+      "clear-persistent-state",
+      "redirect:/login",
+    ]);
+    expect(replace).toHaveBeenCalledOnce();
+  });
+
+  it("still clears persistent state and redirects when revocation fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const clearPersistentState = vi.fn();
+    const replace = vi.fn();
+
+    await logoutAndRedirect({
+      signOut: async () => {
+        throw new Error("network unavailable");
+      },
+      clearPersistentState,
+      location: { replace },
+      search: { redirect: "/invoices" },
+    });
+
+    expect(clearPersistentState).toHaveBeenCalledOnce();
+    expect(replace).toHaveBeenCalledWith("/login?redirect=%2Finvoices");
+    warn.mockRestore();
   });
 });

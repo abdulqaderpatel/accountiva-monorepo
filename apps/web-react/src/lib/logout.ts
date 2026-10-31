@@ -4,6 +4,14 @@ type SignOutResult = {
 
 type LoginLocation = Pick<Location, "replace">;
 type LogoutStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type LogoutSearch = Record<string, string | undefined>;
+
+type LogoutAndRedirectOptions = {
+  signOut: (signal: AbortSignal) => Promise<SignOutResult>;
+  clearPersistentState: () => void;
+  location?: LoginLocation;
+  search?: LogoutSearch;
+};
 
 const LOGOUT_PENDING_KEY = "accountiva_logout_pending";
 const LOGOUT_PENDING_TTL_MS = 30_000;
@@ -83,7 +91,7 @@ export async function revokeAuthSession(
 
 export function redirectToLogin(
   location: LoginLocation = window.location,
-  search: Record<string, string | undefined> = {},
+  search: LogoutSearch = {},
 ): void {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(search)) {
@@ -91,4 +99,22 @@ export function redirectToLogin(
   }
   const query = params.toString();
   location.replace(`/login${query ? `?${query}` : ""}`);
+}
+
+export async function logoutAndRedirect({
+  signOut,
+  clearPersistentState,
+  location = window.location,
+  search = {},
+}: LogoutAndRedirectOptions): Promise<void> {
+  markLogoutPending();
+  try {
+    await revokeAuthSession(signOut);
+  } finally {
+    try {
+      clearPersistentState();
+    } finally {
+      redirectToLogin(location, search);
+    }
+  }
 }

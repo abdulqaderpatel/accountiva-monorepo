@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { redirectToLogin } from "@/lib/logout";
 import { toast } from "sonner";
 import {
   Card,
@@ -103,14 +102,12 @@ export function AcceptInvitation() {
 
   const handleSwitchAccount = async () => {
     try {
-      await logout();
-    } catch (error) {
-      console.warn("Sign-out error:", error);
-    } finally {
-      redirectToLogin(window.location, {
+      await logout({
         email: invitation?.email,
         redirect: `/invite/${token}`,
       });
+    } catch (error) {
+      console.warn("Sign-out error:", error);
     }
   };
 

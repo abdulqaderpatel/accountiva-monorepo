@@ -5,8 +5,7 @@ import api, { cancelOrganizationRequests } from "@/lib/api";
 import {
   clearLogoutPending,
   isLogoutPending,
-  markLogoutPending,
-  revokeAuthSession,
+  logoutAndRedirect,
 } from "@/lib/logout";
 import { setActiveOrganizationId, cancelOrganizationRequests as apiCancelRequests } from "@accountiva/api";
 
@@ -62,8 +61,8 @@ interface AuthContextType {
   socialLogin: (provider: "google") => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (password: string, token: string) => Promise<any>;
-  logout: () => Promise<void>;
-  signOut: () => Promise<void>;
+  logout: (search?: Record<string, string | undefined>) => Promise<void>;
+  signOut: (search?: Record<string, string | undefined>) => Promise<void>;
   setCurrentOrganization: (org: Organization | null) => void;
   fetchOrganizations: () => Promise<void>;
   updateCurrentOrgPlan: (planData: {
@@ -361,24 +360,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = async () => {
-    markLogoutPending();
-    try {
-      await revokeAuthSession((signal) =>
+  const logout = async (search: Record<string, string | undefined> = {}) => {
+    await logoutAndRedirect({
+      signOut: (signal) =>
         (authClient.signOut as any)({ fetchOptions: { signal } }),
-      );
-    } catch (error) {
-      console.warn("Sign-out revocation error:", error);
-    } finally {
-      setUser(null);
-      setIsAdmin(false);
-      setOrganizations([]);
-      setCurrentOrganization(null);
-      localStorage.removeItem("accountiva_org_id");
-      localStorage.removeItem("accountiva_org_currency");
-      queryClient.cancelQueries();
-      queryClient.clear();
-    }
+      clearPersistentState: () => {
+        const organizationId = currentOrganization?.id;
+        cancelOrganizationRequests(organizationId);
+        apiCancelRequests(organizationId);
+        setActiveOrganizationId(null);
+        localStorage.removeItem("accountiva_org_id");
+        localStorage.removeItem("accountiva_org_currency");
+      },
+      search,
+    });
   };
 
   const isAuthenticated = Boolean(user);

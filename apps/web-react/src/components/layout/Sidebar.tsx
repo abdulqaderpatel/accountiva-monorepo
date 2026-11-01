@@ -15,8 +15,12 @@ import {
   BookOpen,
   BarChart3,
   Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import { isFeatureEnabled, FeatureFlags } from "@accountiva/shared";
+import { usePermissions, Module } from "@/hooks/usePermissions";
+import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
@@ -40,36 +44,52 @@ interface NavSection {
 
 export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
+  const { t } = useI18n();
 
   const sections: NavSection[] = [
     {
-      title: "General",
+      title: t("sidebar.sections.general", "General"),
       items: [
-        { name: "Dashboard", icon: LayoutDashboard, route: "/dashboard", shortcut: "G D", feature: "dashboard" },
+        { name: t("sidebar.dashboard", "Dashboard"), icon: LayoutDashboard, route: "/dashboard", shortcut: "G D", feature: "dashboard" },
       ],
     },
     {
-      title: "Products & Services",
+      title: t("sidebar.sections.inventory", "Products & Services"),
       items: [
-        { name: "Items", icon: Package, route: "/items", shortcut: "G P", feature: "items" },
+        { name: t("sidebar.items", "Items"), icon: Package, route: "/items", shortcut: "G P", feature: "items" },
       ],
     },
     {
-      title: "Sales",
+      title: t("sidebar.sections.sales", "Sales"),
       items: [
-        { name: "Customers", icon: Users, route: "/customers", shortcut: "G C", feature: "customers" },
-        { name: "Estimates", icon: Calculator, route: "/estimates", shortcut: "G E", feature: "estimates" },
-        { name: "Invoices", icon: FileText, route: "/invoices", shortcut: "G I", feature: "invoices" },
-        { name: "Credit Notes", icon: FileMinus, route: "/sales/credit-notes", shortcut: "G N", feature: "creditNotes" },
+        { name: t("sidebar.customers", "Customers"), icon: Users, route: "/customers", shortcut: "G C", feature: "customers" },
+        { name: t("sidebar.estimates", "Estimates"), icon: Calculator, route: "/estimates", shortcut: "G E", feature: "estimates" },
+        { name: t("sidebar.invoices", "Invoices"), icon: FileText, route: "/invoices", shortcut: "G I", feature: "invoices" },
+        { name: t("sidebar.creditNotes", "Credit Notes"), icon: FileMinus, route: "/sales/credit-notes", shortcut: "G N", feature: "creditNotes" },
       ],
     },
   ];
 
-  const visibleSections = sections
+  const { canView } = usePermissions();
+  const { isAdmin } = useAuth();
+
+  const allSections = [...sections];
+  if (isAdmin) {
+    allSections.push({
+      title: t("sidebar.sections.admin", "Admin"),
+      items: [
+        { name: t("sidebar.admin", "Admin Panel"), icon: ShieldCheck, route: "/admin" },
+      ],
+    });
+  }
+
+  const visibleSections = allSections
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => !item.feature || isFeatureEnabled(item.feature)
+        (item) =>
+          (!item.feature || isFeatureEnabled(item.feature)) &&
+          (!item.feature || canView(item.feature as Module))
       ),
     }))
     .filter((section) => section.items.length > 0);

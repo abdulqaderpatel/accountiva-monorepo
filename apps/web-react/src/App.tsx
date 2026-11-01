@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { BookmarkProvider } from "./context/BookmarkContext";
+import { I18nProvider } from "./i18n";
 import { router } from "./router";
 
 const queryClient = new QueryClient({
@@ -18,14 +19,16 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <BookmarkProvider>
-            <RouterProvider router={router} />
-            <Toaster position="bottom-right" />
-          </BookmarkProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <I18nProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <BookmarkProvider>
+              <RouterProvider router={router} />
+              <Toaster position="bottom-right" />
+            </BookmarkProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

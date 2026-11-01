@@ -66,6 +66,7 @@ import { InvoiceDetailModal } from "@/components/invoices/InvoiceDetailModal";
 import { InvoicePreviewModal } from "@/components/invoices/InvoicePreviewModal";
 import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
 import { InvoiceFilterBar, InvoiceFiltersState } from "@/components/invoices/InvoiceFilterBar";
+import { ViewGuard } from "@/components/auth/ViewGuard";
 import { useBookmarks } from "@/context/BookmarkContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -485,7 +486,8 @@ export function Invoices() {
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <ViewGuard module="invoices">
+      <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Invoices"
@@ -939,7 +941,8 @@ export function Invoices() {
           onClose={() => setEmailInvoice(null)}
         />
       )}
-    </div>
+      </div>
+    </ViewGuard>
   );
 }
 

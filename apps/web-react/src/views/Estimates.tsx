@@ -65,6 +65,7 @@ import {
 import { CreateEstimateModal } from "@/components/estimates/CreateEstimateModal";
 import { EstimatePreviewModal } from "@/components/estimates/EstimatePreviewModal";
 import { SendEstimateModal } from "@/components/estimates/SendEstimateModal";
+import { ViewGuard } from "@/components/auth/ViewGuard";
 import { useBookmarks } from "@/context/BookmarkContext";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -479,7 +480,8 @@ export function Estimates() {
   const filters = ["All", "Draft", "Sent", "Accepted", "Declined", "Invoiced"];
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <ViewGuard module="estimates">
+      <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Estimates"
@@ -910,7 +912,8 @@ export function Estimates() {
         onClose={() => setSendingEstimate(null)}
         onSuccess={() => refetch()}
       />
-    </div>
+      </div>
+    </ViewGuard>
   );
 }
 

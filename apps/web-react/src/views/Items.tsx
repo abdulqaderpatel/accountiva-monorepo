@@ -46,6 +46,7 @@ import { PaginationBar } from "@/components/ui/PaginationBar";
 import { formatCurrency, exportToCsv, exportToJson } from "@accountiva/shared";
 import { useItems, useDeleteItem } from "@accountiva/api";
 import { AddItemModal } from "@/components/items/AddItemModal";
+import { ViewGuard } from "@/components/auth/ViewGuard";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 import { useAuth } from "@/context/AuthContext";
@@ -321,7 +322,8 @@ export function Items() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <ViewGuard module="items">
+      <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Products & Services"
@@ -677,7 +679,8 @@ export function Items() {
         }}
         onSuccess={() => refetch()}
       />
-    </div>
+      </div>
+    </ViewGuard>
   );
 }
 

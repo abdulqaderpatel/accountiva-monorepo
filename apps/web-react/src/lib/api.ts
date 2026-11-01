@@ -65,9 +65,7 @@ api.interceptors.response.use(
         publicPaths.includes(window.location.pathname) ||
         window.location.pathname.startsWith("/invoices/") ||
         window.location.pathname.startsWith("/invite/");
-      const requestUrl = error.config?.url || "";
-      const isIgnoredUrl = requestUrl.includes("/admin/access");
-      if (!isPublicPath && !isIgnoredUrl) {
+      if (!isPublicPath) {
         localStorage.removeItem("accountiva_session");
         localStorage.removeItem("accountiva_org_id");
         window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
@@ -78,4 +76,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

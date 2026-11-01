@@ -104,6 +104,11 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
         typeof item.customer === 'string'
           ? item.customer
           : item.customer?.name || item.customerName || item.customers?.name || 'Customer',
+      customerId:
+        item.customerId ||
+        item.customer_id ||
+        (typeof item.customer === 'object' && item.customer !== null ? item.customer?.id : undefined) ||
+        item.customers?.id,
       number: item.estimateNumber || item.number || 'EST-000',
       date: item.date || item.estimateDate || 'Recent',
       amount: Number(item.amount) || 0,
@@ -114,6 +119,7 @@ export function EstimatesScreen({ onNavigate }: EstimatesScreenProps) {
       discountValue: Number(item.discountValue ?? item.discount_value ?? 0),
       discountAmount: Number(item.discountAmount ?? item.discount_amount ?? 0),
       shippingCharges: Number(item.shippingCharges ?? item.shipping_charges ?? 0),
+      packagingCharges: Number(item.packagingCharges ?? item.packaging_charges ?? 0),
       adjustment: Number(item.adjustment ?? 0),
       status: item.status || 'Draft',
       variant: getStatusVariant(item.status || 'Draft'),

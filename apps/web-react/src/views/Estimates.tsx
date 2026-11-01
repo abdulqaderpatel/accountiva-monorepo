@@ -19,7 +19,9 @@ import {
   Mail,
   Eye,
   Bookmark as BookmarkIcon,
+  Loader2,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +100,7 @@ interface EstimateRecord {
 }
 
 export function Estimates() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -347,6 +350,10 @@ export function Estimates() {
       if (result.status === "complete") {
         toast.success(`Estimate converted to Invoice ${result.invoiceNumber}!`, {
           description: "Draft invoice created and estimate marked as Invoiced.",
+          action: {
+            label: "View Invoices",
+            onClick: () => navigate({ to: "/invoices" }),
+          },
         });
       } else {
         const statusError = result.error as any;
@@ -363,6 +370,7 @@ export function Estimates() {
       toast.error(
         err.response?.data?.message ||
           err.response?.data?.error ||
+          (typeof err.response?.data === "string" ? err.response.data : null) ||
           err.message ||
           "Failed to convert estimate",
       );
@@ -809,13 +817,17 @@ export function Estimates() {
                               Edit Estimate
                             </DropdownMenuItem>
 
-                            {String(est.status).toLowerCase() === "accepted" && (
+                            {String(est.status).toLowerCase() !== "invoiced" && (
                               <DropdownMenuItem
                                 disabled={Boolean(statusLoadingAction)}
                                 onClick={() => handleConvertToInvoice(est)}
                                 className="cursor-pointer gap-2 text-xs font-semibold text-primary"
                               >
-                                <ArrowRight className="size-3.5" />
+                                {statusLoadingAction === `${est.id}-converting` ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <ArrowRight className="size-3.5" />
+                                )}
                                 {statusLoadingAction === `${est.id}-converting` ? "Converting..." : "Convert to Invoice"}
                               </DropdownMenuItem>
                             )}

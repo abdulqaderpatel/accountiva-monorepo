@@ -161,10 +161,10 @@ export function SendInvoiceModal({
           <Button
             type="submit"
             size="sm"
-            disabled={sendInvoiceMutation.isPending}
+            loading={sendInvoiceMutation.isPending}
             className="gap-2 font-bold shadow-xs"
           >
-            <Send className="size-3.5" />
+            {!sendInvoiceMutation.isPending && <Send className="size-3.5" />}
             <span>{sendInvoiceMutation.isPending ? "Sending..." : "Send Invoice"}</span>
           </Button>
         </div>

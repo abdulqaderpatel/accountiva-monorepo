@@ -389,11 +389,10 @@ export function AddCustomerModal({
           <Button
             type="button"
             size="sm"
-            disabled={isSaving}
+            loading={isSaving}
             onClick={handleSubmit}
             className="gap-2 font-bold cursor-pointer"
           >
-            {isSaving && <Spinner className="size-3.5" />}
             <span>{customer ? "Update Customer" : "Save Customer"}</span>
           </Button>
         </div>

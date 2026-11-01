@@ -497,10 +497,9 @@ export function Settings() {
                           <Button
                             type="button"
                             onClick={() => handleUpdateProfile()}
-                            disabled={isSavingProfile}
+                            loading={isSavingProfile}
                             className="h-10 min-w-32 gap-2 rounded-xl px-5 text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99] transition-all cursor-pointer"
                           >
-                            {isSavingProfile && <Loader2 className="size-3.5 animate-spin" />}
                             <span>{isSavingProfile ? "Saving..." : "Update Profile"}</span>
                           </Button>
                         </div>
@@ -618,11 +617,11 @@ export function Settings() {
                             <Button
                               type="button"
                               onClick={() => handleSaveSequence(sequence)}
-                              disabled={isSaving}
+                              loading={isSaving}
                               size="sm"
                               className="h-10 px-4 rounded-xl font-bold uppercase tracking-wider text-[11px] bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99] transition-all cursor-pointer"
                             >
-                              {isSaving ? "Saving..." : "Save"}
+                              <span>{isSaving ? "Saving..." : "Save"}</span>
                             </Button>
                           </div>
                         );

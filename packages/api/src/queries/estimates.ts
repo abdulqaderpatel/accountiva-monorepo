@@ -46,7 +46,10 @@ export async function updateEstimateStatus(id: string, status: EstimateStatus): 
   return data;
 }
 
-export function useEstimates(filters?: EstimateFilters) {
+export function useEstimates(
+  filters?: EstimateFilters,
+  options?: { enabled?: boolean },
+) {
   const activeOrgId = getActiveOrganizationId();
   return useQuery({
     queryKey: ['estimates', activeOrgId, filters],
@@ -54,6 +57,7 @@ export function useEstimates(filters?: EstimateFilters) {
       const { data } = await api.get('/estimates', { params: filters });
       return data;
     },
+    enabled: options?.enabled,
   });
 }
 
@@ -76,7 +80,18 @@ export function useCreateEstimate() {
       createEstimate(payload as EstimatePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['estimates', 'next-number'] });
     },
+  });
+}
+
+export function useNextEstimateNumber(options?: { enabled?: boolean }) {
+  const activeOrgId = getActiveOrganizationId();
+  return useQuery({
+    queryKey: ['estimates', 'next-number', activeOrgId],
+    queryFn: () => fetchNextEstimateNumber(),
+    enabled: options?.enabled !== false && Boolean(activeOrgId),
+    staleTime: 60_000,
   });
 }
 

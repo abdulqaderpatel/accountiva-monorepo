@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SpinnerProps extends React.SVGAttributes<SVGSVGElement> {
@@ -7,28 +8,20 @@ interface SpinnerProps extends React.SVGAttributes<SVGSVGElement> {
 }
 
 const sizeClasses = {
-  xs: "w-3 h-3",
-  sm: "w-4 h-4",
-  md: "w-6 h-6",
-  lg: "w-8 h-8",
-  xl: "w-12 h-12",
+  xs: "size-3",
+  sm: "size-3.5",
+  md: "size-4",
+  lg: "size-6",
+  xl: "size-8",
 };
 
 export function Spinner({ size = "md", className, ...props }: SpinnerProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={cn("animate-spin text-primary", sizeClasses[size], className)}
+    <Loader2
+      className={cn("animate-spin text-current shrink-0", sizeClasses[size], className)}
       {...props}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
+    />
   );
 }
+
 

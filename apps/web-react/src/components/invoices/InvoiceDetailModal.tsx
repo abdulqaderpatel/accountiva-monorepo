@@ -35,6 +35,7 @@ export function InvoiceDetailModal({
   onSuccess,
 }: InvoiceDetailModalProps) {
   const [isSendOpen, setIsSendOpen] = useState(false);
+  const [targetStatus, setTargetStatus] = useState<"Paid" | "Outstanding" | null>(null);
   const updateStatusMutation = useUpdateInvoiceStatus();
 
   if (!invoice) return null;
@@ -53,6 +54,7 @@ export function InvoiceDetailModal({
   const isOverdue = status === "OVERDUE";
 
   const handleStatusUpdate = async (newStatus: "Paid" | "Outstanding") => {
+    setTargetStatus(newStatus);
     try {
       await updateStatusMutation.mutateAsync({
         id: invoice.id,
@@ -64,6 +66,8 @@ export function InvoiceDetailModal({
       onSuccess?.();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || "Failed to update status");
+    } finally {
+      setTargetStatus(null);
     }
   };
 
@@ -296,10 +300,11 @@ export function InvoiceDetailModal({
                 size="sm"
                 variant="outline"
                 onClick={() => handleStatusUpdate("Paid")}
+                loading={updateStatusMutation.isPending && targetStatus === "Paid"}
                 disabled={updateStatusMutation.isPending}
                 className="gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
               >
-                <Check className="size-3.5" />
+                {(!updateStatusMutation.isPending || targetStatus !== "Paid") && <Check className="size-3.5" />}
                 <span>Mark Paid</span>
               </Button>
             )}
@@ -308,10 +313,11 @@ export function InvoiceDetailModal({
               <Button
                 size="sm"
                 onClick={() => handleStatusUpdate("Outstanding")}
+                loading={updateStatusMutation.isPending && targetStatus === "Outstanding"}
                 disabled={updateStatusMutation.isPending}
                 className="gap-1.5 text-xs"
               >
-                <Check className="size-3.5" />
+                {(!updateStatusMutation.isPending || targetStatus !== "Outstanding") && <Check className="size-3.5" />}
                 <span>Finalize Invoice</span>
               </Button>
             )}

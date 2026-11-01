@@ -88,7 +88,18 @@ export function useCreateInvoice() {
       createInvoice(payload as InvoicePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'next-number'] });
     },
+  });
+}
+
+export function useNextInvoiceNumber(options?: { enabled?: boolean }) {
+  const activeOrgId = getActiveOrganizationId();
+  return useQuery({
+    queryKey: ['invoices', 'next-number', activeOrgId],
+    queryFn: () => fetchNextInvoiceNumber(),
+    enabled: options?.enabled !== false && Boolean(activeOrgId),
+    staleTime: 60_000,
   });
 }
 

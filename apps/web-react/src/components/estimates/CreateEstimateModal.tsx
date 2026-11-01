@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
 import { Select } from "@/components/ui/Select";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
@@ -21,6 +20,7 @@ import {
   calculateDocumentTotals,
   formatCurrency,
   getCurrencySymbol,
+  getNextDocumentNumber,
   isDuplicateDocumentNumberError,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
@@ -29,8 +29,10 @@ import {
 } from "@accountiva/shared";
 import {
   fetchNextEstimateNumber,
+  useNextEstimateNumber,
   useCreateEstimate,
   useUpdateEstimate,
+  useEstimates,
   useCustomers,
   useItems,
 } from "@accountiva/api";
@@ -77,8 +79,27 @@ export function CreateEstimateModal({
 
   const createEstimateMutation = useCreateEstimate();
   const updateEstimateMutation = useUpdateEstimate();
+  const { data: apiEstimates } = useEstimates(undefined, { enabled: isOpen && !estimateToEdit });
+  const { data: nextEstimateNumberFromQuery, refetch: refetchNextNumber } = useNextEstimateNumber({
+    enabled: isOpen && !estimateToEdit,
+  });
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
+
+  const calculatedNextNumber = useMemo(() => {
+    const list = Array.isArray(apiEstimates)
+      ? apiEstimates
+      : Array.isArray(apiEstimates?.data)
+      ? apiEstimates.data
+      : [];
+    if (list.length > 0) {
+      return getNextDocumentNumber(
+        list.map((est: any) => est.estimateNumber || est.estimate_number || est.number),
+        "EST-"
+      );
+    }
+    return "EST-0001";
+  }, [apiEstimates]);
 
   const customerList: any[] = useMemo(() => {
     if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
@@ -132,19 +153,16 @@ export function CreateEstimateModal({
     setIsNumberLoading(true);
     setNumberError("");
     try {
-      const nextNumber = await fetchNextEstimateNumber();
-      if (numberRequestRef.current === requestId) {
+      const res = await refetchNextNumber();
+      const nextNumber = res.data || (await fetchNextEstimateNumber());
+      if (numberRequestRef.current === requestId && nextNumber) {
         setEstimateNumber(nextNumber);
       }
       return nextNumber;
     } catch (error: any) {
       if (numberRequestRef.current === requestId) {
-        setEstimateNumber("");
-        setNumberError(
-          error.response?.data?.error ||
-            error.message ||
-            "Could not load the next estimate number.",
-        );
+        const fallback = calculatedNextNumber || "EST-0001";
+        setEstimateNumber((prev) => prev || fallback);
       }
       return null;
     } finally {
@@ -152,7 +170,7 @@ export function CreateEstimateModal({
         setIsNumberLoading(false);
       }
     }
-  }, []);
+  }, [refetchNextNumber, calculatedNextNumber]);
 
   useEffect(() => {
     if (isOpen) {
@@ -203,7 +221,8 @@ export function CreateEstimateModal({
         }
       } else {
         setIsEditing(false);
-        setEstimateNumber("");
+        const immediateNumber = nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
+        setEstimateNumber(immediateNumber);
         setNumberError("");
         setManualAmount(0);
         setCustomerId("");
@@ -231,7 +250,19 @@ export function CreateEstimateModal({
     return () => {
       numberRequestRef.current += 1;
     };
-  }, [isOpen, estimateToEdit, loadNextEstimateNumber]);
+  }, [
+    isOpen,
+    estimateToEdit,
+    loadNextEstimateNumber,
+    nextEstimateNumberFromQuery,
+    calculatedNextNumber,
+  ]);
+
+  useEffect(() => {
+    if (isOpen && !isEditing && nextEstimateNumberFromQuery) {
+      setEstimateNumber(nextEstimateNumberFromQuery);
+    }
+  }, [isOpen, isEditing, nextEstimateNumberFromQuery]);
 
   // When customer changes, auto-fill address
   const handleCustomerChange = (cId: string) => {
@@ -351,9 +382,15 @@ export function CreateEstimateModal({
       return;
     }
 
+    let finalEstimateNumber = estimateNumber.trim();
+    if (!isEditing && !finalEstimateNumber) {
+      finalEstimateNumber = nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
+      setEstimateNumber(finalEstimateNumber);
+    }
+
     const payload: EstimatePayload = {
       customerId,
-      estimateNumber: estimateNumber.trim(),
+      estimateNumber: finalEstimateNumber,
       amount: grandTotal,
       taxPercent: Number(taxPercent) || 0,
       taxAmount,
@@ -417,7 +454,6 @@ export function CreateEstimateModal({
   };
 
   const isSaving = createEstimateMutation.isPending || updateEstimateMutation.isPending;
-  const isNumberUnresolved = !isEditing && (isNumberLoading || !estimateNumber.trim());
 
   return (
     <>
@@ -443,11 +479,10 @@ export function CreateEstimateModal({
             <Button
               type="button"
               size="sm"
-              disabled={isSaving || isNumberUnresolved}
+              loading={isSaving}
               onClick={handleSubmit}
               className="gap-2 font-bold cursor-pointer"
             >
-              {isSaving && <Spinner className="size-3.5" />}
               <span>{isEditing ? "Update Estimate" : "Create Estimate"}</span>
             </Button>
           </div>

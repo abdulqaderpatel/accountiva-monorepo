@@ -171,10 +171,11 @@ export function ApplyCreditNoteModal({
           <Button
             type="button"
             onClick={() => void handleApply()}
-            disabled={!selectedInvoiceId || applyMutation.isPending || maximumAmount <= 0}
+            loading={applyMutation.isPending}
+            disabled={!selectedInvoiceId || maximumAmount <= 0}
             className="gap-2"
           >
-            {applyMutation.isPending ? <Spinner className="size-3.5" /> : <Link className="size-3.5" />}
+            {!applyMutation.isPending && <Link className="size-3.5" />}
             Apply Credit
           </Button>
         </div>

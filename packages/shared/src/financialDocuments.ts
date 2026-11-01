@@ -450,3 +450,28 @@ export function isDuplicateDocumentNumberError(error: unknown): boolean {
   };
   return candidate.status === 409 || candidate.response?.status === 409;
 }
+
+export function getNextDocumentNumber(
+  values: Array<string | null | undefined>,
+  fallbackPrefix: string,
+): string {
+  let selectedPrefix = fallbackPrefix;
+  let largest = 0;
+  let padding = 4;
+
+  for (const rawValue of values) {
+    const value = rawValue?.trim();
+    if (!value) continue;
+    const match = value.match(/^(.*?)(\d+)$/);
+    const digits = match?.[2];
+    if (!match || !digits) continue;
+    const parsed = Number(digits);
+    if (!Number.isSafeInteger(parsed) || parsed < largest) continue;
+    largest = parsed;
+    selectedPrefix = match[1] || fallbackPrefix;
+    padding = Math.max(4, digits.length);
+  }
+
+  return `${selectedPrefix}${String(largest + 1).padStart(padding, "0")}`;
+}
+

@@ -190,10 +190,10 @@ export function SendEstimateModal({
               variant="outline"
               size="sm"
               onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf}
+              loading={isDownloadingPdf}
               className="h-7 text-[11px] gap-1 px-2.5"
             >
-              <Download className="size-3" />
+              {!isDownloadingPdf && <Download className="size-3" />}
               {isDownloadingPdf ? "Loading..." : "Preview PDF"}
             </Button>
             <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -209,10 +209,10 @@ export function SendEstimateModal({
           <Button
             type="submit"
             size="sm"
-            disabled={sendEstimateMutation.isPending}
+            loading={sendEstimateMutation.isPending}
             className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            <Send className="size-3.5" />
+            {!sendEstimateMutation.isPending && <Send className="size-3.5" />}
             <span>
               {sendEstimateMutation.isPending ? "Sending..." : "Send Estimate"}
             </span>

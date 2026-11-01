@@ -270,11 +270,10 @@ export function AddItemModal({
           <Button
             type="button"
             size="sm"
-            disabled={isSaving}
+            loading={isSaving}
             onClick={handleSubmit}
             className="gap-2 font-bold cursor-pointer"
           >
-            {isSaving && <Spinner className="size-3.5" />}
             <span>{itemToEdit ? "Update Item" : "Save Item"}</span>
           </Button>
         </div>

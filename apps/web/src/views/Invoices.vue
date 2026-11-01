@@ -48,15 +48,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  TableEmpty,
-} from '@/components/ui/table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from '@/components/ui/table';
 import DatePicker from '@/components/ui/DatePicker.vue';
 import Select from '@/components/ui/Select.vue';
 import Modal from '@/components/Modal.vue';
@@ -111,7 +103,7 @@ const { currencySymbol } = useCurrency();
 const discountTypeOptions = computed(() => [
   { id: '', name: t('modals.invoices.fields.noDiscount') },
   { id: 'Percentage', name: 'Percentage (%)' },
-  { id: 'Flat', name: `Flat (${currencySymbol.value})` }
+  { id: 'Flat', name: `Flat (${currencySymbol.value})` },
 ]);
 
 const { invoices, pagination, loading: fetchingInvoices } = storeToRefs(invoiceStore);
@@ -375,19 +367,12 @@ const isInitialLoading = ref(invoiceStore.invoices.length === 0);
 const fetchInvoicesData = async (page = 1, force = true) => {
   clearSelection();
   try {
-    await invoiceStore.fetchInvoices(
-      page,
-      pagination.value.limit,
-      searchQuery.value,
-      activeFilter.value,
-      force,
-      {
-        timeframe: activeTimeframe.value,
-        minAmount: activeMinAmount.value,
-        maxAmount: activeMaxAmount.value,
-        bookmarkedOnly: isBookmarkedOnly.value,
-      }
-    );
+    await invoiceStore.fetchInvoices(page, pagination.value.limit, searchQuery.value, activeFilter.value, force, {
+      timeframe: activeTimeframe.value,
+      minAmount: activeMinAmount.value,
+      maxAmount: activeMaxAmount.value,
+      bookmarkedOnly: isBookmarkedOnly.value,
+    });
   } finally {
     isInitialLoading.value = false;
   }
@@ -412,9 +397,12 @@ watch(isBookmarkedOnly, () => {
   clearSelection();
 });
 
-watch(() => pagination.value.page, () => {
-  clearSelection();
-});
+watch(
+  () => pagination.value.page,
+  () => {
+    clearSelection();
+  },
+);
 
 const handleDelete = async (id: string) => {
   try {
@@ -457,7 +445,7 @@ const loadNextInvoiceNumber = async () => {
     const nextNum = await invoiceStore.fetchNextInvoiceNumber();
     newInvoice.value.invoiceNumber = nextNum;
   } catch (err) {
-    console.error("Failed to load next invoice number:", err);
+    console.error('Failed to load next invoice number:', err);
   }
 };
 
@@ -554,7 +542,7 @@ const startEditInvoice = async (invoice: Invoice) => {
     };
   } catch (err) {
     console.error(err);
-    toast.error("Failed to load invoice details");
+    toast.error('Failed to load invoice details');
   } finally {
     fetchingDetails.value = false;
   }
@@ -606,7 +594,7 @@ watch(
       checkInvoiceLimitAndCreate();
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 const openPreview = async (id: string) => {
@@ -614,7 +602,8 @@ const openPreview = async (id: string) => {
   const cached = invoiceStore.detailsCache[id];
   const itemInList = invoices.value.find((i) => i.id === id);
 
-  const bestAvailable = (cached?.items ? cached : null) || (itemInList?.items ? itemInList : null) || cached || itemInList;
+  const bestAvailable =
+    (cached?.items ? cached : null) || (itemInList?.items ? itemInList : null) || cached || itemInList;
 
   // Open modal instantly (0ms delay) with available data
   if (bestAvailable) {
@@ -631,7 +620,7 @@ const openPreview = async (id: string) => {
         isPreviewOpen.value = true;
       }
     } catch (err) {
-      console.error("Failed to load full invoice details for preview:", err);
+      console.error('Failed to load full invoice details for preview:', err);
     }
   }
 };
@@ -685,11 +674,12 @@ const addItemToInvoice = (item: any) => {
   if (!newInvoice.value.items) {
     newInvoice.value.items = [];
   }
-  const existingItemIndex = newInvoice.value.items.findIndex(i => i.itemId === item.id);
+  const existingItemIndex = newInvoice.value.items.findIndex((i) => i.itemId === item.id);
   if (existingItemIndex > -1) {
     newInvoice.value.items[existingItemIndex].quantity += 1;
-    newInvoice.value.items[existingItemIndex].amount = 
-      Number(newInvoice.value.items[existingItemIndex].quantity) * Number(newInvoice.value.items[existingItemIndex].rate);
+    newInvoice.value.items[existingItemIndex].amount =
+      Number(newInvoice.value.items[existingItemIndex].quantity) *
+      Number(newInvoice.value.items[existingItemIndex].rate);
   } else {
     newInvoice.value.items.push({
       itemId: item.id,
@@ -697,7 +687,7 @@ const addItemToInvoice = (item: any) => {
       quantity: 1,
       rate: Number(item.unitPrice),
       amount: Number(item.unitPrice),
-      description: item.description || ''
+      description: item.description || '',
     });
   }
   recalculateInvoiceTotalAmount();
@@ -757,7 +747,7 @@ watch(
   ],
   () => {
     recalculateInvoiceTotalAmount();
-  }
+  },
 );
 
 const handleAddInvoice = async (targetStatus: Invoice['status'] = 'Draft') => {
@@ -787,7 +777,12 @@ const handleAddInvoice = async (targetStatus: Invoice['status'] = 'Draft') => {
     console.error('Failed to save invoice:', err);
     const errMsg = err.response?.data?.error || 'Failed to save invoice';
     toast.error(errMsg);
-    if (!isEditing.value && (errMsg.toLowerCase().includes('limit') || errMsg.toLowerCase().includes('plan') || errMsg.toLowerCase().includes('upgrade'))) {
+    if (
+      !isEditing.value &&
+      (errMsg.toLowerCase().includes('limit') ||
+        errMsg.toLowerCase().includes('plan') ||
+        errMsg.toLowerCase().includes('upgrade'))
+    ) {
       isUpgradeModalOpen.value = true;
     }
   } finally {
@@ -943,423 +938,461 @@ onUnmounted(() => {
 
 <template>
   <div class="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-    
     <TopBar />
     <div class="flex flex-1 min-h-0 overflow-hidden">
       <Sidebar active-item="Invoices" />
 
-    <main class="flex-1 overflow-y-auto bg-background flex flex-col">
-      <ViewGuard module="invoices">
-        <!-- Sticky Transitional Header -->
-        <StickyPageHeader
-          :title="$t('modules.invoices.title')"
-          :subtitle="$t('modules.invoices.subtitle')"
-          :icon="FileText"
-        >
-          <template #actions>
-            <div v-if="canManage('invoices')" class="flex items-center gap-2.5">
-              <Button
-                @click="isImportModalOpen = true"
-                variant="outline"
-                size="sm"
-                class="h-9 px-3.5 text-xs font-medium border-border shadow-2xs"
-              >
-                <Upload class="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
-                {{ $t('modules.invoices.import') }}
-              </Button>
-              <Button
-                @click="checkInvoiceLimitAndCreate"
-                size="sm"
-                class="h-9 px-4 text-xs font-medium shadow-xs"
-              >
-                <Plus class="w-3.5 h-3.5 mr-1.5" />
-                {{ $t('modules.invoices.new') }}
-              </Button>
-            </div>
-          </template>
-        </StickyPageHeader>
-
-        <div class="px-8 pt-2 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full">
-          <!-- Stats -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <template v-if="isInitialLoading && displayedInvoices.length === 0">
-              <Card v-for="i in 3" :key="i" class="bg-card/50 border-border/60 overflow-hidden shadow-2xs">
-                <CardContent class="p-6 space-y-3">
-                  <div class="flex items-center justify-between">
-                    <Skeleton class="h-3 w-24" />
-                    <Skeleton class="h-9 w-9 rounded-xl" />
-                  </div>
-                  <Skeleton class="h-8 w-32" />
-                  <Skeleton class="h-3 w-40" />
-                </CardContent>
-              </Card>
-            </template>
-            <template v-else>
-              <Card
-                v-for="stat in stats"
-                :key="stat.title"
-                :class="[
-                  'border-border/60 shadow-2xs overflow-hidden relative group hover:border-primary/40 hover:shadow-xs transition-all duration-300 py-0 gap-0',
-                  'bg-card/50 backdrop-blur-xs',
-                  stat.containerClass,
-                ]"
-              >
-                <div :class="['h-[2.5px] w-full', stat.accentBar]"></div>
-                <CardContent class="p-6">
-                  <div class="flex items-center justify-between mb-4">
-                    <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.18em]">{{
-                      stat.title
-                    }}</span>
-                    <div :class="['w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105', stat.bg, stat.color]">
-                      <component :is="stat.icon" class="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div class="text-2xl font-bold text-foreground mb-1 tracking-tight">
-                    {{ stat.amount }}
-                  </div>
-                  <p class="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                    {{ stat.subText }}
-                  </p>
-                </CardContent>
-              </Card>
-            </template>
-          </div>
-
-          <!-- Filter & Table -->
-          <div class="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs">
-            <div class="p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-border/60 bg-muted/25 min-h-[65px]">
-              <div class="relative w-full sm:w-60 md:w-72 lg:w-80 shrink-1 min-w-[180px] group">
-                <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors duration-150" />
-                <Input
-                  v-model="searchQuery"
-                  placeholder="Search clients, invoices..."
-                  class="h-9 w-full pl-9 pr-8 bg-background/50 hover:bg-background/80 focus:bg-background/90 border-border/70 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-xs font-medium placeholder:text-muted-foreground/60 shadow-none transition-colors"
-                />
-                <button
-                  v-if="searchQuery"
-                  type="button"
-                  @click="searchQuery = ''"
-                  class="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors"
-                  title="Clear search"
-                >
-                  <X class="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div class="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar justify-start md:justify-end shrink-0 max-w-full py-1.5 -my-1.5">
-                <SmartPresetsBar
-                  entity-type="invoices"
-                  :active-filters="currentFilters"
-                  @apply-preset="handleApplyPreset"
-                  @update-filter="handleUpdateFilter"
-                  @reset-filters="handleResetFilters"
-                />
-              </div>
-            </div>
-
-            <!-- Revalidation Progress Bar -->
-            <div
-              v-if="fetchingInvoices && displayedInvoices.length > 0"
-              class="h-0.5 w-full bg-primary/10 overflow-hidden relative"
-            >
-              <div class="absolute inset-y-0 w-1/3 bg-primary/70 rounded-full animate-indeterminate"></div>
-            </div>
-
-            <Table>
-              <TableHeader class="bg-muted/35 border-b border-border/70">
-                <TableRow class="hover:bg-transparent border-b border-border/70">
-                  <TableHead class="py-3.5 px-4 w-[48px] text-center"></TableHead>
-                  <TableHead class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[170px]">
-                    Invoice #
-                  </TableHead>
-                  <TableHead class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90">
-                    Client
-                  </TableHead>
-                  <TableHead class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[150px]">
-                    Due Date
-                  </TableHead>
-                  <TableHead class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-right w-[150px]">
-                    Amount
-                  </TableHead>
-                  <TableHead class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-center w-[160px]">
-                    Status
-                  </TableHead>
-                  <TableHead class="py-3.5 px-6 text-right w-[60px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody class="divide-y divide-border/60">
-                <template v-if="(isInitialLoading || fetchingInvoices) && displayedInvoices.length === 0">
-                  <TableRow v-for="i in 5" :key="i" class="border-b border-border/60">
-                    <TableCell class="py-4 px-4 text-center"><Skeleton class="h-4 w-4 mx-auto rounded" /></TableCell>
-                    <TableCell class="py-4 px-6"><Skeleton class="h-4 w-20" /></TableCell>
-                    <TableCell class="py-4 px-6"><Skeleton class="h-4 w-32" /></TableCell>
-                    <TableCell class="py-4 px-6"><Skeleton class="h-4 w-24" /></TableCell>
-                    <TableCell class="py-4 px-6 text-right"><Skeleton class="h-4 w-20 ml-auto" /></TableCell>
-                    <TableCell class="py-4 px-6 text-center"><Skeleton class="h-6 w-20 rounded-md mx-auto" /></TableCell>
-                    <TableCell class="py-4 px-6 text-right"><Skeleton class="h-8 w-8 ml-auto rounded-lg" /></TableCell>
-                  </TableRow>
-                </template>
-                <template v-else>
-                  <TableRow
-                    v-for="invoice in displayedInvoices"
-                    :key="invoice.id"
-                    :data-state="isSelected(invoice.id) ? 'selected' : undefined"
-                    :class="[
-                      'group cursor-pointer transition-colors duration-150 border-b border-border/60',
-                      isSelected(invoice.id)
-                        ? 'bg-primary/10 dark:bg-primary/15 hover:bg-primary/15 dark:hover:bg-primary/20'
-                        : 'hover:bg-muted/50'
-                    ]"
-                  >
-                    <TableCell class="py-4 px-4 text-center w-[48px] cursor-pointer" @click.stop="toggleSelect(invoice.id)">
-                      <div
-                        :class="[
-                          'transition-opacity duration-150 flex items-center justify-center',
-                          selectedCount > 0 || isSelected(invoice.id)
-                            ? 'opacity-100'
-                            : 'opacity-0 group-hover:opacity-100'
-                        ]"
-                      >
-                        <Checkbox
-                          :checked="isSelected(invoice.id)"
-                          @update:checked="toggleSelect(invoice.id)"
-                          :aria-label="`Select invoice ${invoice.invoiceNumber}`"
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell class="py-4 px-6">
-                      <div class="flex items-center gap-2">
-                        <button
-                          type="button"
-                          @click.stop="toggleInvoiceBookmark(invoice)"
-                          class="p-1 rounded-md transition-colors hover:bg-blue-500/10 shrink-0"
-                          :title="bookmarkStore.isBookmarked('invoice', invoice.id) ? 'Remove Bookmark' : 'Bookmark Invoice'"
-                        >
-                          <BookmarkIcon
-                            :class="[
-                              'w-3.5 h-3.5 transition-all active:scale-125',
-                              bookmarkStore.isBookmarked('invoice', invoice.id)
-                                ? 'fill-blue-500 text-blue-500 opacity-100'
-                                : 'opacity-0 group-hover:opacity-40 hover:!opacity-100 text-muted-foreground hover:text-blue-500'
-                            ]"
-                          />
-                        </button>
-                        <span class="font-mono text-xs font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-                          {{ invoice.invoiceNumber }}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell class="py-4 px-6">
-                      <span class="text-xs font-semibold text-foreground group-hover:text-foreground truncate max-w-[220px] block">
-                        {{ getCustomerName(invoice) }}
-                      </span>
-                    </TableCell>
-                    <TableCell class="py-4 px-6">
-                      <span class="text-xs text-muted-foreground font-medium">
-                        {{ invoice.dueDate }}
-                      </span>
-                    </TableCell>
-                    <TableCell class="py-4 px-6 text-right">
-                      <span class="font-mono text-xs font-bold text-foreground tracking-tight">
-                        {{ formatCurrency(invoice.amount) }}
-                      </span>
-                    </TableCell>
-                    <TableCell class="py-3.5 px-6 text-center">
-                      <span
-                        :class="[
-                          'inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border whitespace-nowrap shadow-xs transition-colors',
-                          getInvoiceStatusInfo(invoice.status, invoice.dueDate).colorClass
-                        ]"
-                      >
-                        {{ getInvoiceStatusInfo(invoice.status, invoice.dueDate).label }}
-                      </span>
-                    </TableCell>
-                    <TableCell class="py-4 px-6 text-right">
-                      <Button
-                        v-if="canManage('invoices')"
-                        variant="ghost"
-                        size="icon"
-                        class="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100"
-                        @click="toggleMenu(invoice.id, $event)"
-                      >
-                        <MoreHorizontal class="w-4 h-4" />
-                      </Button>
-                      <div v-else class="flex justify-end pr-2 text-muted-foreground/30" title="View Only Access">
-                        <Lock class="w-3.5 h-3.5" />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  <TableEmpty v-if="displayedInvoices.length === 0" :colspan="7" class="py-24">
-                    <div class="flex flex-col items-center justify-center max-w-xs mx-auto space-y-4">
-                      <div class="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xs">
-                        <BookmarkIcon v-if="isBookmarkedOnly" class="w-7 h-7 text-blue-500 fill-blue-500/20" />
-                        <FileText v-else class="w-7 h-7 text-muted-foreground/50" />
-                      </div>
-                      <div class="space-y-1">
-                        <h3 class="text-base font-bold text-foreground">
-                          {{ isBookmarkedOnly ? 'No bookmarked invoices' : 'No invoices found' }}
-                        </h3>
-                        <p class="text-xs text-muted-foreground font-medium">
-                          {{
-                            isBookmarkedOnly
-                              ? (activeFilter !== 'All'
-                                  ? `No bookmarked invoices with status "${activeFilter}".`
-                                  : 'Bookmark invoices from the list to quickly find and access them here.')
-                              : searchQuery
-                              ? 'Try adjusting your search filters to find what you are looking for.'
-                              : 'Get started by creating your first invoice for a customer.'
-                          }}
-                        </p>
-                      </div>
-                      <Button
-                        v-if="!isBookmarkedOnly && !searchQuery && canManage('invoices')"
-                        @click="checkInvoiceLimitAndCreate"
-                        variant="outline"
-                        size="sm"
-                        class="h-9 px-4 rounded-xl font-bold uppercase tracking-wider text-[11px] border-border/70 hover:bg-muted/50"
-                      >
-                        Create Invoice
-                      </Button>
-                      <Button
-                        v-else-if="isBookmarkedOnly"
-                        @click="handleUpdateFilter('bookmarkedOnly', false)"
-                        variant="ghost"
-                        size="sm"
-                        class="h-8 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-500/10 cursor-pointer"
-                      >
-                        Show all {{ activeFilter !== 'All' ? activeFilter : '' }} invoices
-                      </Button>
-                    </div>
-                  </TableEmpty>
-                </template>
-              </TableBody>
-            </Table>
-
-            <!-- Pagination -->
-            <div
-              v-if="displayedInvoices?.length > 0 && pagination?.totalPages > 1"
-              class="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border/70 bg-card/30"
-            >
-              <div class="flex items-center gap-2">
-                <p class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Showing
-                  <span class="font-mono text-foreground font-bold">{{ (pagination.page - 1) * pagination.limit + 1 }}</span>
-                  to
-                  <span class="font-mono text-foreground font-bold">{{ Math.min(pagination.page * pagination.limit, pagination.total) }}</span>
-                  of
-                  <span class="font-mono text-foreground font-bold">{{ pagination.total }}</span>
-                  Invoices
-                </p>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  :disabled="pagination.page === 1"
-                  @click="handlePageChange(pagination.page - 1)"
-                  class="h-8 w-8 rounded-xl border-border/70 hover:bg-muted/50 shadow-2xs disabled:opacity-40"
-                >
-                  <ChevronLeft class="w-4 h-4" />
-                </Button>
-
-                <div class="flex items-center gap-1">
-                  <Button
-                    v-for="p in pagination.totalPages"
-                    :key="p"
-                    variant="ghost"
-                    size="sm"
-                    @click="handlePageChange(p)"
-                    :class="[
-                      'h-8 w-8 rounded-xl font-bold text-xs transition-all',
-                      pagination.page === p
-                        ? 'bg-primary text-primary-foreground shadow-xs'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                    ]"
-                  >
-                    {{ p }}
-                  </Button>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  :disabled="pagination.page === pagination.totalPages"
-                  @click="handlePageChange(pagination.page + 1)"
-                  class="h-8 w-8 rounded-xl border-border/70 hover:bg-muted/50 shadow-2xs disabled:opacity-40"
-                >
-                  <ChevronRight class="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Floating Bulk Action Bar -->
-          <BulkActionBar
-            :count="selectedCount"
-            label="invoices"
-            :loading="isBulkOperating"
-            :can-delete="canManage('invoices')"
-            @clear="clearSelection"
-            @delete="showBulkDeleteConfirm = true"
-            @export="handleBulkExport"
+      <main class="flex-1 overflow-y-auto bg-background flex flex-col">
+        <ViewGuard module="invoices">
+          <!-- Sticky Transitional Header -->
+          <StickyPageHeader
+            :title="$t('modules.invoices.title')"
+            :subtitle="$t('modules.invoices.subtitle')"
+            :icon="FileText"
           >
-            <DropdownMenu v-if="canManage('invoices')">
-              <DropdownMenuTrigger as-child>
+            <template #actions>
+              <div v-if="canManage('invoices')" class="flex items-center gap-2.5">
                 <Button
-                  type="button"
+                  @click="isImportModalOpen = true"
                   variant="outline"
                   size="sm"
-                  class="h-8 text-xs font-medium gap-1.5 rounded-lg"
-                  :disabled="isBulkOperating"
+                  class="h-9 px-3.5 text-xs font-medium border-border shadow-2xs"
                 >
-                  <span>Status</span>
-                  <ChevronDown class="size-3 text-muted-foreground" />
+                  <Upload class="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                  {{ $t('modules.invoices.import') }}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" class="w-36">
-                <DropdownMenuItem @click="requestBulkStatus('Draft')" class="text-xs cursor-pointer">
-                  Mark as Draft
-                </DropdownMenuItem>
-                <DropdownMenuItem @click="requestBulkStatus('Outstanding')" class="text-xs cursor-pointer">
-                  Mark as Outstanding
-                </DropdownMenuItem>
-                <DropdownMenuItem @click="requestBulkStatus('Paid')" class="text-xs cursor-pointer">
-                  Mark as Paid
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </BulkActionBar>
+                <Button @click="checkInvoiceLimitAndCreate" size="sm" class="h-9 px-4 text-xs font-medium shadow-xs">
+                  <Plus class="w-3.5 h-3.5 mr-1.5" />
+                  {{ $t('modules.invoices.new') }}
+                </Button>
+              </div>
+            </template>
+          </StickyPageHeader>
 
-          <!-- Bulk Status Confirmation Dialog -->
-          <BulkConfirmDialog
-            v-model:open="showBulkStatusConfirm"
-            :title="`Update Status for ${selectedCount} Invoices`"
-            :description="`You are about to change the status of ${selectedCount} selected invoices to '${pendingStatusUpdate}'. This will update their accounting records and payment tracking.`"
-            :item-count="selectedCount"
-            :item-names="selectedItems.map((i) => i.invoiceNumber)"
-            :action-label="`Mark as ${pendingStatusUpdate}`"
-            variant="default"
-            :loading="isBulkUpdatingStatus"
-            @confirm="confirmBulkStatus"
-          />
+          <div class="px-8 pt-2 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full">
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <template v-if="isInitialLoading && displayedInvoices.length === 0">
+                <Card v-for="i in 3" :key="i" class="bg-card/50 border-border/60 overflow-hidden shadow-2xs">
+                  <CardContent class="p-6 space-y-3">
+                    <div class="flex items-center justify-between">
+                      <Skeleton class="h-3 w-24" />
+                      <Skeleton class="h-9 w-9 rounded-xl" />
+                    </div>
+                    <Skeleton class="h-8 w-32" />
+                    <Skeleton class="h-3 w-40" />
+                  </CardContent>
+                </Card>
+              </template>
+              <template v-else>
+                <Card
+                  v-for="stat in stats"
+                  :key="stat.title"
+                  :class="[
+                    'border-border/60 shadow-2xs overflow-hidden relative group hover:border-primary/40 hover:shadow-xs transition-all duration-300 py-0 gap-0',
+                    'bg-card/50 backdrop-blur-xs',
+                    stat.containerClass,
+                  ]"
+                >
+                  <div :class="['h-[2.5px] w-full', stat.accentBar]"></div>
+                  <CardContent class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                      <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.18em]">{{
+                        stat.title
+                      }}</span>
+                      <div
+                        :class="[
+                          'w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105',
+                          stat.bg,
+                          stat.color,
+                        ]"
+                      >
+                        <component :is="stat.icon" class="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div class="text-2xl font-bold text-foreground mb-1 tracking-tight">
+                      {{ stat.amount }}
+                    </div>
+                    <p class="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                      {{ stat.subText }}
+                    </p>
+                  </CardContent>
+                </Card>
+              </template>
+            </div>
 
-          <!-- Bulk Delete Confirmation Dialog -->
-          <BulkConfirmDialog
-            v-model:open="showBulkDeleteConfirm"
-            :title="selectedCount > 1 ? `Move ${selectedCount} Invoices to Trash` : 'Move Invoice to Trash'"
-            :description="selectedCount > 1
-              ? `Move ${selectedCount} invoices to the Trash Bin? You can restore them anytime within 30 days.`
-              : `Move invoice ${selectedItems[0]?.invoiceNumber || ''} to Trash? You can restore it anytime within 30 days.`"
-            :item-count="selectedCount"
-            :item-names="selectedItems.map((i) => i.invoiceNumber)"
-            action-label="Move to Trash"
-            variant="destructive"
-            :loading="isBulkDeleting"
-            @confirm="handleBulkDeleteConfirm"
-          />
-        </div>
-      </ViewGuard>
-    </main>
+            <!-- Filter & Table -->
+            <div class="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs">
+              <div
+                class="p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border-b border-border/60 bg-muted/25 min-h-[65px]"
+              >
+                <div class="relative w-full sm:w-60 md:w-72 lg:w-80 shrink-1 min-w-[180px] group">
+                  <Search
+                    class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors duration-150"
+                  />
+                  <Input
+                    v-model="searchQuery"
+                    placeholder="Search clients, invoices..."
+                    class="h-9 w-full pl-9 pr-8 bg-background/50 hover:bg-background/80 focus:bg-background/90 border-border/70 focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-xs font-medium placeholder:text-muted-foreground/60 shadow-none transition-colors"
+                  />
+                  <button
+                    v-if="searchQuery"
+                    type="button"
+                    @click="searchQuery = ''"
+                    class="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted/60 transition-colors"
+                    title="Clear search"
+                  >
+                    <X class="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div
+                  class="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar justify-start md:justify-end shrink-0 max-w-full py-1.5 -my-1.5"
+                >
+                  <SmartPresetsBar
+                    entity-type="invoices"
+                    :active-filters="currentFilters"
+                    @apply-preset="handleApplyPreset"
+                    @update-filter="handleUpdateFilter"
+                    @reset-filters="handleResetFilters"
+                  />
+                </div>
+              </div>
+
+              <!-- Revalidation Progress Bar -->
+              <div
+                v-if="fetchingInvoices && displayedInvoices.length > 0"
+                class="h-0.5 w-full bg-primary/10 overflow-hidden relative"
+              >
+                <div class="absolute inset-y-0 w-1/3 bg-primary/70 rounded-full animate-indeterminate"></div>
+              </div>
+
+              <Table>
+                <TableHeader class="bg-muted/35 border-b border-border/70">
+                  <TableRow class="hover:bg-transparent border-b border-border/70">
+                    <TableHead class="py-3.5 px-4 w-[48px] text-center"></TableHead>
+                    <TableHead
+                      class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[170px]"
+                    >
+                      Invoice #
+                    </TableHead>
+                    <TableHead
+                      class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90"
+                    >
+                      Client
+                    </TableHead>
+                    <TableHead
+                      class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 w-[150px]"
+                    >
+                      Due Date
+                    </TableHead>
+                    <TableHead
+                      class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-right w-[150px]"
+                    >
+                      Amount
+                    </TableHead>
+                    <TableHead
+                      class="py-3.5 px-6 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/90 text-center w-[160px]"
+                    >
+                      Status
+                    </TableHead>
+                    <TableHead class="py-3.5 px-6 text-right w-[60px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody class="divide-y divide-border/60">
+                  <template v-if="(isInitialLoading || fetchingInvoices) && displayedInvoices.length === 0">
+                    <TableRow v-for="i in 5" :key="i" class="border-b border-border/60">
+                      <TableCell class="py-4 px-4 text-center"><Skeleton class="h-4 w-4 mx-auto rounded" /></TableCell>
+                      <TableCell class="py-4 px-6"><Skeleton class="h-4 w-20" /></TableCell>
+                      <TableCell class="py-4 px-6"><Skeleton class="h-4 w-32" /></TableCell>
+                      <TableCell class="py-4 px-6"><Skeleton class="h-4 w-24" /></TableCell>
+                      <TableCell class="py-4 px-6 text-right"><Skeleton class="h-4 w-20 ml-auto" /></TableCell>
+                      <TableCell class="py-4 px-6 text-center"
+                        ><Skeleton class="h-6 w-20 rounded-md mx-auto"
+                      /></TableCell>
+                      <TableCell class="py-4 px-6 text-right"
+                        ><Skeleton class="h-8 w-8 ml-auto rounded-lg"
+                      /></TableCell>
+                    </TableRow>
+                  </template>
+                  <template v-else>
+                    <TableRow
+                      v-for="invoice in displayedInvoices"
+                      :key="invoice.id"
+                      :data-state="isSelected(invoice.id) ? 'selected' : undefined"
+                      :class="[
+                        'group cursor-pointer transition-colors duration-150 border-b border-border/60',
+                        isSelected(invoice.id)
+                          ? 'bg-primary/10 dark:bg-primary/15 hover:bg-primary/15 dark:hover:bg-primary/20'
+                          : 'hover:bg-muted/50',
+                      ]"
+                    >
+                      <TableCell
+                        class="py-4 px-4 text-center w-[48px] cursor-pointer"
+                        @click.stop="toggleSelect(invoice.id)"
+                      >
+                        <div
+                          :class="[
+                            'transition-opacity duration-150 flex items-center justify-center',
+                            selectedCount > 0 || isSelected(invoice.id)
+                              ? 'opacity-100'
+                              : 'opacity-0 group-hover:opacity-100',
+                          ]"
+                        >
+                          <Checkbox
+                            :checked="isSelected(invoice.id)"
+                            @update:checked="toggleSelect(invoice.id)"
+                            :aria-label="`Select invoice ${invoice.invoiceNumber}`"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell class="py-4 px-6">
+                        <div class="flex items-center gap-2">
+                          <button
+                            type="button"
+                            @click.stop="toggleInvoiceBookmark(invoice)"
+                            class="p-1 rounded-md transition-colors hover:bg-blue-500/10 shrink-0"
+                            :title="
+                              bookmarkStore.isBookmarked('invoice', invoice.id) ? 'Remove Bookmark' : 'Bookmark Invoice'
+                            "
+                          >
+                            <BookmarkIcon
+                              :class="[
+                                'w-3.5 h-3.5 transition-all active:scale-125',
+                                bookmarkStore.isBookmarked('invoice', invoice.id)
+                                  ? 'fill-blue-500 text-blue-500 opacity-100'
+                                  : 'opacity-0 group-hover:opacity-40 hover:!opacity-100 text-muted-foreground hover:text-blue-500',
+                              ]"
+                            />
+                          </button>
+                          <span
+                            class="font-mono text-xs font-bold tracking-tight text-foreground group-hover:text-primary transition-colors"
+                          >
+                            {{ invoice.invoiceNumber }}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell class="py-4 px-6">
+                        <span
+                          class="text-xs font-semibold text-foreground group-hover:text-foreground truncate max-w-[220px] block"
+                        >
+                          {{ getCustomerName(invoice) }}
+                        </span>
+                      </TableCell>
+                      <TableCell class="py-4 px-6">
+                        <span class="text-xs text-muted-foreground font-medium">
+                          {{ invoice.dueDate }}
+                        </span>
+                      </TableCell>
+                      <TableCell class="py-4 px-6 text-right">
+                        <span class="font-mono text-xs font-bold text-foreground tracking-tight">
+                          {{ formatCurrency(invoice.amount) }}
+                        </span>
+                      </TableCell>
+                      <TableCell class="py-3.5 px-6 text-center">
+                        <span
+                          :class="[
+                            'inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border whitespace-nowrap shadow-xs transition-colors',
+                            getInvoiceStatusInfo(invoice.status, invoice.dueDate).colorClass,
+                          ]"
+                        >
+                          {{ getInvoiceStatusInfo(invoice.status, invoice.dueDate).label }}
+                        </span>
+                      </TableCell>
+                      <TableCell class="py-4 px-6 text-right">
+                        <Button
+                          v-if="canManage('invoices')"
+                          variant="ghost"
+                          size="icon"
+                          class="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-primary/10 transition-colors opacity-70 group-hover:opacity-100"
+                          @click="toggleMenu(invoice.id, $event)"
+                        >
+                          <MoreHorizontal class="w-4 h-4" />
+                        </Button>
+                        <div v-else class="flex justify-end pr-2 text-muted-foreground/30" title="View Only Access">
+                          <Lock class="w-3.5 h-3.5" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    <TableEmpty v-if="displayedInvoices.length === 0" :colspan="7" class="py-24">
+                      <div class="flex flex-col items-center justify-center max-w-xs mx-auto space-y-4">
+                        <div
+                          class="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-500 shadow-2xs"
+                        >
+                          <BookmarkIcon v-if="isBookmarkedOnly" class="w-7 h-7 text-blue-500 fill-blue-500/20" />
+                          <FileText v-else class="w-7 h-7 text-muted-foreground/50" />
+                        </div>
+                        <div class="space-y-1">
+                          <h3 class="text-base font-bold text-foreground">
+                            {{ isBookmarkedOnly ? 'No bookmarked invoices' : 'No invoices found' }}
+                          </h3>
+                          <p class="text-xs text-muted-foreground font-medium">
+                            {{
+                              isBookmarkedOnly
+                                ? activeFilter !== 'All'
+                                  ? `No bookmarked invoices with status "${activeFilter}".`
+                                  : 'Bookmark invoices from the list to quickly find and access them here.'
+                                : searchQuery
+                                  ? 'Try adjusting your search filters to find what you are looking for.'
+                                  : 'Get started by creating your first invoice for a customer.'
+                            }}
+                          </p>
+                        </div>
+                        <Button
+                          v-if="!isBookmarkedOnly && !searchQuery && canManage('invoices')"
+                          @click="checkInvoiceLimitAndCreate"
+                          variant="outline"
+                          size="sm"
+                          class="h-9 px-4 rounded-xl font-bold uppercase tracking-wider text-[11px] border-border/70 hover:bg-muted/50"
+                        >
+                          Create Invoice
+                        </Button>
+                        <Button
+                          v-else-if="isBookmarkedOnly"
+                          @click="handleUpdateFilter('bookmarkedOnly', false)"
+                          variant="ghost"
+                          size="sm"
+                          class="h-8 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:bg-blue-500/10 cursor-pointer"
+                        >
+                          Show all {{ activeFilter !== 'All' ? activeFilter : '' }} invoices
+                        </Button>
+                      </div>
+                    </TableEmpty>
+                  </template>
+                </TableBody>
+              </Table>
+
+              <!-- Pagination -->
+              <div
+                v-if="displayedInvoices?.length > 0 && pagination?.totalPages > 1"
+                class="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border/70 bg-card/30"
+              >
+                <div class="flex items-center gap-2">
+                  <p class="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Showing
+                    <span class="font-mono text-foreground font-bold">{{
+                      (pagination.page - 1) * pagination.limit + 1
+                    }}</span>
+                    to
+                    <span class="font-mono text-foreground font-bold">{{
+                      Math.min(pagination.page * pagination.limit, pagination.total)
+                    }}</span>
+                    of
+                    <span class="font-mono text-foreground font-bold">{{ pagination.total }}</span>
+                    Invoices
+                  </p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    :disabled="pagination.page === 1"
+                    @click="handlePageChange(pagination.page - 1)"
+                    class="h-8 w-8 rounded-xl border-border/70 hover:bg-muted/50 shadow-2xs disabled:opacity-40"
+                  >
+                    <ChevronLeft class="w-4 h-4" />
+                  </Button>
+
+                  <div class="flex items-center gap-1">
+                    <Button
+                      v-for="p in pagination.totalPages"
+                      :key="p"
+                      variant="ghost"
+                      size="sm"
+                      @click="handlePageChange(p)"
+                      :class="[
+                        'h-8 w-8 rounded-xl font-bold text-xs transition-all',
+                        pagination.page === p
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                      ]"
+                    >
+                      {{ p }}
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    :disabled="pagination.page === pagination.totalPages"
+                    @click="handlePageChange(pagination.page + 1)"
+                    class="h-8 w-8 rounded-xl border-border/70 hover:bg-muted/50 shadow-2xs disabled:opacity-40"
+                  >
+                    <ChevronRight class="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floating Bulk Action Bar -->
+            <BulkActionBar
+              :count="selectedCount"
+              label="invoices"
+              :loading="isBulkOperating"
+              :can-delete="canManage('invoices')"
+              @clear="clearSelection"
+              @delete="showBulkDeleteConfirm = true"
+              @export="handleBulkExport"
+            >
+              <DropdownMenu v-if="canManage('invoices')">
+                <DropdownMenuTrigger as-child>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 text-xs font-medium gap-1.5 rounded-lg"
+                    :disabled="isBulkOperating"
+                  >
+                    <span>Status</span>
+                    <ChevronDown class="size-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" class="w-36">
+                  <DropdownMenuItem @click="requestBulkStatus('Draft')" class="text-xs cursor-pointer">
+                    Mark as Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @click="requestBulkStatus('Outstanding')" class="text-xs cursor-pointer">
+                    Mark as Outstanding
+                  </DropdownMenuItem>
+                  <DropdownMenuItem @click="requestBulkStatus('Paid')" class="text-xs cursor-pointer">
+                    Mark as Paid
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </BulkActionBar>
+
+            <!-- Bulk Status Confirmation Dialog -->
+            <BulkConfirmDialog
+              v-model:open="showBulkStatusConfirm"
+              :title="`Update Status for ${selectedCount} Invoices`"
+              :description="`You are about to change the status of ${selectedCount} selected invoices to '${pendingStatusUpdate}'. This will update their accounting records and payment tracking.`"
+              :item-count="selectedCount"
+              :item-names="selectedItems.map((i) => i.invoiceNumber)"
+              :action-label="`Mark as ${pendingStatusUpdate}`"
+              variant="default"
+              :loading="isBulkUpdatingStatus"
+              @confirm="confirmBulkStatus"
+            />
+
+            <!-- Bulk Delete Confirmation Dialog -->
+            <BulkConfirmDialog
+              v-model:open="showBulkDeleteConfirm"
+              :title="selectedCount > 1 ? `Move ${selectedCount} Invoices to Trash` : 'Move Invoice to Trash'"
+              :description="
+                selectedCount > 1
+                  ? `Move ${selectedCount} invoices to the Trash Bin? You can restore them anytime within 30 days.`
+                  : `Move invoice ${selectedItems[0]?.invoiceNumber || ''} to Trash? You can restore it anytime within 30 days.`
+              "
+              :item-count="selectedCount"
+              :item-names="selectedItems.map((i) => i.invoiceNumber)"
+              action-label="Move to Trash"
+              variant="destructive"
+              :loading="isBulkDeleting"
+              @confirm="handleBulkDeleteConfirm"
+            />
+          </div>
+        </ViewGuard>
+      </main>
     </div>
 
     <!-- Modal for Import Source Selection -->
@@ -1371,7 +1404,8 @@ onUnmounted(() => {
       body-class="p-6 space-y-4"
       @close="isImportModalOpen = false"
     >
-      <button type="button"
+      <button
+        type="button"
         @click="
           isBulkUploadOpen = true;
           isImportModalOpen = false;
@@ -1390,7 +1424,8 @@ onUnmounted(() => {
         <ArrowRight class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </button>
 
-      <button type="button"
+      <button
+        type="button"
         @click="
           isZohoImportOpen = true;
           isImportModalOpen = false;
@@ -1409,7 +1444,8 @@ onUnmounted(() => {
         <ExternalLink class="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
       </button>
 
-      <button type="button"
+      <button
+        type="button"
         class="w-full flex items-center justify-between p-4 bg-muted/5 border border-border/50 rounded-xl cursor-not-allowed opacity-60 group"
       >
         <div class="flex items-center gap-4">
@@ -1448,7 +1484,11 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button type="button" aria-label="Import help" class="group relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <button
+              type="button"
+              aria-label="Import help"
+              class="group relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
               <HelpCircle class="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
               <div
                 class="absolute right-0 top-full mt-2 w-64 p-4 bg-popover border border-border rounded-xl shadow-xl hidden group-hover:block z-50 animate-in fade-in zoom-in-95"
@@ -1465,7 +1505,12 @@ onUnmounted(() => {
                 </ol>
               </div>
             </button>
-            <button type="button" aria-label="Close dialog" @click="isZohoImportOpen = false" class="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <button
+              type="button"
+              aria-label="Close dialog"
+              @click="isZohoImportOpen = false"
+              class="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
               <X class="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
@@ -1506,7 +1551,9 @@ onUnmounted(() => {
         >
           <div class="flex flex-col items-center gap-3">
             <Spinner size="lg" />
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] animate-pulse">{{ t('modals.invoices.zohoProcessing') }}</p>
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] animate-pulse">
+              {{ t('modals.invoices.zohoProcessing') }}
+            </p>
           </div>
         </div>
       </div>
@@ -1547,14 +1594,16 @@ onUnmounted(() => {
         }"
         @click.stop
       >
-        <button type="button"
+        <button
+          type="button"
           @click="handleViewPreviewClick"
           class="w-full px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground hover:bg-muted flex items-center gap-2 transition-colors"
         >
           <Eye class="w-3.5 h-3.5" />
           View Preview
         </button>
-        <button type="button"
+        <button
+          type="button"
           @click="handleMenuBookmarkClick"
           class="w-full px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground hover:bg-muted flex items-center gap-2 transition-colors"
         >
@@ -1563,19 +1612,25 @@ onUnmounted(() => {
               'w-3.5 h-3.5',
               activeMenuInvoice && bookmarkStore.isBookmarked('invoice', activeMenuInvoice.id)
                 ? 'fill-blue-500 text-blue-500'
-                : 'text-muted-foreground'
+                : 'text-muted-foreground',
             ]"
           />
-          {{ activeMenuInvoice && bookmarkStore.isBookmarked('invoice', activeMenuInvoice.id) ? 'Remove Bookmark' : 'Bookmark Invoice' }}
+          {{
+            activeMenuInvoice && bookmarkStore.isBookmarked('invoice', activeMenuInvoice.id)
+              ? 'Remove Bookmark'
+              : 'Bookmark Invoice'
+          }}
         </button>
-        <button type="button"
+        <button
+          type="button"
           @click="handleEditClick"
           class="w-full px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground hover:bg-muted flex items-center gap-2 transition-colors"
         >
           <ExternalLink class="w-3.5 h-3.5" />
           Edit Invoice
         </button>
-        <button type="button"
+        <button
+          type="button"
           v-if="activeMenuInvoice?.status === 'Draft'"
           @click="handleStatusUpdateClick('Outstanding')"
           :disabled="!!statusLoadingAction"
@@ -1585,7 +1640,8 @@ onUnmounted(() => {
           <ExternalLink v-else class="w-3.5 h-3.5" />
           {{ statusLoadingAction === `${activeMenuInvoice?.id}-Outstanding` ? 'Processing...' : 'Finalize Invoice' }}
         </button>
-        <button type="button"
+        <button
+          type="button"
           v-if="activeMenuInvoice?.status !== 'Paid'"
           @click="handleStatusUpdateClick('Paid')"
           :disabled="!!statusLoadingAction"
@@ -1595,14 +1651,16 @@ onUnmounted(() => {
           <CheckCircle v-else class="w-3.5 h-3.5" />
           {{ statusLoadingAction === `${activeMenuInvoice?.id}-Paid` ? 'Processing...' : 'Mark as Paid' }}
         </button>
-        <button type="button"
+        <button
+          type="button"
           @click="handleSendEmailClick"
           class="w-full px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground hover:bg-muted flex items-center gap-2 border-t border-border/50"
         >
           <Mail class="w-3.5 h-3.5" />
           Send Email
         </button>
-        <button type="button"
+        <button
+          type="button"
           @click="handleDeleteClick"
           class="w-full px-4 py-2.5 text-left text-xs font-semibold text-destructive hover:bg-destructive/10 flex items-center gap-2 border-t border-border/50 transition-colors"
         >
@@ -1619,7 +1677,11 @@ onUnmounted(() => {
       :description="t('modals.invoices.subtitle')"
       max-width-class="max-w-xl"
       body-class="p-6 space-y-5 max-h-[70vh] overflow-y-auto"
-      @close="isAddingInvoice = false; resetInvoiceForm(); clearErrors()"
+      @close="
+        isAddingInvoice = false;
+        resetInvoiceForm();
+        clearErrors();
+      "
     >
       <div class="grid grid-cols-2 gap-4">
         <div class="space-y-2">
@@ -1631,9 +1693,12 @@ onUnmounted(() => {
               <Checkbox
                 id="autoGenerateNumber"
                 :checked="autoGenerateNumber"
-                @update:checked="(val: boolean) => autoGenerateNumber = val"
+                @update:checked="(val: boolean) => (autoGenerateNumber = val)"
               />
-              <Label for="autoGenerateNumber" class="text-xs text-muted-foreground cursor-pointer select-none font-normal">
+              <Label
+                for="autoGenerateNumber"
+                class="text-xs text-muted-foreground cursor-pointer select-none font-normal"
+              >
                 {{ t('modals.invoices.fields.autoGenerate') }}
               </Label>
             </div>
@@ -1656,7 +1721,10 @@ onUnmounted(() => {
             {{ t('modals.invoices.fields.amount') }} <span class="text-destructive">*</span>
           </Label>
           <div class="relative flex items-center">
-            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-muted-foreground">{{ currencySymbol }}</span>
+            <span
+              class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-medium text-muted-foreground"
+              >{{ currencySymbol }}</span
+            >
             <Input
               id="invoiceAmount"
               type="number"
@@ -1678,7 +1746,8 @@ onUnmounted(() => {
           <Label class="text-sm font-medium">
             {{ t('modals.invoices.fields.customer') }} <span class="text-destructive">*</span>
           </Label>
-          <button type="button"
+          <button
+            type="button"
             @click="redirectToAddCustomer"
             class="text-xs font-medium text-primary flex items-center gap-1 hover:underline"
           >
@@ -1725,7 +1794,9 @@ onUnmounted(() => {
             <div class="flex-1 min-w-0 space-y-1.5">
               <p class="font-medium truncate text-foreground text-sm">{{ item.itemName }}</p>
               <div class="flex items-center gap-1.5">
-                <span class="text-xs text-muted-foreground">{{ t('modals.invoices.fields.rate') }} {{ currencySymbol }}</span>
+                <span class="text-xs text-muted-foreground"
+                  >{{ t('modals.invoices.fields.rate') }} {{ currencySymbol }}</span
+                >
                 <Input
                   type="number"
                   v-model.number="item.rate"
@@ -1773,7 +1844,8 @@ onUnmounted(() => {
               <div class="w-20 text-right font-mono font-medium text-sm text-foreground">
                 {{ formatCurrency(item.amount) }}
               </div>
-              <button type="button"
+              <button
+                type="button"
                 @click="removeItemFromInvoice(idx)"
                 class="text-muted-foreground hover:text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors"
               >
@@ -1787,7 +1859,8 @@ onUnmounted(() => {
       <div class="space-y-2 pt-2 border-t">
         <div class="flex items-center justify-between">
           <Label class="text-sm font-medium">{{ t('modals.invoices.fields.catalogSelector') }}</Label>
-          <button type="button"
+          <button
+            type="button"
             @click="redirectToAddItem"
             class="text-xs font-medium text-primary flex items-center gap-1 hover:underline"
           >
@@ -1802,11 +1875,15 @@ onUnmounted(() => {
             @click="addItemToInvoice(item)"
           >
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-md bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-accent transition-colors shrink-0">
+              <div
+                class="w-8 h-8 rounded-md bg-muted/60 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-accent transition-colors shrink-0"
+              >
                 <Package class="w-4 h-4" />
               </div>
               <div>
-                <p class="text-xs font-medium text-foreground group-hover:text-primary transition-colors">{{ item.name }}</p>
+                <p class="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                  {{ item.name }}
+                </p>
                 <p class="text-xs text-muted-foreground font-mono">
                   {{ formatCurrency(item.unitPrice) }}
                 </p>
@@ -1824,7 +1901,11 @@ onUnmounted(() => {
         <div v-else class="text-center py-6 border-2 border-dashed rounded-lg">
           <Package class="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
           <p class="text-xs font-medium text-muted-foreground">{{ t('modals.invoices.fields.noItems') }}</p>
-          <button type="button" @click="redirectToAddItem" class="text-xs font-medium text-primary mt-1 hover:underline">
+          <button
+            type="button"
+            @click="redirectToAddItem"
+            class="text-xs font-medium text-primary mt-1 hover:underline"
+          >
             {{ t('modals.invoices.fields.createFirstItem') }}
           </button>
         </div>
@@ -1838,9 +1919,17 @@ onUnmounted(() => {
           class="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-xs font-medium text-foreground"
         >
           <span>{{ t('modals.invoices.fields.additionalInfo') }}</span>
-          <ChevronDown :class="['w-4 h-4 transition-transform duration-200 text-muted-foreground', showAdvanced ? 'rotate-180' : '']" />
+          <ChevronDown
+            :class="[
+              'w-4 h-4 transition-transform duration-200 text-muted-foreground',
+              showAdvanced ? 'rotate-180' : '',
+            ]"
+          />
         </button>
-        <div v-show="showAdvanced" class="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200">
+        <div
+          v-show="showAdvanced"
+          class="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200"
+        >
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
               <Label class="text-xs font-medium">{{ t('modals.invoices.fields.referenceNumber') }}</Label>
@@ -1880,11 +1969,7 @@ onUnmounted(() => {
             </div>
             <div class="space-y-2">
               <Label class="text-xs font-medium">{{ t('modals.invoices.fields.termsConditions') }}</Label>
-              <Textarea
-                v-model="newInvoice.termsConditions"
-                placeholder="Legal/payment terms"
-                class="min-h-[60px]"
-              />
+              <Textarea v-model="newInvoice.termsConditions" placeholder="Legal/payment terms" class="min-h-[60px]" />
             </div>
           </div>
         </div>
@@ -1898,9 +1983,17 @@ onUnmounted(() => {
           class="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-xs font-medium text-foreground"
         >
           <span>{{ t('modals.invoices.fields.discountsTaxes') }}</span>
-          <ChevronDown :class="['w-4 h-4 transition-transform duration-200 text-muted-foreground', showTaxesDiscounts ? 'rotate-180' : '']" />
+          <ChevronDown
+            :class="[
+              'w-4 h-4 transition-transform duration-200 text-muted-foreground',
+              showTaxesDiscounts ? 'rotate-180' : '',
+            ]"
+          />
         </button>
-        <div v-show="showTaxesDiscounts" class="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200">
+        <div
+          v-show="showTaxesDiscounts"
+          class="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200"
+        >
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
               <Label class="text-xs font-medium">{{ t('modals.invoices.fields.discountType') }}</Label>
@@ -1940,7 +2033,7 @@ onUnmounted(() => {
                     'text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer',
                     autoRoundOff
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground',
                   ]"
                 >
                   Auto {{ autoRoundOff ? 'ON' : 'OFF' }}
@@ -1957,46 +2050,61 @@ onUnmounted(() => {
           </div>
           <div class="flex flex-col items-end pt-2 pr-1 space-y-1 text-right text-xs">
             <p v-if="newInvoice.discountAmount > 0" class="text-emerald-600 font-medium">
-              {{ t('modals.invoices.fields.calculatedDiscount') }} <span class="font-mono font-semibold">-{{ currencySymbol }}{{ Number(newInvoice.discountAmount || 0).toFixed(2) }}</span>
+              {{ t('modals.invoices.fields.calculatedDiscount') }}
+              <span class="font-mono font-semibold"
+                >-{{ currencySymbol }}{{ Number(newInvoice.discountAmount || 0).toFixed(2) }}</span
+              >
             </p>
             <p class="text-muted-foreground">
-              {{ t('modals.invoices.fields.calculatedTax') }} <span class="font-mono text-foreground font-semibold">{{ currencySymbol }}{{ Number(newInvoice.taxAmount || 0).toFixed(2) }}</span>
+              {{ t('modals.invoices.fields.calculatedTax') }}
+              <span class="font-mono text-foreground font-semibold"
+                >{{ currencySymbol }}{{ Number(newInvoice.taxAmount || 0).toFixed(2) }}</span
+              >
             </p>
             <p v-if="Number(newInvoice.shippingCharges) > 0" class="text-muted-foreground">
-              Shipping: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newInvoice.shippingCharges || 0).toFixed(2) }}</span>
+              Shipping:
+              <span class="font-mono text-foreground font-semibold"
+                >+{{ currencySymbol }}{{ Number(newInvoice.shippingCharges || 0).toFixed(2) }}</span
+              >
             </p>
             <p v-if="Number(newInvoice.packagingCharges) > 0" class="text-muted-foreground">
-              Packaging: <span class="font-mono text-foreground font-semibold">+{{ currencySymbol }}{{ Number(newInvoice.packagingCharges || 0).toFixed(2) }}</span>
+              Packaging:
+              <span class="font-mono text-foreground font-semibold"
+                >+{{ currencySymbol }}{{ Number(newInvoice.packagingCharges || 0).toFixed(2) }}</span
+              >
             </p>
             <p v-if="Number(newInvoice.adjustment) !== 0" class="text-muted-foreground">
-              Round Off: <span class="font-mono text-foreground font-semibold">{{ Number(newInvoice.adjustment) > 0 ? '+' : '' }}{{ currencySymbol }}{{ Number(newInvoice.adjustment || 0).toFixed(2) }}</span>
+              Round Off:
+              <span class="font-mono text-foreground font-semibold"
+                >{{ Number(newInvoice.adjustment) > 0 ? '+' : '' }}{{ currencySymbol
+                }}{{ Number(newInvoice.adjustment || 0).toFixed(2) }}</span
+              >
             </p>
             <div class="h-px w-36 bg-border my-1"></div>
             <p class="text-sm font-bold text-foreground">
-              Total Amount: <span class="font-mono">{{ currencySymbol }}{{ Number(newInvoice.amount || 0).toFixed(2) }}</span>
+              Total Amount:
+              <span class="font-mono">{{ currencySymbol }}{{ Number(newInvoice.amount || 0).toFixed(2) }}</span>
             </p>
           </div>
         </div>
       </div>
 
       <!-- Custom Fields Section -->
-      <CustomFieldRenderer
-        entity="invoice"
-        v-model="newInvoice.customFields"
-      />
+      <CustomFieldRenderer entity="invoice" v-model="newInvoice.customFields" />
 
       <div class="space-y-2">
         <Label class="text-sm font-medium">{{ t('modals.invoices.fields.status') }}</Label>
         <div class="flex p-1 bg-muted rounded-lg text-xs font-medium">
-          <button type="button"
+          <button
+            type="button"
             v-for="s in ['Draft', 'Outstanding', 'Paid']"
             :key="s"
             @click="newInvoice.status = s as any"
             :class="[
               'flex-1 py-1.5 rounded-md transition-all text-center',
               newInvoice.status === s
-                 ? 'bg-background text-foreground shadow-xs font-semibold'
-                 : 'text-muted-foreground hover:text-foreground',
+                ? 'bg-background text-foreground shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground',
             ]"
           >
             {{ s === 'Outstanding' ? 'Finalize' : s }}
@@ -2006,18 +2114,26 @@ onUnmounted(() => {
 
       <template #footer>
         <Button
-          @click="isAddingInvoice = false; resetInvoiceForm(); clearErrors();"
+          @click="
+            isAddingInvoice = false;
+            resetInvoiceForm();
+            clearErrors();
+          "
           variant="outline"
         >
           {{ t('common.cancel') }}
         </Button>
-        <Button
-          @click="handleAddInvoice(newInvoice.status)"
-          :disabled="isSaving || fetchingDetails"
-          class="gap-2"
-        >
+        <Button @click="handleAddInvoice(newInvoice.status)" :disabled="isSaving || fetchingDetails" class="gap-2">
           <Spinner v-if="isSaving || fetchingDetails" size="sm" class="text-primary-foreground" />
-          {{ isSaving ? t('common.saving') : fetchingDetails ? 'Loading details...' : (isEditing ? t('modals.invoices.save') : t('modals.invoices.create')) }}
+          {{
+            isSaving
+              ? t('common.saving')
+              : fetchingDetails
+                ? 'Loading details...'
+                : isEditing
+                  ? t('modals.invoices.save')
+                  : t('modals.invoices.create')
+          }}
         </Button>
       </template>
     </Modal>
@@ -2029,11 +2145,7 @@ onUnmounted(() => {
       @success="handleInlineCustomerSuccess"
     />
 
-    <AddItemModal
-      :open="isAddingInlineItem"
-      @close="isAddingInlineItem = false"
-      @success="handleInlineItemSuccess"
-    />
+    <AddItemModal :open="isAddingInlineItem" @close="isAddingInlineItem = false" @success="handleInlineItemSuccess" />
 
     <InvoicePreviewModal
       v-if="selectedDetail"
@@ -2046,13 +2158,13 @@ onUnmounted(() => {
       v-if="selectedInvoiceForEmail"
       :open="isSendingEmail"
       :invoice="selectedInvoiceForEmail"
-      @close="isSendingEmail = false; selectedInvoiceForEmail = null"
+      @close="
+        isSendingEmail = false;
+        selectedInvoiceForEmail = null;
+      "
     />
 
-    <UpgradePlanModal
-      v-model:open="isUpgradeModalOpen"
-      feature="invoice"
-    />
+    <UpgradePlanModal v-model:open="isUpgradeModalOpen" feature="invoice" />
 
     <BulkUploadModal
       v-model:open="isBulkUploadOpen"

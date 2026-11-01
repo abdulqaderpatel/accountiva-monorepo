@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -11,7 +17,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
+} from "react-native";
 import {
   X,
   Trash,
@@ -25,29 +31,29 @@ import {
   CircleAlert,
   Calendar,
   Percent,
-} from 'lucide-react-native';
-import { useTheme } from '../theme/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { Card } from '../components/ui/Card';
+} from "lucide-react-native";
+import { useTheme } from "../theme/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { Card } from "../components/ui/Card";
 import {
   calculateDocumentTotals,
   formatCurrency,
   isDuplicateDocumentNumberError,
   type InvoiceStatus,
-} from '@accountiva/shared';
+} from "@accountiva/shared";
 import {
   fetchNextInvoiceNumber,
   useCreateInvoice,
   useUpdateInvoice,
   useCustomers,
   useItems,
-} from '@accountiva/api';
-import { ScreenType } from '../components/BottomNav';
-import { fonts } from '../theme/typography';
-import { AddCustomerModal } from '../components/AddCustomerModal';
-import { useKeyboard } from '../hooks/useKeyboard';
-import { CustomFieldRenderer } from '../components/ui/CustomFieldRenderer';
-import { buildMobileInvoicePayload } from '../documents/payloads';
+} from "@accountiva/api";
+import { ScreenType } from "../components/BottomNav";
+import { fonts } from "../theme/typography";
+import { AddCustomerModal } from "../components/AddCustomerModal";
+import { useKeyboard } from "../hooks/useKeyboard";
+import { CustomFieldRenderer } from "../components/ui/CustomFieldRenderer";
+import { buildMobileInvoicePayload } from "../documents/payloads";
 
 export interface LineItem {
   id: string;
@@ -65,14 +71,18 @@ interface CreateInvoiceScreenProps {
 }
 
 const formatDateToISO = (d: Date): string => {
-  return d.toISOString().split('T')[0];
+  return d.toISOString().split("T")[0];
 };
 
-export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: CreateInvoiceScreenProps) {
+export function CreateInvoiceScreen({
+  onNavigate,
+  initialInvoice,
+  onDone,
+}: CreateInvoiceScreenProps) {
   const { colors } = useTheme();
   const { currentOrg } = useAuth();
   const { keyboardHeight, isKeyboardVisible } = useKeyboard();
-  const currency = currentOrg?.currency || 'INR';
+  const currency = currentOrg?.currency || "INR";
 
   const createInvoiceMutation = useCreateInvoice();
   const updateInvoiceMutation = useUpdateInvoice();
@@ -94,22 +104,23 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
   // Form State
   const [customer, setCustomer] = useState(
-    initialInvoice?.customer || initialInvoice?.customerName || initialInvoice?.customers?.name || ''
+    initialInvoice?.customer ||
+      initialInvoice?.customerName ||
+      initialInvoice?.customers?.name ||
+      "",
   );
   const [customerId, setCustomerId] = useState(
-    initialInvoice?.customerId || initialInvoice?.customer_id || ''
+    initialInvoice?.customerId || initialInvoice?.customer_id || "",
   );
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState("");
   const [createCustomerModalOpen, setCreateCustomerModalOpen] = useState(false);
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
-  const [itemSearch, setItemSearch] = useState('');
+  const [itemSearch, setItemSearch] = useState("");
 
   const [invoiceNumber, setInvoiceNumber] = useState(
-    initialInvoice?.number ||
-      initialInvoice?.invoiceNumber ||
-      ''
+    initialInvoice?.number || initialInvoice?.invoiceNumber || "",
   );
   const [isNumberLoading, setIsNumberLoading] = useState(false);
   const [numberError, setNumberError] = useState<string | null>(null);
@@ -129,7 +140,9 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const [dueDate, setDueDate] = useState(() => {
     if (initialInvoice?.dueDate || initialInvoice?.due_date) {
       try {
-        return formatDateToISO(new Date(initialInvoice.dueDate || initialInvoice.due_date));
+        return formatDateToISO(
+          new Date(initialInvoice.dueDate || initialInvoice.due_date),
+        );
       } catch {
         // fallback
       }
@@ -140,12 +153,15 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   });
 
   const [items, setItems] = useState<LineItem[]>(() => {
-    if (Array.isArray(initialInvoice?.items) && initialInvoice.items.length > 0) {
+    if (
+      Array.isArray(initialInvoice?.items) &&
+      initialInvoice.items.length > 0
+    ) {
       return initialInvoice.items.map((i: any, idx: number) => ({
         id: String(i.id || `init-${idx}`),
         itemId: i.itemId || i.item_id || undefined,
-        name: i.name || i.itemName || i.description || 'Item',
-        description: i.description || '',
+        name: i.name || i.itemName || i.description || "Item",
+        description: i.description || "",
         quantity: Number(i.quantity) || 1,
         rate: Number(i.rate) || 0,
       }));
@@ -154,33 +170,37 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   });
 
   const [discountValue, setDiscountValue] = useState(
-    initialInvoice?.discountValue != null ? String(initialInvoice.discountValue) : ''
+    initialInvoice?.discountValue != null
+      ? String(initialInvoice.discountValue)
+      : "",
   );
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(
-    initialInvoice?.discountType === 'fixed' ? 'fixed' : 'percentage'
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">(
+    initialInvoice?.discountType === "fixed" ? "fixed" : "percentage",
   );
   const [taxPercent, setTaxPercent] = useState(() => {
     const existing = initialInvoice?.taxPercent ?? initialInvoice?.tax_percent;
-    return existing != null && existing !== '' ? String(existing) : '18';
+    return existing != null && existing !== "" ? String(existing) : "18";
   });
   const [shippingCharges, setShippingCharges] = useState(() => {
-    const existing = initialInvoice?.shippingCharges ?? initialInvoice?.shipping_charges;
-    return existing != null && existing !== '' ? String(existing) : '';
+    const existing =
+      initialInvoice?.shippingCharges ?? initialInvoice?.shipping_charges;
+    return existing != null && existing !== "" ? String(existing) : "";
   });
   const [packagingCharges, setPackagingCharges] = useState(() => {
-    const existing = initialInvoice?.packagingCharges ?? initialInvoice?.packaging_charges;
-    return existing != null && existing !== '' ? String(existing) : '';
+    const existing =
+      initialInvoice?.packagingCharges ?? initialInvoice?.packaging_charges;
+    return existing != null && existing !== "" ? String(existing) : "";
   });
   const [adjustment, setAdjustment] = useState(
-    initialInvoice?.adjustment != null ? String(initialInvoice.adjustment) : ''
+    initialInvoice?.adjustment != null ? String(initialInvoice.adjustment) : "",
   );
   const [autoRoundOff, setAutoRoundOff] = useState(false);
-  const [notes, setNotes] = useState(initialInvoice?.notes || '');
+  const [notes, setNotes] = useState(initialInvoice?.notes || "");
   const [termsConditions, setTermsConditions] = useState(
-    initialInvoice?.termsConditions || initialInvoice?.terms || ''
+    initialInvoice?.termsConditions || initialInvoice?.terms || "",
   );
   const [customFields, setCustomFields] = useState<Record<string, any>>(
-    initialInvoice?.customFields || initialInvoice?.custom_fields || {}
+    initialInvoice?.customFields || initialInvoice?.custom_fields || {},
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -198,11 +218,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       return nextNumber;
     } catch (error: any) {
       if (numberRequestRef.current === requestId) {
-        setInvoiceNumber('');
+        setInvoiceNumber("");
         setNumberError(
           error.response?.data?.error ||
             error.message ||
-            'Could not load the next invoice number.',
+            "Could not load the next invoice number.",
         );
       }
       return null;
@@ -234,7 +254,16 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       adjustment,
       autoRoundOff,
     });
-  }, [items, discountType, discountValue, taxPercent, shippingCharges, packagingCharges, adjustment, autoRoundOff]);
+  }, [
+    items,
+    discountType,
+    discountValue,
+    taxPercent,
+    shippingCharges,
+    packagingCharges,
+    adjustment,
+    autoRoundOff,
+  ]);
 
   // Helper date preset updater
   const applyDueDays = (days: number) => {
@@ -242,20 +271,24 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     d.setDate(d.getDate() + days);
     setDueDate(formatDateToISO(d));
     if (errors.dueDate) {
-      setErrors((prev) => ({ ...prev, dueDate: '' }));
+      setErrors((prev) => ({ ...prev, dueDate: "" }));
     }
   };
 
   const addItemFromCatalog = (catalogItem: any) => {
-    const rate = Number(catalogItem.sellingPrice) || Number(catalogItem.unitPrice) || 0;
-    const itemTax = Number(catalogItem.salesTaxRate ?? catalogItem.taxRate ?? catalogItem.tax_rate) || 0;
+    const rate =
+      Number(catalogItem.sellingPrice) || Number(catalogItem.unitPrice) || 0;
+    const itemTax =
+      Number(
+        catalogItem.salesTaxRate ?? catalogItem.taxRate ?? catalogItem.tax_rate,
+      ) || 0;
     const existingIndex = items.findIndex((i) => i.itemId === catalogItem.id);
 
     if (existingIndex > -1) {
       setItems((prev) =>
         prev.map((it, idx) =>
-          idx === existingIndex ? { ...it, quantity: it.quantity + 1 } : it
-        )
+          idx === existingIndex ? { ...it, quantity: it.quantity + 1 } : it,
+        ),
       );
     } else {
       setItems((prev) => [
@@ -263,8 +296,8 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         {
           id: `item-${Date.now()}-${Math.random()}`,
           itemId: catalogItem.id,
-          name: catalogItem.name || 'Catalog Item',
-          description: catalogItem.description || '',
+          name: catalogItem.name || "Catalog Item",
+          description: catalogItem.description || "",
           quantity: 1,
           rate,
           taxRate: itemTax,
@@ -272,12 +305,12 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       ]);
     }
 
-    if ((!taxPercent || taxPercent === '0') && itemTax > 0) {
+    if ((!taxPercent || taxPercent === "0") && itemTax > 0) {
       setTaxPercent(String(itemTax));
     }
 
     if (errors.items) {
-      setErrors((prev) => ({ ...prev, items: '' }));
+      setErrors((prev) => ({ ...prev, items: "" }));
     }
     setItemModalOpen(false);
   };
@@ -285,13 +318,13 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const addCustomItem = () => {
     const newItem: LineItem = {
       id: `custom-${Date.now()}`,
-      name: '',
+      name: "",
       quantity: 1,
       rate: 0,
     };
     setItems((prev) => [...prev, newItem]);
     if (errors.items) {
-      setErrors((prev) => ({ ...prev, items: '' }));
+      setErrors((prev) => ({ ...prev, items: "" }));
     }
   };
 
@@ -301,25 +334,29 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
   const updateQuantity = (id: string, qty: number) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity: Math.max(1, qty) } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: Math.max(1, qty) } : item,
+      ),
     );
   };
 
   const updateRate = (id: string, newRate: number) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, rate: Math.max(0, newRate) } : item))
+      prev.map((item) =>
+        item.id === id ? { ...item, rate: Math.max(0, newRate) } : item,
+      ),
     );
   };
 
   const updateName = (id: string, name: string) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, name } : item))
+      prev.map((item) => (item.id === id ? { ...item, name } : item)),
     );
   };
 
   const updateDescription = (id: string, description: string) => {
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, description } : item))
+      prev.map((item) => (item.id === id ? { ...item, description } : item)),
     );
   };
 
@@ -327,29 +364,32 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     const newErrors: Record<string, string> = {};
 
     if (!customer.trim() || !customerId) {
-      newErrors.customer = 'Please select a customer';
+      newErrors.customer = "Please select a customer";
     }
 
     if (!invoiceNumber.trim()) {
-      newErrors.invoiceNumber = 'Invoice number is required';
+      newErrors.invoiceNumber = "Invoice number is required";
     }
 
     if (!date.trim() || isNaN(new Date(date).getTime())) {
-      newErrors.date = 'Valid issue date required (YYYY-MM-DD)';
+      newErrors.date = "Valid issue date required (YYYY-MM-DD)";
     }
 
     if (!dueDate.trim() || isNaN(new Date(dueDate).getTime())) {
-      newErrors.dueDate = 'Valid due date required (YYYY-MM-DD)';
+      newErrors.dueDate = "Valid due date required (YYYY-MM-DD)";
     } else if (new Date(dueDate) < new Date(date)) {
-      newErrors.dueDate = 'Due date cannot be before invoice date';
+      newErrors.dueDate = "Due date cannot be before invoice date";
     }
 
     if (items.length === 0) {
-      newErrors.items = 'Please add at least one line item';
+      newErrors.items = "Please add at least one line item";
     } else {
-      const hasEmpty = items.some((i) => !i.name.trim() || i.rate < 0 || i.quantity <= 0);
+      const hasEmpty = items.some(
+        (i) => !i.name.trim() || i.rate < 0 || i.quantity <= 0,
+      );
       if (hasEmpty) {
-        newErrors.items = 'Each item must have a name, positive quantity, and non-negative rate';
+        newErrors.items =
+          "Each item must have a name, positive quantity, and non-negative rate";
       }
     }
 
@@ -361,12 +401,13 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     setApiError(null);
     if (!validateForm()) return;
 
-    const rawStatus = String(initialInvoice?.status || 'Draft').toLowerCase();
-    const status: InvoiceStatus = rawStatus === 'paid'
-      ? 'Paid'
-      : rawStatus === 'outstanding'
-        ? 'Outstanding'
-        : 'Draft';
+    const rawStatus = String(initialInvoice?.status || "Draft").toLowerCase();
+    const status: InvoiceStatus =
+      rawStatus === "paid"
+        ? "Paid"
+        : rawStatus === "outstanding"
+          ? "Outstanding"
+          : "Draft";
 
     let payload;
     try {
@@ -394,7 +435,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         customFields,
       });
     } catch (error: any) {
-      setApiError(error.message || 'Please correct the invoice details.');
+      setApiError(error.message || "Please correct the invoice details.");
       return;
     }
 
@@ -413,9 +454,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         err.response?.data?.error ||
         err.response?.data?.message ||
         err.message ||
-        'Failed to save invoice. Please check all fields.';
+        "Failed to save invoice. Please check all fields.";
       if (!initialInvoice?.id && isDuplicateDocumentNumberError(err)) {
-        setApiError(`${msg} Your entries were kept while a fresh number is loaded.`);
+        setApiError(
+          `${msg} Your entries were kept while a fresh number is loaded.`,
+        );
         await loadNextInvoiceNumber();
         return;
       }
@@ -427,22 +470,26 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
     if (onDone) {
       onDone();
     } else {
-      onNavigate('invoices');
+      onNavigate("invoices");
     }
   };
 
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       {/* Top Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={handleClose} style={styles.closeBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleClose}
+          style={styles.closeBtn}
+          activeOpacity={0.7}
+        >
           <X size={20} color={colors.mutedForeground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-          {initialInvoice ? 'Edit Invoice' : 'Create Invoice'}
+          {initialInvoice ? "Edit Invoice" : "Create Invoice"}
         </Text>
         <TouchableOpacity
           onPress={handleSave}
@@ -454,14 +501,21 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
           style={[
             styles.saveBtn,
             { backgroundColor: colors.primary },
-            !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()) ? styles.disabledBtn : null,
+            !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim())
+              ? styles.disabledBtn
+              : null,
           ]}
           activeOpacity={0.8}
         >
-          {createInvoiceMutation.isPending || updateInvoiceMutation.isPending ? (
+          {createInvoiceMutation.isPending ||
+          updateInvoiceMutation.isPending ? (
             <ActivityIndicator size="small" color={colors.primaryForeground} />
           ) : (
-            <Text style={[styles.saveBtnText, { color: colors.primaryForeground }]}>Save</Text>
+            <Text
+              style={[styles.saveBtnText, { color: colors.primaryForeground }]}
+            >
+              Save
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -477,65 +531,108 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       >
         {/* API Error Banner */}
         {apiError ? (
-          <View style={[styles.apiErrorBanner, { backgroundColor: colors.destructive + '15', borderColor: colors.destructive }]}>
-            <CircleAlert size={16} color={colors.destructive} style={{ marginTop: 2 }} />
-            <Text style={[styles.apiErrorText, { color: colors.destructive }]}>{apiError}</Text>
+          <View
+            style={[
+              styles.apiErrorBanner,
+              {
+                backgroundColor: colors.destructive + "15",
+                borderColor: colors.destructive,
+              },
+            ]}
+          >
+            <CircleAlert
+              size={16}
+              color={colors.destructive}
+              style={{ marginTop: 2 }}
+            />
+            <Text style={[styles.apiErrorText, { color: colors.destructive }]}>
+              {apiError}
+            </Text>
           </View>
         ) : null}
 
         {/* Customer Select Field */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Customer *</Text>
+          <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+            Customer *
+          </Text>
           <TouchableOpacity
             onPress={() => {
               setCustomerModalOpen(true);
-              setErrors((prev) => ({ ...prev, customer: '' }));
+              setErrors((prev) => ({ ...prev, customer: "" }));
             }}
             style={[
               styles.customerSelectBox,
               {
                 backgroundColor: colors.card,
-                borderColor: errors.customer ? colors.destructive : colors.border,
+                borderColor: errors.customer
+                  ? colors.destructive
+                  : colors.border,
               },
             ]}
             activeOpacity={0.7}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-              <View style={[styles.selectIconWrap, { backgroundColor: colors.surfaceSubtle }]}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                flex: 1,
+              }}
+            >
+              <View
+                style={[
+                  styles.selectIconWrap,
+                  { backgroundColor: colors.surfaceSubtle },
+                ]}
+              >
                 <Users size={16} color={colors.foreground} />
               </View>
               <Text
                 style={[
                   styles.customerSelectText,
-                  { color: customer ? colors.foreground : colors.mutedForeground },
+                  {
+                    color: customer
+                      ? colors.foreground
+                      : colors.mutedForeground,
+                  },
                 ]}
                 numberOfLines={1}
               >
-                {customer || 'Select a customer...'}
+                {customer || "Select a customer..."}
               </Text>
             </View>
             <ChevronDown size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
           {errors.customer ? (
-            <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.customer}</Text>
+            <Text style={[styles.inlineError, { color: colors.destructive }]}>
+              {errors.customer}
+            </Text>
           ) : null}
         </View>
 
         {/* Invoice Number & Date Row */}
         <View style={styles.rowFields}>
           <View style={styles.halfField}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Invoice # *</Text>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              Invoice # *
+            </Text>
             <TextInput
               value={invoiceNumber}
               onChangeText={(val) => {
                 setInvoiceNumber(val);
-                if (errors.invoiceNumber) setErrors((prev) => ({ ...prev, invoiceNumber: '' }));
+                if (errors.invoiceNumber)
+                  setErrors((prev) => ({ ...prev, invoiceNumber: "" }));
               }}
               style={[
                 styles.textInput,
                 {
                   backgroundColor: colors.card,
-                  borderColor: errors.invoiceNumber ? colors.destructive : colors.border,
+                  borderColor: errors.invoiceNumber
+                    ? colors.destructive
+                    : colors.border,
                   color: colors.foreground,
                 },
               ]}
@@ -543,28 +640,50 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               placeholderTextColor={colors.mutedForeground}
             />
             {errors.invoiceNumber ? (
-              <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.invoiceNumber}</Text>
+              <Text style={[styles.inlineError, { color: colors.destructive }]}>
+                {errors.invoiceNumber}
+              </Text>
             ) : null}
             {!initialInvoice?.id && isNumberLoading ? (
-              <Text style={[styles.fieldHint, { color: colors.mutedForeground }]}>Loading next number...</Text>
+              <Text
+                style={[styles.fieldHint, { color: colors.mutedForeground }]}
+              >
+                Loading next number...
+              </Text>
             ) : null}
             {!initialInvoice?.id && numberError ? (
               <View style={styles.numberErrorRow}>
-                <Text style={[styles.inlineError, { color: colors.destructive, flex: 1 }]}>{numberError}</Text>
-                <TouchableOpacity onPress={() => void loadNextInvoiceNumber()} activeOpacity={0.7}>
-                  <Text style={[styles.retryText, { color: colors.primary }]}>Retry</Text>
+                <Text
+                  style={[
+                    styles.inlineError,
+                    { color: colors.destructive, flex: 1 },
+                  ]}
+                >
+                  {numberError}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => void loadNextInvoiceNumber()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.retryText, { color: colors.primary }]}>
+                    Retry
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : null}
           </View>
 
           <View style={styles.halfField}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Date (YYYY-MM-DD) *</Text>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              Date (YYYY-MM-DD) *
+            </Text>
             <TextInput
               value={date}
               onChangeText={(val) => {
                 setDate(val);
-                if (errors.date) setErrors((prev) => ({ ...prev, date: '' }));
+                if (errors.date) setErrors((prev) => ({ ...prev, date: "" }));
               }}
               style={[
                 styles.textInput,
@@ -578,28 +697,53 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               placeholderTextColor={colors.mutedForeground}
             />
             {errors.date ? (
-              <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.date}</Text>
+              <Text style={[styles.inlineError, { color: colors.destructive }]}>
+                {errors.date}
+              </Text>
             ) : null}
           </View>
         </View>
 
         {/* Due Date & Presets */}
         <View style={styles.fieldGroup}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Due Date (YYYY-MM-DD) *</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              Due Date (YYYY-MM-DD) *
+            </Text>
             {/* Quick Presets */}
-            <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={{ flexDirection: "row", gap: 6 }}>
               {[
-                { label: 'Today', days: 0 },
-                { label: '+15d', days: 15 },
-                { label: '+30d', days: 30 },
+                { label: "Today", days: 0 },
+                { label: "+15d", days: 15 },
+                { label: "+30d", days: 30 },
               ].map((chip) => (
                 <TouchableOpacity
                   key={chip.label}
                   onPress={() => applyDueDays(chip.days)}
-                  style={[styles.presetChip, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}
+                  style={[
+                    styles.presetChip,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surfaceSubtle,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.presetChipText, { color: colors.foreground }]}>{chip.label}</Text>
+                  <Text
+                    style={[
+                      styles.presetChipText,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    {chip.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -608,13 +752,16 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
             value={dueDate}
             onChangeText={(val) => {
               setDueDate(val);
-              if (errors.dueDate) setErrors((prev) => ({ ...prev, dueDate: '' }));
+              if (errors.dueDate)
+                setErrors((prev) => ({ ...prev, dueDate: "" }));
             }}
             style={[
               styles.textInput,
               {
                 backgroundColor: colors.card,
-                borderColor: errors.dueDate ? colors.destructive : colors.border,
+                borderColor: errors.dueDate
+                  ? colors.destructive
+                  : colors.border,
                 color: colors.foreground,
               },
             ]}
@@ -622,61 +769,126 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
             placeholderTextColor={colors.mutedForeground}
           />
           {errors.dueDate ? (
-            <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.dueDate}</Text>
+            <Text style={[styles.inlineError, { color: colors.destructive }]}>
+              {errors.dueDate}
+            </Text>
           ) : null}
         </View>
 
         {/* Line Items Section Header */}
         <View style={styles.sectionHeaderRow}>
           <View>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
               Line Items ({items.length}) *
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8 }}>
             <TouchableOpacity
               onPress={() => setItemModalOpen(true)}
-              style={[styles.itemActionBtn, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}
+              style={[
+                styles.itemActionBtn,
+                {
+                  backgroundColor: colors.surfaceSubtle,
+                  borderColor: colors.border,
+                },
+              ]}
               activeOpacity={0.7}
             >
               <Package size={13} color={colors.primary} />
-              <Text style={[styles.itemActionBtnText, { color: colors.primary }]}>From Catalog</Text>
+              <Text
+                style={[styles.itemActionBtnText, { color: colors.primary }]}
+              >
+                From Catalog
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={addCustomItem}
-              style={[styles.itemActionBtn, { backgroundColor: colors.primary }]}
+              style={[
+                styles.itemActionBtn,
+                { backgroundColor: colors.primary },
+              ]}
               activeOpacity={0.7}
             >
               <Plus size={13} color={colors.primaryForeground} />
-              <Text style={[styles.itemActionBtnText, { color: colors.primaryForeground }]}>Custom</Text>
+              <Text
+                style={[
+                  styles.itemActionBtnText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                Custom
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {errors.items ? (
-          <Text style={[styles.inlineError, { color: colors.destructive }]}>{errors.items}</Text>
+          <Text style={[styles.inlineError, { color: colors.destructive }]}>
+            {errors.items}
+          </Text>
         ) : null}
 
         {/* Line Items List */}
         {items.length === 0 ? (
-          <View style={[styles.emptyItemsContainer, { borderColor: colors.border, backgroundColor: colors.surfaceSubtle }]}>
-            <Package size={32} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-            <Text style={[styles.emptyItemsTitle, { color: colors.foreground }]}>No items added yet</Text>
-            <Text style={[styles.emptyItemsSub, { color: colors.mutedForeground }]}>
+          <View
+            style={[
+              styles.emptyItemsContainer,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceSubtle,
+              },
+            ]}
+          >
+            <Package
+              size={32}
+              color={colors.mutedForeground}
+              style={{ marginBottom: 8 }}
+            />
+            <Text
+              style={[styles.emptyItemsTitle, { color: colors.foreground }]}
+            >
+              No items added yet
+            </Text>
+            <Text
+              style={[styles.emptyItemsSub, { color: colors.mutedForeground }]}
+            >
               Select products from your catalog or enter custom line items.
             </Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
               <TouchableOpacity
                 onPress={() => setItemModalOpen(true)}
-                style={[styles.emptyAddBtn, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.emptyAddBtn,
+                  { backgroundColor: colors.primary },
+                ]}
               >
-                <Text style={[styles.emptyAddBtnText, { color: colors.primaryForeground }]}>+ Add From Catalog</Text>
+                <Text
+                  style={[
+                    styles.emptyAddBtnText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  + Add From Catalog
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={addCustomItem}
-                style={[styles.emptyAddBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
+                style={[
+                  styles.emptyAddBtn,
+                  {
+                    backgroundColor: colors.card,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
-                <Text style={[styles.emptyAddBtnText, { color: colors.foreground }]}>+ Custom Item</Text>
+                <Text
+                  style={[styles.emptyAddBtnText, { color: colors.foreground }]}
+                >
+                  + Custom Item
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -688,8 +900,22 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                   <View style={{ flex: 1, marginRight: 10 }}>
                     {item.itemId ? (
                       <View>
-                        <Text style={[styles.itemName, { color: colors.foreground }]}>{item.name}</Text>
-                        <Text style={[styles.itemSub, { color: colors.mutedForeground }]}>Catalog Product</Text>
+                        <Text
+                          style={[
+                            styles.itemName,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          {item.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.itemSub,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          Catalog Product
+                        </Text>
                       </View>
                     ) : (
                       <TextInput
@@ -708,13 +934,17 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                       />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => removeItem(item.id)} activeOpacity={0.7} style={styles.deleteBtn}>
+                  <TouchableOpacity
+                    onPress={() => removeItem(item.id)}
+                    activeOpacity={0.7}
+                    style={styles.deleteBtn}
+                  >
                     <Trash size={16} color={colors.destructive} />
                   </TouchableOpacity>
                 </View>
 
                 <TextInput
-                  value={item.description || ''}
+                  value={item.description || ""}
                   onChangeText={(value) => updateDescription(item.id, value)}
                   placeholder="Line-item description..."
                   placeholderTextColor={colors.mutedForeground}
@@ -729,33 +959,84 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                   ]}
                 />
 
-                <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
+                <View
+                  style={[
+                    styles.itemDivider,
+                    { backgroundColor: colors.border },
+                  ]}
+                />
 
                 <View style={styles.itemMathGrid}>
                   <View style={styles.mathCol}>
-                    <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Quantity</Text>
-                    <View style={[styles.qtyControl, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+                    <Text
+                      style={[
+                        styles.mathLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Quantity
+                    </Text>
+                    <View
+                      style={[
+                        styles.qtyControl,
+                        {
+                          backgroundColor: colors.surfaceSubtle,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
                       <TouchableOpacity
-                        onPress={() => updateQuantity(item.id, item.quantity - 1)}
+                        onPress={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
                         style={styles.qtyBtn}
                       >
-                        <Text style={[styles.qtyBtnText, { color: colors.foreground }]}>-</Text>
+                        <Text
+                          style={[
+                            styles.qtyBtnText,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          -
+                        </Text>
                       </TouchableOpacity>
-                      <Text style={[styles.qtyNumber, { color: colors.foreground }]}>{item.quantity}</Text>
+                      <Text
+                        style={[styles.qtyNumber, { color: colors.foreground }]}
+                      >
+                        {item.quantity}
+                      </Text>
                       <TouchableOpacity
-                        onPress={() => updateQuantity(item.id, item.quantity + 1)}
+                        onPress={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
                         style={styles.qtyBtn}
                       >
-                        <Text style={[styles.qtyBtnText, { color: colors.foreground }]}>+</Text>
+                        <Text
+                          style={[
+                            styles.qtyBtnText,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          +
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
 
                   <View style={styles.mathCol}>
-                    <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Rate ({currency})</Text>
+                    <Text
+                      style={[
+                        styles.mathLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Rate ({currency})
+                    </Text>
                     <TextInput
-                      value={String(item.rate || '')}
-                      onChangeText={(val) => updateRate(item.id, parseFloat(val) || 0)}
+                      value={String(item.rate || "")}
+                      onChangeText={(val) =>
+                        updateRate(item.id, parseFloat(val) || 0)
+                      }
                       keyboardType="decimal-pad"
                       placeholder="0.00"
                       placeholderTextColor={colors.mutedForeground}
@@ -772,9 +1053,21 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                     />
                   </View>
 
-                  <View style={[styles.mathCol, { alignItems: 'flex-end' }]}>
-                    <Text style={[styles.mathLabel, { color: colors.mutedForeground }]}>Amount</Text>
-                    <Text style={[styles.mathValueBold, { color: colors.foreground }]}>
+                  <View style={[styles.mathCol, { alignItems: "flex-end" }]}>
+                    <Text
+                      style={[
+                        styles.mathLabel,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Amount
+                    </Text>
+                    <Text
+                      style={[
+                        styles.mathValueBold,
+                        { color: colors.foreground },
+                      ]}
+                    >
                       {formatCurrency(item.quantity * item.rate, currency)}
                     </Text>
                   </View>
@@ -787,7 +1080,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         {/* Calculation Summary Box */}
         <Card style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Subtotal</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+            >
+              Subtotal
+            </Text>
             <Text style={[styles.summaryValue, { color: colors.foreground }]}>
               {formatCurrency(totals.subtotal, currency)}
             </Text>
@@ -795,36 +1092,64 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
           {/* Discount Row */}
           <View style={styles.summaryInputRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
-              <View style={[styles.discountToggle, { backgroundColor: colors.surfaceSubtle, borderColor: colors.border }]}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
+              <Text
+                style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+              >
+                Discount
+              </Text>
+              <View
+                style={[
+                  styles.discountToggle,
+                  {
+                    backgroundColor: colors.surfaceSubtle,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <TouchableOpacity
-                  onPress={() => setDiscountType('percentage')}
+                  onPress={() => setDiscountType("percentage")}
                   style={[
                     styles.discountToggleBtn,
-                    discountType === 'percentage' && { backgroundColor: colors.primary },
+                    discountType === "percentage" && {
+                      backgroundColor: colors.primary,
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.discountToggleText,
-                      { color: discountType === 'percentage' ? colors.primaryForeground : colors.mutedForeground },
+                      {
+                        color:
+                          discountType === "percentage"
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
                     ]}
                   >
                     %
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => setDiscountType('fixed')}
+                  onPress={() => setDiscountType("fixed")}
                   style={[
                     styles.discountToggleBtn,
-                    discountType === 'fixed' && { backgroundColor: colors.primary },
+                    discountType === "fixed" && {
+                      backgroundColor: colors.primary,
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.discountToggleText,
-                      { color: discountType === 'fixed' ? colors.primaryForeground : colors.mutedForeground },
+                      {
+                        color:
+                          discountType === "fixed"
+                            ? colors.primaryForeground
+                            : colors.mutedForeground,
+                      },
                     ]}
                   >
                     ₹
@@ -833,7 +1158,9 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
               <TextInput
                 value={discountValue}
                 onChangeText={setDiscountValue}
@@ -842,11 +1169,17 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                 placeholderTextColor={colors.mutedForeground}
                 style={[
                   styles.summarySmallInput,
-                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                  {
+                    backgroundColor: colors.surfaceSubtle,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
                 ]}
               />
               {totals.discountAmount > 0 ? (
-                <Text style={[styles.summaryDiscountSub, { color: colors.success }]}>
+                <Text
+                  style={[styles.summaryDiscountSub, { color: colors.success }]}
+                >
                   -{formatCurrency(totals.discountAmount, currency)}
                 </Text>
               ) : null}
@@ -855,7 +1188,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
           {totals.discountAmount > 0 ? (
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Taxable Amount</Text>
+              <Text
+                style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+              >
+                Taxable Amount
+              </Text>
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>
                 {formatCurrency(totals.taxableAmount, currency)}
               </Text>
@@ -864,10 +1201,14 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
           {/* GST / Tax Row */}
           <View style={styles.summaryInputRow}>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+            <Text
+              style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+            >
               GST ({totals.taxPercent}%)
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
               <TextInput
                 value={taxPercent}
                 onChangeText={setTaxPercent}
@@ -876,7 +1217,12 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                 placeholderTextColor={colors.mutedForeground}
                 style={[
                   styles.summarySmallInput,
-                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground, width: 55 },
+                  {
+                    backgroundColor: colors.surfaceSubtle,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                    width: 55,
+                  },
                 ]}
               />
               <Text style={[styles.summaryValue, { color: colors.foreground }]}>
@@ -887,7 +1233,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
           {/* Shipping Charges */}
           <View style={styles.summaryInputRow}>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Shipping Charges</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+            >
+              Shipping Charges
+            </Text>
             <TextInput
               value={shippingCharges}
               onChangeText={setShippingCharges}
@@ -898,14 +1248,22 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               multiline={false}
               style={[
                 styles.summarySmallInput,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                {
+                  backgroundColor: colors.surfaceSubtle,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
               ]}
             />
           </View>
 
           {/* Packaging / Packing Charges */}
           <View style={styles.summaryInputRow}>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Packaging / Packing</Text>
+            <Text
+              style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+            >
+              Packaging / Packing
+            </Text>
             <TextInput
               value={packagingCharges}
               onChangeText={setPackagingCharges}
@@ -916,21 +1274,33 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               multiline={false}
               style={[
                 styles.summarySmallInput,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                {
+                  backgroundColor: colors.surfaceSubtle,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
               ]}
             />
           </View>
 
           {/* Round Off / Adjustment */}
           <View style={styles.summaryInputRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Round Off</Text>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
+              <Text
+                style={[styles.summaryLabel, { color: colors.mutedForeground }]}
+              >
+                Round Off
+              </Text>
               <TouchableOpacity
                 onPress={() => setAutoRoundOff(!autoRoundOff)}
                 style={[
                   styles.autoRoundChip,
                   {
-                    backgroundColor: autoRoundOff ? colors.primary : colors.surfaceSubtle,
+                    backgroundColor: autoRoundOff
+                      ? colors.primary
+                      : colors.surfaceSubtle,
                     borderColor: autoRoundOff ? colors.primary : colors.border,
                   },
                 ]}
@@ -939,7 +1309,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                 <Text
                   style={[
                     styles.autoRoundChipText,
-                    { color: autoRoundOff ? colors.primaryForeground : colors.mutedForeground },
+                    {
+                      color: autoRoundOff
+                        ? colors.primaryForeground
+                        : colors.mutedForeground,
+                    },
                   ]}
                 >
                   Auto
@@ -951,10 +1325,18 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               <Text
                 style={[
                   styles.summaryValue,
-                  { color: totals.roundOff < 0 ? colors.destructive : colors.foreground, fontFamily: fonts.medium },
+                  {
+                    color:
+                      totals.roundOff < 0
+                        ? colors.destructive
+                        : colors.foreground,
+                    fontFamily: fonts.medium,
+                  },
                 ]}
               >
-                {totals.roundOff >= 0 ? `+${formatCurrency(totals.roundOff, currency)}` : `-${formatCurrency(Math.abs(totals.roundOff), currency)}`}
+                {totals.roundOff >= 0
+                  ? `+${formatCurrency(totals.roundOff, currency)}`
+                  : `-${formatCurrency(Math.abs(totals.roundOff), currency)}`}
               </Text>
             ) : (
               <TextInput
@@ -967,17 +1349,29 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                 multiline={false}
                 style={[
                   styles.summarySmallInput,
-                  { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                  {
+                    backgroundColor: colors.surfaceSubtle,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
                 ]}
               />
             )}
           </View>
 
-          <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+          <View
+            style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+          />
 
           <View style={styles.summaryRow}>
-            <Text style={[styles.grandTotalLabel, { color: colors.foreground }]}>Total Payable</Text>
-            <Text style={[styles.grandTotalValue, { color: colors.foreground }]}>
+            <Text
+              style={[styles.grandTotalLabel, { color: colors.foreground }]}
+            >
+              Total Payable
+            </Text>
+            <Text
+              style={[styles.grandTotalValue, { color: colors.foreground }]}
+            >
               {formatCurrency(totals.total, currency)}
             </Text>
           </View>
@@ -986,7 +1380,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
         {/* Notes & Terms */}
         <Card style={styles.notesCard}>
           <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Notes / Customer Remarks</Text>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              Notes / Customer Remarks
+            </Text>
             <TextInput
               placeholder="Thanks for your business! Payment instructions..."
               placeholderTextColor={colors.mutedForeground}
@@ -996,13 +1394,21 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               numberOfLines={2}
               style={[
                 styles.textArea,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                {
+                  backgroundColor: colors.surfaceSubtle,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
               ]}
             />
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Terms & Conditions</Text>
+            <Text
+              style={[styles.fieldLabel, { color: colors.mutedForeground }]}
+            >
+              Terms & Conditions
+            </Text>
             <TextInput
               placeholder="Payment due within 15 days of issue..."
               placeholderTextColor={colors.mutedForeground}
@@ -1012,7 +1418,11 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
               numberOfLines={2}
               style={[
                 styles.textArea,
-                { backgroundColor: colors.surfaceSubtle, borderColor: colors.border, color: colors.foreground },
+                {
+                  backgroundColor: colors.surfaceSubtle,
+                  borderColor: colors.border,
+                  color: colors.foreground,
+                },
               ]}
             />
           </View>
@@ -1027,14 +1437,28 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       </ScrollView>
 
       {/* Customer Selection Modal */}
-      <Modal visible={customerModalOpen} animationType="slide" transparent onRequestClose={() => setCustomerModalOpen(false)}>
+      <Modal
+        visible={customerModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCustomerModalOpen(false)}
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select Customer</Text>
+          <View
+            style={[
+              styles.modalSheet,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                Select Customer
+              </Text>
               <TouchableOpacity onPress={() => setCustomerModalOpen(false)}>
                 <X size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
@@ -1042,68 +1466,133 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
             {/* Search Box & Quick Create Button */}
             <View style={styles.customerModalTopRow}>
-              <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border, flex: 1 }]}>
-                <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+              <View
+                style={[
+                  styles.modalSearchBox,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    flex: 1,
+                  },
+                ]}
+              >
+                <Search
+                  size={16}
+                  color={colors.mutedForeground}
+                  style={{ marginRight: 8 }}
+                />
                 <TextInput
                   placeholder="Search customers..."
                   placeholderTextColor={colors.mutedForeground}
                   value={customerSearch}
                   onChangeText={setCustomerSearch}
-                  style={[styles.modalSearchInput, { color: colors.foreground }]}
+                  style={[
+                    styles.modalSearchInput,
+                    { color: colors.foreground },
+                  ]}
                 />
               </View>
               <TouchableOpacity
                 onPress={() => setCreateCustomerModalOpen(true)}
-                style={[styles.modalAddCustomerBtn, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.modalAddCustomerBtn,
+                  { backgroundColor: colors.primary },
+                ]}
               >
                 <Plus size={16} color={colors.primaryForeground} />
               </TouchableOpacity>
             </View>
 
             <FlatList
-              data={rawCustomers.filter((c: any) =>
-                (c.name || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
-                (c.email || '').toLowerCase().includes(customerSearch.toLowerCase())
+              data={rawCustomers.filter(
+                (c: any) =>
+                  (c.name || "")
+                    .toLowerCase()
+                    .includes(customerSearch.toLowerCase()) ||
+                  (c.email || "")
+                    .toLowerCase()
+                    .includes(customerSearch.toLowerCase()),
               )}
               keyExtractor={(item) => item.id || item.name}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingBottom: 24,
+              }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => {
                     setCustomer(item.name);
                     setCustomerId(item.id);
                     setCustomerModalOpen(false);
-                    if (errors.customer) setErrors((prev) => ({ ...prev, customer: '' }));
+                    if (errors.customer)
+                      setErrors((prev) => ({ ...prev, customer: "" }));
                   }}
-                  style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
+                  style={[
+                    styles.modalItemRow,
+                    { borderBottomColor: colors.border },
+                  ]}
                 >
                   <View style={styles.modalItemLeft}>
-                    <Users size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                    <Users
+                      size={16}
+                      color={colors.foreground}
+                      style={{ marginRight: 10 }}
+                    />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.modalItemText, { color: colors.foreground }]}>
+                      <Text
+                        style={[
+                          styles.modalItemText,
+                          { color: colors.foreground },
+                        ]}
+                      >
                         {item.name}
                       </Text>
                       {item.email ? (
-                        <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
+                        <Text
+                          style={[
+                            styles.modalItemSub,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
                           {item.email}
                         </Text>
                       ) : null}
                     </View>
                   </View>
-                  {customerId === item.id ? <Check size={18} color={colors.primary} /> : null}
+                  {customerId === item.id ? (
+                    <Check size={18} color={colors.primary} />
+                  ) : null}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={() => (
-                <View style={{ paddingVertical: 36, alignItems: 'center' }}>
-                  <Users size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-                  <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
-                    {customerSearch ? 'No matching customers found' : 'No customers yet'}
+                <View style={{ paddingVertical: 36, alignItems: "center" }}>
+                  <Users
+                    size={28}
+                    color={colors.mutedForeground}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontFamily: fonts.semiBold,
+                      color: colors.foreground,
+                    }}
+                  >
+                    {customerSearch
+                      ? "No matching customers found"
+                      : "No customers yet"}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setCreateCustomerModalOpen(true)}
                     style={{ marginTop: 10 }}
                   >
-                    <Text style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.primary }}>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontFamily: fonts.bold,
+                        color: colors.primary,
+                      }}
+                    >
                       + Add New Customer
                     </Text>
                   </TouchableOpacity>
@@ -1115,21 +1604,49 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
       </Modal>
 
       {/* Catalog Item Modal */}
-      <Modal visible={itemModalOpen} animationType="slide" transparent onRequestClose={() => setItemModalOpen(false)}>
+      <Modal
+        visible={itemModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setItemModalOpen(false)}
+      >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Add Catalog Item</Text>
+          <View
+            style={[
+              styles.modalSheet,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                Add Catalog Item
+              </Text>
               <TouchableOpacity onPress={() => setItemModalOpen(false)}>
                 <X size={20} color={colors.mutedForeground} />
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.modalSearchBox, { backgroundColor: colors.background, borderColor: colors.border, marginHorizontal: 16, marginVertical: 12 }]}>
-              <Search size={16} color={colors.mutedForeground} style={{ marginRight: 8 }} />
+            <View
+              style={[
+                styles.modalSearchBox,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  marginHorizontal: 16,
+                  marginVertical: 12,
+                },
+              ]}
+            >
+              <Search
+                size={16}
+                color={colors.mutedForeground}
+                style={{ marginRight: 8 }}
+              />
               <TextInput
                 placeholder="Search products & services..."
                 placeholderTextColor={colors.mutedForeground}
@@ -1140,31 +1657,62 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
             </View>
 
             <FlatList
-              data={rawItems.filter((i: any) =>
-                (i.name || '').toLowerCase().includes(itemSearch.toLowerCase()) ||
-                (i.sku || '').toLowerCase().includes(itemSearch.toLowerCase())
+              data={rawItems.filter(
+                (i: any) =>
+                  (i.name || "")
+                    .toLowerCase()
+                    .includes(itemSearch.toLowerCase()) ||
+                  (i.sku || "")
+                    .toLowerCase()
+                    .includes(itemSearch.toLowerCase()),
               )}
               keyExtractor={(item) => item.id || item.name}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingBottom: 24,
+              }}
               renderItem={({ item }) => {
-                const itemRate = Number(item.sellingPrice) || Number(item.unitPrice) || 0;
+                const itemRate =
+                  Number(item.sellingPrice) || Number(item.unitPrice) || 0;
                 return (
                   <TouchableOpacity
                     onPress={() => addItemFromCatalog(item)}
-                    style={[styles.modalItemRow, { borderBottomColor: colors.border }]}
+                    style={[
+                      styles.modalItemRow,
+                      { borderBottomColor: colors.border },
+                    ]}
                   >
                     <View style={styles.modalItemLeft}>
-                      {item.type === 'Service' ? (
-                        <Wrench size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                      {item.type === "Service" ? (
+                        <Wrench
+                          size={16}
+                          color={colors.foreground}
+                          style={{ marginRight: 10 }}
+                        />
                       ) : (
-                        <Package size={16} color={colors.foreground} style={{ marginRight: 10 }} />
+                        <Package
+                          size={16}
+                          color={colors.foreground}
+                          style={{ marginRight: 10 }}
+                        />
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.modalItemText, { color: colors.foreground }]}>
+                        <Text
+                          style={[
+                            styles.modalItemText,
+                            { color: colors.foreground },
+                          ]}
+                        >
                           {item.name}
                         </Text>
-                        <Text style={[styles.modalItemSub, { color: colors.mutedForeground }]}>
-                          {item.type || 'Product'} • {formatCurrency(itemRate, currency)}
+                        <Text
+                          style={[
+                            styles.modalItemSub,
+                            { color: colors.mutedForeground },
+                          ]}
+                        >
+                          {item.type || "Product"} •{" "}
+                          {formatCurrency(itemRate, currency)}
                         </Text>
                       </View>
                     </View>
@@ -1173,10 +1721,22 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
                 );
               }}
               ListEmptyComponent={() => (
-                <View style={{ paddingVertical: 36, alignItems: 'center' }}>
-                  <Package size={28} color={colors.mutedForeground} style={{ marginBottom: 8 }} />
-                  <Text style={{ fontSize: 13, fontFamily: fonts.semiBold, color: colors.foreground }}>
-                    {itemSearch ? 'No matching items found' : 'Catalog is empty'}
+                <View style={{ paddingVertical: 36, alignItems: "center" }}>
+                  <Package
+                    size={28}
+                    color={colors.mutedForeground}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontFamily: fonts.semiBold,
+                      color: colors.foreground,
+                    }}
+                  >
+                    {itemSearch
+                      ? "No matching items found"
+                      : "Catalog is empty"}
                   </Text>
                 </View>
               )}
@@ -1203,9 +1763,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
@@ -1215,7 +1775,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.display,
   },
   saveBtn: {
@@ -1225,7 +1785,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.bold,
   },
   disabledBtn: {
@@ -1237,8 +1797,8 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   apiErrorBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 8,
     padding: 12,
     borderRadius: 8,
@@ -1255,9 +1815,9 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.semiBold,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   fieldHint: {
@@ -1266,8 +1826,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   numberErrorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   retryText: {
@@ -1275,9 +1835,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   customerSelectBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     height: 44,
     borderWidth: 1,
     borderRadius: 10,
@@ -1285,18 +1845,18 @@ const styles = StyleSheet.create({
   },
   customerSelectText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     fontFamily: fonts.medium,
   },
   selectIconWrap: {
     width: 28,
     height: 28,
     borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowFields: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
   halfField: {
@@ -1322,14 +1882,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
   sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 4,
   },
   itemActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1341,12 +1901,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   emptyItemsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   emptyItemsTitle: {
     fontSize: 14,
@@ -1355,7 +1915,7 @@ const styles = StyleSheet.create({
   emptyItemsSub: {
     fontSize: 11,
     fontFamily: fonts.regular,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
     maxWidth: 240,
   },
@@ -1375,13 +1935,13 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   itemCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   itemName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.bold,
   },
   itemNameInput: {
@@ -1406,7 +1966,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 11,
     fontFamily: fonts.regular,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   deleteBtn: {
     padding: 4,
@@ -1416,9 +1976,9 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   itemMathGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   mathCol: {
     gap: 4,
@@ -1428,8 +1988,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   qtyControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 6,
   },
@@ -1439,12 +1999,12 @@ const styles = StyleSheet.create({
   },
   qtyBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.bold,
   },
   qtyNumber: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.bold,
     paddingHorizontal: 4,
   },
@@ -1457,12 +2017,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.medium,
     minWidth: 80,
-    textAlignVertical: 'center',
+    textAlignVertical: "center",
     includeFontPadding: false,
   },
   mathValueBold: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.bold,
   },
   summaryCard: {
@@ -1471,9 +2031,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   summaryLabel: {
     fontSize: 12,
@@ -1481,7 +2041,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     fontFamily: fonts.semiBold,
   },
   summaryDivider: {
@@ -1490,49 +2050,49 @@ const styles = StyleSheet.create({
   },
   grandTotalLabel: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: "800",
     fontFamily: fonts.bold,
   },
   grandTotalValue: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
     fontFamily: fonts.extraBold,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "flex-end",
   },
   modalSheet: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    maxHeight: '75%',
+    maxHeight: "75%",
     paddingTop: 16,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: fonts.display,
   },
   customerModalTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginHorizontal: 16,
     marginVertical: 12,
   },
   modalSearchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -1546,24 +2106,24 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
   },
   modalItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   modalItemText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     fontFamily: fonts.semiBold,
   },
   modalItemSub: {
@@ -1577,16 +2137,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   summaryInputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 2,
   },
   discountToggle: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 6,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   discountToggleBtn: {
     paddingHorizontal: 8,
@@ -1605,8 +2165,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.medium,
     minWidth: 70,
-    textAlign: 'right',
-    textAlignVertical: 'center',
+    textAlign: "right",
+    textAlignVertical: "center",
     includeFontPadding: false,
   },
   autoRoundChip: {
@@ -1636,6 +2196,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 12,
     fontFamily: fonts.regular,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
 });

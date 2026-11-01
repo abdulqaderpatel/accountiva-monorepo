@@ -24,6 +24,7 @@ import {
 import { useNotifications } from "@accountiva/api";
 import { isFeatureEnabled } from "@accountiva/shared";
 import { useTheme } from "@/context/ThemeContext";
+import { useI18n } from "@/i18n";
 import { quickCreate } from "@/lib/quickCreate";
 import { UserProfile } from "./UserProfile";
 import { BookmarksCenter } from "./BookmarksCenter";
@@ -42,6 +43,7 @@ export function TopBar({
   onOpenShortcuts,
 }: TopBarProps) {
   const { isDark } = useTheme();
+  const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const { data: notifications = [] } = useNotifications();
@@ -162,7 +164,7 @@ export function TopBar({
               className="h-8 gap-1.5 px-2.5 rounded-lg text-xs font-semibold shrink-0 cursor-pointer shadow-xs"
             >
               <Plus className="size-3.5 shrink-0" />
-              <span className="hidden md:inline tracking-tight text-[11.5px] font-bold">New</span>
+              <span className="hidden md:inline tracking-tight text-[11.5px] font-bold">{t("topbar.new", "New")}</span>
               <ChevronDown className="size-3 opacity-55 shrink-0 hidden md:inline -ml-0.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -172,7 +174,7 @@ export function TopBar({
             className="w-52 rounded-xl p-1.5 shadow-lg border-border bg-popover text-popover-foreground animate-in fade-in slide-in-from-top-2 duration-150"
           >
             <DropdownMenuLabel className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Quick Actions
+              {t("topbar.quickActions", "Quick Actions")}
             </DropdownMenuLabel>
 
             {isFeatureEnabled("invoices") && (

@@ -22,6 +22,7 @@ import { Notifications } from "./views/Notifications";
 import { PublicInvoiceView } from "./views/PublicInvoiceView";
 import { Onboarding } from "./views/Onboarding";
 import { Landing } from "./views/Landing";
+import { AdminPanel } from "./views/AdminPanel";
 import { useAuth } from "./context/AuthContext";
 import Login from "./views/auth/Login";
 import Signup from "./views/auth/Signup";
@@ -242,6 +243,12 @@ const organizationSettingsRoute = createRoute({
   component: OrganizationSettings,
 });
 
+const adminRoute = createRoute({
+  getParentRoute: () => protectedLayoutRoute,
+  path: "/admin",
+  component: AdminPanel,
+});
+
 const itemsRedirectRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/items",
@@ -301,6 +308,7 @@ const routeTree = rootRoute.addChildren([
     creditNotesRoute,
     settingsRoute,
     organizationSettingsRoute,
+    adminRoute,
     notificationsRoute,
     notificationsRedirectRoute,
     trashRedirectRoute,

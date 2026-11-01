@@ -23,6 +23,7 @@ import api from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 import { useTheme, ACCENT_COLORS, Theme, AccentColor } from "@/context/ThemeContext";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n, LocaleCode } from "@/i18n";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -199,20 +200,16 @@ export function Settings() {
     }
   };
 
-  // Language state
-  const [selectedLanguage, setSelectedLanguage] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("accountiva_locale") || "en";
-    }
-    return "en";
-  });
+  // Language state & i18n
+  const { locale: selectedLanguage, setLocale } = useI18n();
 
   const handleLanguageChange = (code: string, name: string) => {
-    setSelectedLanguage(code);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("accountiva_locale", code);
-    }
-    toast.success(`Language updated to ${name}`);
+    setLocale(code as LocaleCode);
+    let msg = `Language updated to ${name}`;
+    if (code === "hi") msg = "भाषा हिन्दी में बदली गई";
+    else if (code === "es") msg = "Idioma cambiado a Español";
+    else if (code === "ar") msg = "تم تغيير اللغة إلى العربية";
+    toast.success(msg);
   };
 
   // Invoice Template Defaults

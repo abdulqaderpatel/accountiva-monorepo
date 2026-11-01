@@ -57,6 +57,29 @@ const TAX_PREFERENCE_OPTIONS = [
   { id: "Exempt", name: "Exempt" },
 ];
 
+const INCOME_ACCOUNTS = [
+  { id: "Sales / Operating Revenue", name: "Sales / Operating Revenue" },
+  { id: "Service Income", name: "Service Income" },
+  { id: "Consulting Fees", name: "Consulting Fees" },
+  { id: "Other Operating Income", name: "Other Operating Income" },
+  { id: "Unearned Revenue", name: "Unearned Revenue" },
+];
+
+const EXPENSE_ACCOUNTS = [
+  { id: "Cost of Goods Sold", name: "Cost of Goods Sold" },
+  { id: "Direct Expenses", name: "Direct Expenses" },
+  { id: "Operating Expenses", name: "Operating Expenses" },
+  { id: "Subcontractor Expenses", name: "Subcontractor Expenses" },
+  { id: "Raw Materials Expense", name: "Raw Materials Expense" },
+];
+
+const INVENTORY_ACCOUNTS = [
+  { id: "Inventory Asset", name: "Inventory Asset" },
+  { id: "Finished Goods Inventory", name: "Finished Goods Inventory" },
+  { id: "Work in Progress (WIP)", name: "Work in Progress (WIP)" },
+  { id: "Consumable Stores Asset", name: "Consumable Stores Asset" },
+];
+
 export function AddItemModal({
   isOpen,
   onClose,
@@ -83,16 +106,19 @@ export function AddItemModal({
   const [sellingPrice, setSellingPrice] = useState<number | string>(0);
   const [salesTaxRate, setSalesTaxRate] = useState<string>("18");
   const [salesDescription, setSalesDescription] = useState("");
+  const [incomeAccount, setIncomeAccount] = useState("Sales / Operating Revenue");
 
   const [costPrice, setCostPrice] = useState<number | string>(0);
   const [purchaseTaxRate, setPurchaseTaxRate] = useState<string>("18");
   const [purchaseDescription, setPurchaseDescription] = useState("");
+  const [expenseAccount, setExpenseAccount] = useState("Cost of Goods Sold");
 
   // Inventory
   const [openingStock, setOpeningStock] = useState<number | string>(0);
   const [valuationRate, setValuationRate] = useState<number | string>(0);
   const [reorderPoint, setReorderPoint] = useState<number | string>(5);
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split("T")[0]);
+  const [inventoryAccount, setInventoryAccount] = useState("Inventory Asset");
 
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -113,14 +139,17 @@ export function AddItemModal({
         setSellingPrice(itemToEdit.sellingPrice ?? itemToEdit.unitPrice ?? 0);
         setSalesTaxRate(String(itemToEdit.salesTaxRate ?? 18));
         setSalesDescription(itemToEdit.salesDescription || itemToEdit.description || "");
+        setIncomeAccount(itemToEdit.incomeAccount || (itemToEdit.type === "Service" ? "Service Income" : "Sales / Operating Revenue"));
 
         setCostPrice(itemToEdit.costPrice ?? 0);
         setPurchaseTaxRate(String(itemToEdit.purchaseTaxRate ?? 18));
         setPurchaseDescription(itemToEdit.purchaseDescription || "");
+        setExpenseAccount(itemToEdit.expenseAccount || (itemToEdit.type === "Service" ? "Direct Expenses" : "Cost of Goods Sold"));
 
         setOpeningStock(itemToEdit.openingStock ?? itemToEdit.stockOnHand ?? 0);
         setValuationRate(itemToEdit.valuationRate ?? itemToEdit.costPrice ?? 0);
         setReorderPoint(itemToEdit.reorderPoint ?? 5);
+        setInventoryAccount(itemToEdit.inventoryAccount || "Inventory Asset");
         setAsOfDate(itemToEdit.asOfDate || new Date().toISOString().split("T")[0]);
 
         setCustomFields(itemToEdit.customFields || itemToEdit.custom_fields || {});
@@ -138,14 +167,17 @@ export function AddItemModal({
         setSellingPrice(0);
         setSalesTaxRate("18");
         setSalesDescription("");
+        setIncomeAccount("Sales / Operating Revenue");
 
         setCostPrice(0);
         setPurchaseTaxRate("18");
         setPurchaseDescription("");
+        setExpenseAccount("Cost of Goods Sold");
 
         setOpeningStock(0);
         setValuationRate(0);
         setReorderPoint(5);
+        setInventoryAccount("Inventory Asset");
         setAsOfDate(new Date().toISOString().split("T")[0]);
 
         setCustomFields({});
@@ -197,12 +229,15 @@ export function AddItemModal({
       salesTaxRate: Number(salesTaxRate) || 0,
       salesDescription: salesDescription.trim(),
       description: salesDescription.trim(),
+      incomeAccount,
       costPrice: Number(costPrice) || 0,
       purchaseTaxRate: Number(purchaseTaxRate) || 0,
       purchaseDescription: purchaseDescription.trim(),
+      expenseAccount,
       openingStock: type === "Product" && productType === "Inventory" ? Number(openingStock) || 0 : undefined,
       valuationRate: Number(valuationRate) || 0,
       reorderPoint: Number(reorderPoint) || 5,
+      inventoryAccount: type === "Product" && productType === "Inventory" ? inventoryAccount : undefined,
       asOfDate,
       isSellable: true,
       isPurchasable: true,
@@ -514,6 +549,15 @@ export function AddItemModal({
             </div>
 
             <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Income Account</Label>
+              <Select
+                value={incomeAccount}
+                onChange={setIncomeAccount}
+                options={INCOME_ACCOUNTS}
+              />
+            </div>
+
+            <div className="space-y-1.5">
               <Label htmlFor="salesDesc" className="text-xs font-semibold">Sales Description</Label>
               <Textarea
                 id="salesDesc"
@@ -552,6 +596,15 @@ export function AddItemModal({
                 value={purchaseTaxRate}
                 onChange={setPurchaseTaxRate}
                 options={TAX_RATE_OPTIONS}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Expense / COGS Account</Label>
+              <Select
+                value={expenseAccount}
+                onChange={setExpenseAccount}
+                options={EXPENSE_ACCOUNTS}
               />
             </div>
 
@@ -598,6 +651,15 @@ export function AddItemModal({
                   onChange={(e) => setReorderPoint(e.target.value)}
                   placeholder="5"
                   className="text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label className="text-xs font-semibold">Inventory Asset Account</Label>
+                <Select
+                  value={inventoryAccount}
+                  onChange={setInventoryAccount}
+                  options={INVENTORY_ACCOUNTS}
                 />
               </div>
             </div>

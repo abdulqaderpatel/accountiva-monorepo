@@ -54,6 +54,7 @@ import {
   ApplyCreditNoteModal,
   type ApplicableCreditNote,
 } from "@/components/credit-notes/ApplyCreditNoteModal";
+import { ViewGuard } from "@/components/auth/ViewGuard";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 import { useAuth } from "@/context/AuthContext";
@@ -444,7 +445,8 @@ export function CreditNotes() {
   const filters = ["All", "Draft", "Open", "Closed", "Void"];
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <ViewGuard module="creditNotes">
+      <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Credit Notes"
@@ -953,7 +955,8 @@ export function CreditNotes() {
         }}
         refreshCreditBalance={refreshAppliedCreditNote}
       />
-    </div>
+      </div>
+    </ViewGuard>
   );
 }
 

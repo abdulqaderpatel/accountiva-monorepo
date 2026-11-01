@@ -53,6 +53,7 @@ interface AuthContextType {
   currentOrganization: Organization | null;
   loading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isPro: boolean;
   ownedOrganizationsCount: number;
   login: (email: string, password: string) => Promise<any>;
@@ -82,7 +83,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const fetchAdminAccess = useCallback(async () => {
+    try {
+      const { data } = await api.get<{ isAdmin: boolean }>("/admin/access");
+      setIsAdmin(data?.isAdmin === true);
+    } catch {
+      setIsAdmin(false);
+    }
+  }, []);
 
   const setCurrentOrganization = useCallback((org: Organization | null) => {
     setCurrentOrganizationState((prev) => {
@@ -226,9 +237,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.data?.user) {
           setUser(session.data.user as User);
           try {
-            await Promise.race([
-              fetchOrganizations(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error("Org fetch timed out")), 4000)),
+            await Promise.allSettled([
+              Promise.race([
+                fetchOrganizations(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Org fetch timed out")), 4000)),
+              ]),
+              fetchAdminAccess(),
             ]);
           } catch (orgErr) {
             console.warn("Organization/admin access fetch timed out:", orgErr);
@@ -260,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (result.data?.user) {
       setUser(result.data.user as User);
-      await fetchOrganizations();
+      await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
     }
     return result.data;
   };
@@ -381,6 +395,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentOrganization,
         loading,
         isAuthenticated,
+        isAdmin,
         isPro,
         ownedOrganizationsCount,
         login,

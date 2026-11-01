@@ -36,6 +36,7 @@ import { PaginationBar } from "@/components/ui/PaginationBar";
 import { formatCurrency, exportToCsv, exportToJson } from "@accountiva/shared";
 import { useCustomers, useDeleteCustomer } from "@accountiva/api";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
+import { ViewGuard } from "@/components/auth/ViewGuard";
 import { toast } from "sonner";
 import { quickCreate } from "@/lib/quickCreate";
 import { useAuth } from "@/context/AuthContext";
@@ -245,7 +246,8 @@ export function Customers() {
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <ViewGuard module="customers">
+      <div className="flex-1 flex flex-col w-full">
       {/* Sticky Transitional Header */}
       <StickyPageHeader
         title="Customers"
@@ -557,7 +559,8 @@ export function Customers() {
         }}
         onSuccess={() => refetch()}
       />
-    </div>
+      </div>
+    </ViewGuard>
   );
 }
 

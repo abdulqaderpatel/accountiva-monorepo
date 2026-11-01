@@ -312,9 +312,9 @@ export function Onboarding() {
               <Button type="button" variant="outline" size="sm" onClick={() => setStep("choice")}>
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={loading} className="gap-2 font-bold shadow-xs">
+              <Button type="submit" size="sm" loading={loading} className="gap-2 font-bold shadow-xs">
                 <span>{loading ? "Creating..." : "Launch Organization"}</span>
-                <ArrowRight className="size-3.5" />
+                {!loading && <ArrowRight className="size-3.5" />}
               </Button>
             </div>
           </form>

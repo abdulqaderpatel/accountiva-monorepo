@@ -71,7 +71,10 @@ export async function applyCreditNote(
   return data;
 }
 
-export function useCreditNotes(filters?: CreditNoteFilters) {
+export function useCreditNotes(
+  filters?: CreditNoteFilters,
+  options?: { enabled?: boolean },
+) {
   const activeOrgId = getActiveOrganizationId();
   return useQuery({
     queryKey: ['creditNotes', activeOrgId, filters],
@@ -79,6 +82,7 @@ export function useCreditNotes(filters?: CreditNoteFilters) {
       const { data } = await api.get('/credit-notes', { params: filters });
       return data;
     },
+    enabled: options?.enabled,
   });
 }
 
@@ -98,7 +102,18 @@ export function useCreateCreditNote() {
       createCreditNote(payload as CreditNotePayload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['creditNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-notes', 'next-number'] });
     },
+  });
+}
+
+export function useNextCreditNoteNumber(options?: { enabled?: boolean }) {
+  const activeOrgId = getActiveOrganizationId();
+  return useQuery({
+    queryKey: ['credit-notes', 'next-number', activeOrgId],
+    queryFn: () => fetchNextCreditNoteNumber(),
+    enabled: options?.enabled !== false && Boolean(activeOrgId),
+    staleTime: 60_000,
   });
 }
 

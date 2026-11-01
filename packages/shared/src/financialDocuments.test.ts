@@ -9,6 +9,7 @@ import {
   calculateFinancialDocumentSubtotal,
   calculateInvoiceOutstandingAmount,
   getDocumentSummaryDetails,
+  getNextDocumentNumber,
   isDuplicateDocumentNumberError,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
@@ -351,5 +352,27 @@ describe("getDocumentSummaryDetails", () => {
     expect(result.packagingCharges).toBe(45.25);
     expect(result.roundOff).toBe(0.25);
     expect(result.total).toBe(9021);
+  });
+
+  describe("getNextDocumentNumber", () => {
+    it("returns default fallback number when list is empty", () => {
+      expect(getNextDocumentNumber([], "INV-")).toBe("INV-0001");
+      expect(getNextDocumentNumber([], "EST-")).toBe("EST-0001");
+      expect(getNextDocumentNumber([], "CN-")).toBe("CN-0001");
+    });
+
+    it("increments sequential numbers correctly", () => {
+      expect(getNextDocumentNumber(["INV-0001", "INV-0002", "INV-0003"], "INV-")).toBe("INV-0004");
+      expect(getNextDocumentNumber(["INV-0009"], "INV-")).toBe("INV-0010");
+      expect(getNextDocumentNumber(["INV-0099"], "INV-")).toBe("INV-0100");
+    });
+
+    it("handles gaps and unordered lists by finding largest", () => {
+      expect(getNextDocumentNumber(["INV-0010", "INV-0002", "INV-0005"], "INV-")).toBe("INV-0011");
+    });
+
+    it("ignores malformed or null values", () => {
+      expect(getNextDocumentNumber([null, undefined, "", "custom-abc", "INV-0042"], "INV-")).toBe("INV-0043");
+    });
   });
 });

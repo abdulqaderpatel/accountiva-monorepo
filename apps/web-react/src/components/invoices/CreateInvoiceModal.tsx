@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Spinner } from "@/components/ui/spinner";
 import { Select } from "@/components/ui/Select";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
@@ -22,13 +21,16 @@ import {
   calculateDocumentTotals,
   formatCurrency,
   getCurrencySymbol,
+  getNextDocumentNumber,
   isDuplicateDocumentNumberError,
   type InvoicePayload,
 } from "@accountiva/shared";
 import {
   fetchNextInvoiceNumber,
+  useNextInvoiceNumber,
   useCreateInvoice,
   useUpdateInvoice,
+  useInvoices,
   useCustomers,
   useItems,
 } from "@accountiva/api";
@@ -82,8 +84,27 @@ export function CreateInvoiceModal({
 
   const createInvoiceMutation = useCreateInvoice();
   const updateInvoiceMutation = useUpdateInvoice();
+  const { data: apiInvoices } = useInvoices(undefined, { enabled: isOpen && !invoiceToEdit });
+  const { data: nextInvoiceNumberFromQuery, refetch: refetchNextNumber } = useNextInvoiceNumber({
+    enabled: isOpen && !invoiceToEdit,
+  });
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
+
+  const calculatedNextNumber = useMemo(() => {
+    const list = Array.isArray(apiInvoices)
+      ? apiInvoices
+      : Array.isArray(apiInvoices?.data)
+      ? apiInvoices.data
+      : [];
+    if (list.length > 0) {
+      return getNextDocumentNumber(
+        list.map((inv: any) => inv.invoiceNumber || inv.invoice_number),
+        "INV-"
+      );
+    }
+    return "INV-0001";
+  }, [apiInvoices]);
 
   const customerList: any[] = useMemo(() => {
     if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
@@ -140,20 +161,17 @@ export function CreateInvoiceModal({
     setIsNumberLoading(true);
     setNumberError("");
     try {
-      const nextNumber = await fetchNextInvoiceNumber();
-      if (numberRequestRef.current === requestId) {
+      const res = await refetchNextNumber();
+      const nextNumber = res.data || (await fetchNextInvoiceNumber());
+      if (numberRequestRef.current === requestId && nextNumber) {
         setInvoiceNumber(nextNumber);
         setFormErrors((current) => ({ ...current, invoiceNumber: undefined }));
       }
       return nextNumber;
     } catch (error: any) {
       if (numberRequestRef.current === requestId) {
-        setInvoiceNumber("");
-        setNumberError(
-          error.response?.data?.error ||
-            error.message ||
-            "Could not load the next invoice number.",
-        );
+        const fallback = calculatedNextNumber || "INV-0001";
+        setInvoiceNumber((prev) => prev || fallback);
       }
       return null;
     } finally {
@@ -161,7 +179,7 @@ export function CreateInvoiceModal({
         setIsNumberLoading(false);
       }
     }
-  }, []);
+  }, [refetchNextNumber, calculatedNextNumber]);
 
   useEffect(() => {
     if (isOpen) {
@@ -223,7 +241,8 @@ export function CreateInvoiceModal({
       } else {
         setIsEditing(false);
         setAutoGenerateNumber(true);
-        setInvoiceNumber("");
+        const immediateNumber = nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
+        setInvoiceNumber(immediateNumber);
         setNumberError("");
         setManualAmount(0);
         setCustomerId(initialCustomerId || "");
@@ -261,7 +280,21 @@ export function CreateInvoiceModal({
     return () => {
       numberRequestRef.current += 1;
     };
-  }, [isOpen, invoiceToEdit, initialCustomerId, customerList, loadNextInvoiceNumber]);
+  }, [
+    isOpen,
+    invoiceToEdit,
+    initialCustomerId,
+    customerList,
+    loadNextInvoiceNumber,
+    nextInvoiceNumberFromQuery,
+    calculatedNextNumber,
+  ]);
+
+  useEffect(() => {
+    if (isOpen && !isEditing && autoGenerateNumber && nextInvoiceNumberFromQuery) {
+      setInvoiceNumber(nextInvoiceNumberFromQuery);
+    }
+  }, [isOpen, isEditing, autoGenerateNumber, nextInvoiceNumberFromQuery]);
 
   // When customer is selected, auto-fill address if available
   const handleCustomerChange = (cId: string) => {
@@ -365,8 +398,14 @@ export function CreateInvoiceModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    let finalInvoiceNumber = invoiceNumber.trim();
+    if (!isEditing && autoGenerateNumber && !finalInvoiceNumber) {
+      finalInvoiceNumber = nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
+      setInvoiceNumber(finalInvoiceNumber);
+    }
+
     const validationErrors = validateInvoiceForm({
-      invoiceNumber: invoiceNumber.trim(),
+      invoiceNumber: finalInvoiceNumber,
       customerId,
       amount: grandTotal,
       date,
@@ -385,7 +424,7 @@ export function CreateInvoiceModal({
 
     const payload: InvoicePayload = {
       customerId,
-      invoiceNumber: invoiceNumber.trim(),
+      invoiceNumber: finalInvoiceNumber,
       amount: grandTotal,
       taxPercent: Number(taxPercent) || 0,
       taxAmount,
@@ -461,8 +500,6 @@ export function CreateInvoiceModal({
   };
 
   const isSaving = createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
-  const isNumberUnresolved = !isEditing && autoGenerateNumber &&
-    (isNumberLoading || !invoiceNumber.trim());
 
   return (
     <>
@@ -488,11 +525,10 @@ export function CreateInvoiceModal({
             <Button
               type="button"
               size="sm"
-              disabled={isSaving || isNumberUnresolved}
+              loading={isSaving}
               onClick={handleSubmit}
               className="gap-2 font-bold cursor-pointer"
             >
-              {isSaving && <Spinner className="size-3.5" />}
               <span>{isEditing ? "Update Invoice" : "Create Invoice"}</span>
             </Button>
           </div>

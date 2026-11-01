@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
 import { Select } from "@/components/ui/Select";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
@@ -12,6 +11,7 @@ import { Trash2, Plus } from "lucide-react";
 import {
   formatCurrency,
   getCurrencySymbol,
+  getNextDocumentNumber,
   isDuplicateDocumentNumberError,
   validateFinancialDocumentDates,
   validateFinancialLineItems,
@@ -20,8 +20,10 @@ import {
 } from "@accountiva/shared";
 import {
   fetchNextCreditNoteNumber,
+  useNextCreditNoteNumber,
   useCreateCreditNote,
   useUpdateCreditNote,
+  useCreditNotes,
   useCustomers,
   useInvoices,
   useItems,
@@ -72,9 +74,28 @@ export function CreateCreditNoteModal({
 
   const createCreditNoteMutation = useCreateCreditNote();
   const updateCreditNoteMutation = useUpdateCreditNote();
+  const { data: apiCreditNotes } = useCreditNotes(undefined, { enabled: isOpen && !creditNoteToEdit });
+  const { data: nextCreditNoteNumberFromQuery, refetch: refetchNextNumber } = useNextCreditNoteNumber({
+    enabled: isOpen && !creditNoteToEdit,
+  });
   const { data: apiCustomers } = useCustomers();
   const { data: apiInvoices } = useInvoices({ status: "Outstanding", limit: 100 });
   const { data: apiItems } = useItems();
+
+  const calculatedNextNumber = useMemo(() => {
+    const list = Array.isArray(apiCreditNotes)
+      ? apiCreditNotes
+      : Array.isArray(apiCreditNotes?.data)
+      ? apiCreditNotes.data
+      : [];
+    if (list.length > 0) {
+      return getNextDocumentNumber(
+        list.map((cn: any) => cn.creditNoteNumber || cn.credit_note_number || cn.number),
+        "CN-"
+      );
+    }
+    return "CN-0001";
+  }, [apiCreditNotes]);
 
   const customerList: any[] = useMemo(() => {
     if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
@@ -96,6 +117,7 @@ export function CreateCreditNoteModal({
   }, [apiItems]);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<"Draft" | "Open" | null>(null);
   const [customerId, setCustomerId] = useState("");
   const [creditNoteNumber, setCreditNoteNumber] = useState("");
   const [isNumberLoading, setIsNumberLoading] = useState(false);
@@ -122,19 +144,16 @@ export function CreateCreditNoteModal({
     setIsNumberLoading(true);
     setNumberError("");
     try {
-      const nextNumber = await fetchNextCreditNoteNumber();
-      if (numberRequestRef.current === requestId) {
+      const res = await refetchNextNumber();
+      const nextNumber = res.data || (await fetchNextCreditNoteNumber());
+      if (numberRequestRef.current === requestId && nextNumber) {
         setCreditNoteNumber(nextNumber);
       }
       return nextNumber;
     } catch (error: any) {
       if (numberRequestRef.current === requestId) {
-        setCreditNoteNumber("");
-        setNumberError(
-          error.response?.data?.error ||
-            error.message ||
-            "Could not load the next credit note number.",
-        );
+        const fallback = calculatedNextNumber || "CN-0001";
+        setCreditNoteNumber((prev) => prev || fallback);
       }
       return null;
     } finally {
@@ -142,7 +161,7 @@ export function CreateCreditNoteModal({
         setIsNumberLoading(false);
       }
     }
-  }, []);
+  }, [refetchNextNumber, calculatedNextNumber]);
 
   useEffect(() => {
     if (isOpen) {
@@ -183,7 +202,8 @@ export function CreateCreditNoteModal({
         }
       } else {
         setIsEditing(false);
-        setCreditNoteNumber("");
+        const immediateNumber = nextCreditNoteNumberFromQuery || calculatedNextNumber || "CN-0001";
+        setCreditNoteNumber(immediateNumber);
         setNumberError("");
         setCustomerId("");
         setDate(today());
@@ -206,7 +226,19 @@ export function CreateCreditNoteModal({
     return () => {
       numberRequestRef.current += 1;
     };
-  }, [isOpen, creditNoteToEdit, loadNextCreditNoteNumber]);
+  }, [
+    isOpen,
+    creditNoteToEdit,
+    loadNextCreditNoteNumber,
+    nextCreditNoteNumberFromQuery,
+    calculatedNextNumber,
+  ]);
+
+  useEffect(() => {
+    if (isOpen && !isEditing && nextCreditNoteNumberFromQuery) {
+      setCreditNoteNumber(nextCreditNoteNumberFromQuery);
+    }
+  }, [isOpen, isEditing, nextCreditNoteNumberFromQuery]);
 
   // Customer Invoices for dropdown
   const customerInvoices = useMemo(() => {
@@ -275,7 +307,13 @@ export function CreateCreditNoteModal({
       return;
     }
 
-    if (!creditNoteNumber.trim()) {
+    let finalCreditNoteNumber = creditNoteNumber.trim();
+    if (!isEditing && !finalCreditNoteNumber) {
+      finalCreditNoteNumber = nextCreditNoteNumberFromQuery || calculatedNextNumber || "CN-0001";
+      setCreditNoteNumber(finalCreditNoteNumber);
+    }
+
+    if (!finalCreditNoteNumber) {
       toast.error("Credit Note number is required");
       return;
     }
@@ -313,7 +351,7 @@ export function CreateCreditNoteModal({
 
     const payload: CreditNotePayload = {
       customerId,
-      creditNoteNumber: creditNoteNumber.trim(),
+      creditNoteNumber: finalCreditNoteNumber,
       date,
       status: nextStatus,
       referenceNumber: referenceNumber.trim(),
@@ -333,6 +371,7 @@ export function CreateCreditNoteModal({
       items: payloadItems,
     };
 
+    setSubmittingAction(nextStatus);
     try {
       let result;
       if (isEditing && creditNoteToEdit?.id) {
@@ -362,11 +401,12 @@ export function CreateCreditNoteModal({
         return;
       }
       toast.error(message);
+    } finally {
+      setSubmittingAction(null);
     }
   };
 
   const isSaving = createCreditNoteMutation.isPending || updateCreditNoteMutation.isPending;
-  const isNumberUnresolved = !isEditing && (isNumberLoading || !creditNoteNumber.trim());
 
   return (
     <Modal
@@ -392,21 +432,21 @@ export function CreateCreditNoteModal({
             type="button"
             variant="outline"
             size="sm"
-            disabled={isSaving || isNumberUnresolved}
+            loading={isSaving && submittingAction === "Draft"}
+            disabled={isSaving}
             onClick={() => void handleSubmit("Draft")}
             className="gap-2 font-bold cursor-pointer"
           >
-            {isSaving && <Spinner className="size-3.5" />}
             <span>Save as Draft</span>
           </Button>
           <Button
             type="button"
             size="sm"
-            disabled={isSaving || isNumberUnresolved}
+            loading={isSaving && submittingAction === "Open"}
+            disabled={isSaving}
             onClick={() => void handleSubmit("Open")}
             className="gap-2 font-bold cursor-pointer"
           >
-            {isSaving && <Spinner className="size-3.5" />}
             <span>{isEditing && status === "Open" ? "Update & Keep Open" : "Save & Open"}</span>
           </Button>
         </div>

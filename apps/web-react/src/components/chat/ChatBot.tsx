@@ -381,13 +381,15 @@ export function ChatBot() {
           {/* Header */}
           <div className="p-5 bg-primary/5 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl bg-card flex items-center justify-center border border-border/80 shadow-xs relative shrink-0">
-                <img
-                  src={aiMascotSrc}
-                  alt="Accountiva AI Mascot"
-                  className="size-8 object-contain pointer-events-none select-none"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5">
+              <div className="size-10 relative shrink-0 flex items-center justify-center">
+                <div className="size-9 rounded-full overflow-hidden flex items-center justify-center border border-border/80 bg-muted/20 shadow-xs ring-1 ring-border/40">
+                  <img
+                    src={aiMascotSrc}
+                    alt="Accountiva AI Mascot"
+                    className="size-full object-cover pointer-events-none select-none"
+                  />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5 z-10">
                   <span className="relative inline-flex rounded-full size-2.5 bg-emerald-500 ring-2 ring-card" />
                 </span>
               </div>
@@ -421,13 +423,15 @@ export function ChatBot() {
             {/* Welcome Banner */}
             {messages.length <= 1 && (
               <div className="text-center py-4 px-3 rounded-2xl bg-primary/[0.03] border border-primary/10 flex flex-col items-center space-y-2 mb-2">
-                <div className="size-16 rounded-2xl bg-card p-2 border border-border shadow-md flex items-center justify-center relative shrink-0">
-                  <img
-                    src={aiMascotSrc}
-                    alt="Accountiva AI Mascot"
-                    className="size-12 object-contain pointer-events-none select-none"
-                  />
-                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5">
+                <div className="size-16 relative shrink-0 flex items-center justify-center">
+                  <div className="size-14 rounded-full overflow-hidden flex items-center justify-center border border-border bg-card shadow-md ring-1 ring-border/40">
+                    <img
+                      src={aiMascotSrc}
+                      alt="Accountiva AI Mascot"
+                      className="size-full object-cover pointer-events-none select-none"
+                    />
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 flex size-3.5 z-10">
                     <span className="animate-ping absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full size-3.5 bg-emerald-500 ring-2 ring-card" />
                   </span>
@@ -449,9 +453,9 @@ export function ChatBot() {
                 className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
               >
                 <div
-                  className={`size-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                  className={`size-8 rounded-full flex items-center justify-center shrink-0 border overflow-hidden ${
                     msg.role === "assistant"
-                      ? "bg-card border-border/80 p-1 shadow-2xs"
+                      ? "bg-card border-border/80 p-0.5 shadow-2xs ring-1 ring-border/40"
                       : "bg-muted border-border text-muted-foreground"
                   }`}
                 >
@@ -459,7 +463,7 @@ export function ChatBot() {
                     <img
                       src={aiMascotSrc}
                       alt="Accountiva AI"
-                      className="size-6 object-contain pointer-events-none select-none"
+                      className="size-full object-cover rounded-full pointer-events-none select-none"
                     />
                   ) : (
                     <User className="size-4" />
@@ -611,11 +615,11 @@ export function ChatBot() {
             {/* Loading Indicator */}
             {isLoading && (
               <div className="flex gap-3">
-                <div className="size-8 rounded-xl bg-card border border-border/80 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                <div className="size-8 rounded-full bg-card border border-border/80 p-0.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden ring-1 ring-border/40">
                   <img
                     src={aiMascotSrc}
                     alt="Accountiva AI"
-                    className="size-6 object-contain animate-pulse pointer-events-none select-none"
+                    className="size-full object-cover rounded-full animate-pulse pointer-events-none select-none"
                   />
                 </div>
                 <div className="p-4 rounded-2xl bg-muted/50 border border-border rounded-tl-none flex items-center gap-2">
@@ -742,23 +746,25 @@ export function ChatBot() {
       <button
         type="button"
         onClick={toggleChat}
-        className="size-14 rounded-2xl flex items-center justify-center p-0 hover:scale-[1.05] active:scale-[0.95] transition-all group bg-card border border-border/80 shadow-xl relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="size-14 rounded-2xl flex items-center justify-center p-0 hover:scale-[1.05] active:scale-[0.95] transition-all group bg-card hover:bg-accent/40 border border-border/80 shadow-xl relative cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary overflow-visible"
         aria-label="Toggle Accountiva AI Assistant"
       >
         {!isOpen ? (
           <div className="size-full flex items-center justify-center relative">
-            <img
-              src={aiMascotSrc}
-              alt="Accountiva AI Mascot"
-              className="size-10 object-contain relative z-10 drop-shadow-xs group-hover:scale-110 transition-transform duration-200 pointer-events-none select-none"
-            />
+            <div className="size-10 rounded-full overflow-hidden flex items-center justify-center relative z-10 shadow-xs ring-1 ring-border/50 bg-muted/20 group-hover:scale-105 transition-transform duration-200">
+              <img
+                src={aiMascotSrc}
+                alt="Accountiva AI Mascot"
+                className="size-full object-cover pointer-events-none select-none"
+              />
+            </div>
             <span className="absolute top-1.5 right-1.5 flex size-3 z-20 pointer-events-none">
               <span className="animate-ping absolute inline-flex size-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full size-3 bg-emerald-500 ring-2 ring-card" />
+              <span className="relative inline-flex rounded-full size-3 bg-emerald-500 ring-2 ring-card shadow-xs" />
             </span>
           </div>
         ) : (
-          <ChevronDown className="size-6 relative z-10 text-foreground" />
+          <ChevronDown className="size-6 relative z-10 text-foreground transition-transform duration-200" />
         )}
       </button>
     </div>

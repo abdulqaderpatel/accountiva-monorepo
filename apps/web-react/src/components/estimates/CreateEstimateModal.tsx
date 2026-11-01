@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +15,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
-import {
-  Plus,
-  Trash2,
-  Package,
-  ChevronDown,
-} from "lucide-react";
+import { Plus, Trash2, Package, ChevronDown } from "lucide-react";
 import {
   ESTIMATE_STATUSES,
   calculateDocumentTotals,
@@ -48,6 +49,7 @@ interface EstimateItemRow {
   quantity: number;
   rate: number;
   amount: number;
+  taxRate?: number;
 }
 
 interface CreateEstimateModalProps {
@@ -79,10 +81,13 @@ export function CreateEstimateModal({
 
   const createEstimateMutation = useCreateEstimate();
   const updateEstimateMutation = useUpdateEstimate();
-  const { data: apiEstimates } = useEstimates(undefined, { enabled: isOpen && !estimateToEdit });
-  const { data: nextEstimateNumberFromQuery, refetch: refetchNextNumber } = useNextEstimateNumber({
+  const { data: apiEstimates } = useEstimates(undefined, {
     enabled: isOpen && !estimateToEdit,
   });
+  const { data: nextEstimateNumberFromQuery, refetch: refetchNextNumber } =
+    useNextEstimateNumber({
+      enabled: isOpen && !estimateToEdit,
+    });
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
 
@@ -90,26 +95,31 @@ export function CreateEstimateModal({
     const list = Array.isArray(apiEstimates)
       ? apiEstimates
       : Array.isArray(apiEstimates?.data)
-      ? apiEstimates.data
-      : [];
+        ? apiEstimates.data
+        : [];
     if (list.length > 0) {
       return getNextDocumentNumber(
-        list.map((est: any) => est.estimateNumber || est.estimate_number || est.number),
-        "EST-"
+        list.map(
+          (est: any) => est.estimateNumber || est.estimate_number || est.number,
+        ),
+        "EST-",
       );
     }
     return "EST-0001";
   }, [apiEstimates]);
 
   const customerList: any[] = useMemo(() => {
-    if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
-    if (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0) return apiCustomers.data;
+    if (Array.isArray(apiCustomers) && apiCustomers.length > 0)
+      return apiCustomers;
+    if (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0)
+      return apiCustomers.data;
     return [];
   }, [apiCustomers]);
 
   const catalogItems: any[] = useMemo(() => {
     if (Array.isArray(apiItems) && apiItems.length > 0) return apiItems;
-    if (Array.isArray(apiItems?.data) && apiItems.data.length > 0) return apiItems.data;
+    if (Array.isArray(apiItems?.data) && apiItems.data.length > 0)
+      return apiItems.data;
     return [];
   }, [apiItems]);
 
@@ -179,9 +189,13 @@ export function CreateEstimateModal({
         setIsNumberLoading(false);
         setNumberError("");
         setIsEditing(true);
-        setEstimateNumber(estimateToEdit.estimateNumber || estimateToEdit.number || "");
+        setEstimateNumber(
+          estimateToEdit.estimateNumber || estimateToEdit.number || "",
+        );
         setManualAmount(Number(estimateToEdit.amount) || 0);
-        setCustomerId(estimateToEdit.customerId || estimateToEdit.customers?.id || "");
+        setCustomerId(
+          estimateToEdit.customerId || estimateToEdit.customers?.id || "",
+        );
         setDate(estimateToEdit.date || estimateToEdit.issueDate || today());
         setExpiryDate(estimateToEdit.expiryDate || defaultExpiryDate());
         setStatus(
@@ -193,18 +207,51 @@ export function CreateEstimateModal({
         setTermsConditions(estimateToEdit.termsConditions || "");
         setReferenceNumber(estimateToEdit.referenceNumber || "");
         setTerms(estimateToEdit.terms || "Net 30");
-        setBillingAddress(estimateToEdit.billingAddress || estimateToEdit.customers?.billingAddress || "");
-        setShippingAddress(estimateToEdit.shippingAddress || estimateToEdit.customers?.shippingAddress || "");
+        setBillingAddress(
+          estimateToEdit.billingAddress ||
+            estimateToEdit.customers?.billingAddress ||
+            "",
+        );
+        setShippingAddress(
+          estimateToEdit.shippingAddress ||
+            estimateToEdit.customers?.shippingAddress ||
+            "",
+        );
         setDiscountType(estimateToEdit.discountType || "");
         setDiscountValue(Number(estimateToEdit.discountValue) || 0);
-        setTaxPercent(Number(estimateToEdit.taxPercent) || 0);
-        setShippingCharges(Number(estimateToEdit.shippingCharges) || 0);
-        setPackagingCharges(Number((estimateToEdit as any).packagingCharges || (estimateToEdit as any).packaging_charges) || 0);
-        setRoundOff(Number((estimateToEdit as any).roundOff ?? estimateToEdit.adjustment) || 0);
-        setAdjustment(Number((estimateToEdit as any).roundOff ?? estimateToEdit.adjustment) || 0);
-        setCustomFields(estimateToEdit.customFields || estimateToEdit.custom_fields || {});
+        setTaxPercent(
+          Number(estimateToEdit.taxPercent ?? estimateToEdit.tax_percent) || 0,
+        );
+        setShippingCharges(
+          Number(
+            estimateToEdit.shippingCharges ??
+              (estimateToEdit as any).shipping_charges,
+          ) || 0,
+        );
+        setPackagingCharges(
+          Number(
+            (estimateToEdit as any).packagingCharges ??
+              (estimateToEdit as any).packaging_charges,
+          ) || 0,
+        );
+        setRoundOff(
+          Number(
+            (estimateToEdit as any).roundOff ?? estimateToEdit.adjustment,
+          ) || 0,
+        );
+        setAdjustment(
+          Number(
+            (estimateToEdit as any).roundOff ?? estimateToEdit.adjustment,
+          ) || 0,
+        );
+        setCustomFields(
+          estimateToEdit.customFields || estimateToEdit.custom_fields || {},
+        );
 
-        if (Array.isArray(estimateToEdit.items) && estimateToEdit.items.length > 0) {
+        if (
+          Array.isArray(estimateToEdit.items) &&
+          estimateToEdit.items.length > 0
+        ) {
           setItems(
             estimateToEdit.items.map((it: any) => ({
               id: it.id,
@@ -213,15 +260,18 @@ export function CreateEstimateModal({
               description: it.description || "",
               quantity: Number(it.quantity) || 1,
               rate: Number(it.rate) || Number(it.unitPrice) || 0,
-              amount: (Number(it.quantity) || 1) * (Number(it.rate) || Number(it.unitPrice) || 0),
-            }))
+              amount:
+                (Number(it.quantity) || 1) *
+                (Number(it.rate) || Number(it.unitPrice) || 0),
+            })),
           );
         } else {
           setItems([]);
         }
       } else {
         setIsEditing(false);
-        const immediateNumber = nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
+        const immediateNumber =
+          nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
         setEstimateNumber(immediateNumber);
         setNumberError("");
         setManualAmount(0);
@@ -292,7 +342,18 @@ export function CreateEstimateModal({
       autoRoundOff,
       adjustment,
     });
-  }, [items, manualAmount, discountType, discountValue, taxPercent, shippingCharges, packagingCharges, roundOff, autoRoundOff, adjustment]);
+  }, [
+    items,
+    manualAmount,
+    discountType,
+    discountValue,
+    taxPercent,
+    shippingCharges,
+    packagingCharges,
+    roundOff,
+    autoRoundOff,
+    adjustment,
+  ]);
 
   const {
     subtotal,
@@ -305,11 +366,14 @@ export function CreateEstimateModal({
   // Line item helpers
   const addItemToEstimate = (catItem: any) => {
     const rate = Number(catItem.sellingPrice) || Number(catItem.unitPrice) || 0;
+    const itemTaxRate =
+      Number(catItem.salesTaxRate ?? catItem.taxRate ?? catItem.tax_rate) || 0;
     const existingIdx = items.findIndex((it) => it.itemId === catItem.id);
     if (existingIdx >= 0) {
       const updated = [...items];
       updated[existingIdx].quantity += 1;
-      updated[existingIdx].amount = updated[existingIdx].quantity * updated[existingIdx].rate;
+      updated[existingIdx].amount =
+        updated[existingIdx].quantity * updated[existingIdx].rate;
       setItems(updated);
     } else {
       setItems([
@@ -321,8 +385,12 @@ export function CreateEstimateModal({
           quantity: 1,
           rate,
           amount: rate,
+          taxRate: itemTaxRate,
         },
       ]);
+    }
+    if ((!taxPercent || taxPercent === 0) && itemTaxRate > 0) {
+      setTaxPercent(itemTaxRate);
     }
   };
 
@@ -371,7 +439,11 @@ export function CreateEstimateModal({
       return;
     }
 
-    const dateError = validateFinancialDocumentDates(date, expiryDate, "Expiry date");
+    const dateError = validateFinancialDocumentDates(
+      date,
+      expiryDate,
+      "Expiry date",
+    );
     if (dateError) {
       toast.error(dateError);
       return;
@@ -384,7 +456,8 @@ export function CreateEstimateModal({
 
     let finalEstimateNumber = estimateNumber.trim();
     if (!isEditing && !finalEstimateNumber) {
-      finalEstimateNumber = nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
+      finalEstimateNumber =
+        nextEstimateNumberFromQuery || calculatedNextNumber || "EST-0001";
       setEstimateNumber(finalEstimateNumber);
     }
 
@@ -444,7 +517,8 @@ export function CreateEstimateModal({
         "Failed to save estimate";
       if (!isEditing && isDuplicateDocumentNumberError(err)) {
         toast.error(message, {
-          description: "Your entries were kept and a fresh estimate number is being loaded.",
+          description:
+            "Your entries were kept and a fresh estimate number is being loaded.",
         });
         await loadNextEstimateNumber();
         return;
@@ -453,7 +527,8 @@ export function CreateEstimateModal({
     }
   };
 
-  const isSaving = createEstimateMutation.isPending || updateEstimateMutation.isPending;
+  const isSaving =
+    createEstimateMutation.isPending || updateEstimateMutation.isPending;
 
   return (
     <>
@@ -504,7 +579,9 @@ export function CreateEstimateModal({
                 required
               />
               {!isEditing && isNumberLoading && (
-                <p className="text-[10px] text-muted-foreground">Loading the next estimate number...</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Loading the next estimate number...
+                </p>
               )}
               {!isEditing && numberError && (
                 <div className="flex items-center justify-between gap-2 text-[10px] text-destructive">
@@ -531,7 +608,9 @@ export function CreateEstimateModal({
                 <Input
                   id="estAmount"
                   type="number"
-                  value={items.length > 0 ? grandTotal.toFixed(2) : manualAmount}
+                  value={
+                    items.length > 0 ? grandTotal.toFixed(2) : manualAmount
+                  }
                   onChange={(e) => setManualAmount(e.target.value)}
                   disabled={items.length > 0}
                   placeholder="0.00"
@@ -586,28 +665,43 @@ export function CreateEstimateModal({
           {/* Selected Items List */}
           {items.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-border/60">
-              <Label className="text-xs font-semibold">Selected Quote Items ({items.length})</Label>
+              <Label className="text-xs font-semibold">
+                Selected Quote Items ({items.length})
+              </Label>
               <div className="border border-border/80 rounded-xl overflow-hidden divide-y divide-border/60 bg-card">
                 {items.map((item, idx) => (
-                  <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                  <div
+                    key={idx}
+                    className="p-3 flex items-center justify-between gap-3 text-xs"
+                  >
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      <p className="font-semibold truncate text-foreground text-xs">{item.itemName}</p>
+                      <p className="font-semibold truncate text-foreground text-xs">
+                        {item.itemName}
+                      </p>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground">Rate {currencySymbol}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Rate {currencySymbol}
+                        </span>
                         <Input
                           type="number"
                           value={item.rate}
-                          onChange={(e) => updateItemRate(idx, Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateItemRate(idx, Number(e.target.value) || 0)
+                          }
                           min={0}
                           step="any"
                           className="w-24 h-7 text-xs font-mono"
                         />
-                        <span className="text-[11px] text-muted-foreground ml-1">each</span>
+                        <span className="text-[11px] text-muted-foreground ml-1">
+                          each
+                        </span>
                       </div>
                       <Input
                         type="text"
                         value={item.description}
-                        onChange={(e) => updateItemDescription(idx, e.target.value)}
+                        onChange={(e) =>
+                          updateItemDescription(idx, e.target.value)
+                        }
                         placeholder="Description or scope of work..."
                         className="h-7 text-xs"
                       />
@@ -618,7 +712,9 @@ export function CreateEstimateModal({
                       <div className="flex items-center border border-border rounded-lg bg-background overflow-hidden h-7">
                         <button
                           type="button"
-                          onClick={() => updateItemQuantity(idx, item.quantity - 1)}
+                          onClick={() =>
+                            updateItemQuantity(idx, item.quantity - 1)
+                          }
                           className="px-2 text-muted-foreground hover:bg-muted text-xs font-bold cursor-pointer"
                         >
                           -
@@ -626,13 +722,17 @@ export function CreateEstimateModal({
                         <input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateItemQuantity(idx, Number(e.target.value) || 1)}
+                          onChange={(e) =>
+                            updateItemQuantity(idx, Number(e.target.value) || 1)
+                          }
                           min={1}
                           className="w-10 text-center h-full bg-transparent border-none focus:outline-none text-xs font-mono font-medium text-foreground [appearance:textfield] border-x border-border"
                         />
                         <button
                           type="button"
-                          onClick={() => updateItemQuantity(idx, item.quantity + 1)}
+                          onClick={() =>
+                            updateItemQuantity(idx, item.quantity + 1)
+                          }
                           className="px-2 text-muted-foreground hover:bg-muted text-xs font-bold cursor-pointer"
                         >
                           +
@@ -661,7 +761,9 @@ export function CreateEstimateModal({
           {/* Catalog Selector */}
           <div className="space-y-2 pt-2 border-t border-border/60">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Select from Catalog</Label>
+              <Label className="text-xs font-semibold">
+                Select from Catalog
+              </Label>
               <button
                 type="button"
                 onClick={() => setIsAddItemOpen(true)}
@@ -688,7 +790,10 @@ export function CreateEstimateModal({
                           {item.name}
                         </p>
                         <p className="text-[11px] text-muted-foreground font-mono">
-                          {formatCurrency(Number(item.sellingPrice ?? item.unitPrice ?? 0), currencyCode)}
+                          {formatCurrency(
+                            Number(item.sellingPrice ?? item.unitPrice ?? 0),
+                            currencyCode,
+                          )}
                         </p>
                       </div>
                     </div>
@@ -709,7 +814,9 @@ export function CreateEstimateModal({
             ) : (
               <div className="text-center py-5 border-2 border-dashed border-border/60 rounded-xl">
                 <Package className="size-7 mx-auto mb-1.5 text-muted-foreground/40" />
-                <p className="text-xs font-medium text-muted-foreground">No catalog items found</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  No catalog items found
+                </p>
                 <button
                   type="button"
                   onClick={() => setIsAddItemOpen(true)}
@@ -732,7 +839,7 @@ export function CreateEstimateModal({
               <ChevronDown
                 className={cn(
                   "size-4 transition-transform duration-200 text-muted-foreground",
-                  showAdvanced && "rotate-180"
+                  showAdvanced && "rotate-180",
                 )}
               />
             </button>
@@ -740,7 +847,9 @@ export function CreateEstimateModal({
               <div className="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Reference Number / RFP</Label>
+                    <Label className="text-xs font-medium">
+                      Reference Number / RFP
+                    </Label>
                     <Input
                       value={referenceNumber}
                       onChange={(e) => setReferenceNumber(e.target.value)}
@@ -761,7 +870,9 @@ export function CreateEstimateModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Billing Address</Label>
+                    <Label className="text-xs font-medium">
+                      Billing Address
+                    </Label>
                     <Textarea
                       rows={2}
                       value={billingAddress}
@@ -771,7 +882,9 @@ export function CreateEstimateModal({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Shipping Address</Label>
+                    <Label className="text-xs font-medium">
+                      Shipping Address
+                    </Label>
                     <Textarea
                       rows={2}
                       value={shippingAddress}
@@ -794,7 +907,9 @@ export function CreateEstimateModal({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Terms & Conditions</Label>
+                    <Label className="text-xs font-medium">
+                      Terms & Conditions
+                    </Label>
                     <Textarea
                       rows={2}
                       value={termsConditions}
@@ -819,7 +934,7 @@ export function CreateEstimateModal({
               <ChevronDown
                 className={cn(
                   "size-4 transition-transform duration-200 text-muted-foreground",
-                  showTaxesDiscounts && "rotate-180"
+                  showTaxesDiscounts && "rotate-180",
                 )}
               />
             </button>
@@ -837,12 +952,15 @@ export function CreateEstimateModal({
                   {Boolean(discountType) && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">
-                        Discount Value ({discountType === "percentage" ? "%" : currencySymbol})
+                        Discount Value (
+                        {discountType === "percentage" ? "%" : currencySymbol})
                       </Label>
                       <Input
                         type="number"
                         value={discountValue}
-                        onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
+                        onChange={(e) =>
+                          setDiscountValue(Number(e.target.value) || 0)
+                        }
                         placeholder="0"
                         className="text-xs font-mono"
                       />
@@ -852,21 +970,29 @@ export function CreateEstimateModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Tax Percent (%)</Label>
+                    <Label className="text-xs font-medium">
+                      Tax Percent (%)
+                    </Label>
                     <Input
                       type="number"
                       value={taxPercent}
-                      onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setTaxPercent(Number(e.target.value) || 0)
+                      }
                       placeholder="18"
                       className="text-xs font-mono"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Shipping Charges ({currencySymbol})</Label>
+                    <Label className="text-xs font-medium">
+                      Shipping Charges ({currencySymbol})
+                    </Label>
                     <Input
                       type="number"
                       value={shippingCharges}
-                      onChange={(e) => setShippingCharges(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setShippingCharges(Number(e.target.value) || 0)
+                      }
                       placeholder="0"
                       className="text-xs font-mono"
                     />
@@ -875,18 +1001,24 @@ export function CreateEstimateModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Packaging Charges ({currencySymbol})</Label>
+                    <Label className="text-xs font-medium">
+                      Packaging Charges ({currencySymbol})
+                    </Label>
                     <Input
                       type="number"
                       value={packagingCharges}
-                      onChange={(e) => setPackagingCharges(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setPackagingCharges(Number(e.target.value) || 0)
+                      }
                       placeholder="0"
                       className="text-xs font-mono"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Round Off ({currencySymbol})</Label>
+                      <Label className="text-xs font-medium">
+                        Round Off ({currencySymbol})
+                      </Label>
                       <button
                         type="button"
                         onClick={() => setAutoRoundOff((prev) => !prev)}
@@ -926,7 +1058,10 @@ export function CreateEstimateModal({
             {Boolean(discountType && discountAmount > 0) && (
               <div className="flex items-center justify-between font-medium text-emerald-600 dark:text-emerald-400">
                 <span>
-                  Discount {discountType === "percentage" ? `(${discountValue}%)` : "(Fixed)"}
+                  Discount{" "}
+                  {discountType === "percentage"
+                    ? `(${discountValue}%)`
+                    : "(Fixed)"}
                 </span>
                 <span className="font-mono font-semibold">
                   -{formatCurrency(discountAmount, currencyCode)}
@@ -1006,7 +1141,7 @@ export function CreateEstimateModal({
                     "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
                     status === s
                       ? "bg-card text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {s}

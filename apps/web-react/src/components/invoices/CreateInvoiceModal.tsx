@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +17,7 @@ import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
-import {
-  Plus,
-  Trash2,
-  Package,
-  ChevronDown,
-} from "lucide-react";
+import { Plus, Trash2, Package, ChevronDown } from "lucide-react";
 import {
   calculateDocumentTotals,
   formatCurrency,
@@ -51,6 +52,7 @@ interface InvoiceItemRow {
   quantity: number;
   rate: number;
   amount: number;
+  taxRate?: number;
 }
 
 interface CreateInvoiceModalProps {
@@ -84,10 +86,13 @@ export function CreateInvoiceModal({
 
   const createInvoiceMutation = useCreateInvoice();
   const updateInvoiceMutation = useUpdateInvoice();
-  const { data: apiInvoices } = useInvoices(undefined, { enabled: isOpen && !invoiceToEdit });
-  const { data: nextInvoiceNumberFromQuery, refetch: refetchNextNumber } = useNextInvoiceNumber({
+  const { data: apiInvoices } = useInvoices(undefined, {
     enabled: isOpen && !invoiceToEdit,
   });
+  const { data: nextInvoiceNumberFromQuery, refetch: refetchNextNumber } =
+    useNextInvoiceNumber({
+      enabled: isOpen && !invoiceToEdit,
+    });
   const { data: apiCustomers } = useCustomers();
   const { data: apiItems } = useItems();
 
@@ -95,26 +100,29 @@ export function CreateInvoiceModal({
     const list = Array.isArray(apiInvoices)
       ? apiInvoices
       : Array.isArray(apiInvoices?.data)
-      ? apiInvoices.data
-      : [];
+        ? apiInvoices.data
+        : [];
     if (list.length > 0) {
       return getNextDocumentNumber(
         list.map((inv: any) => inv.invoiceNumber || inv.invoice_number),
-        "INV-"
+        "INV-",
       );
     }
     return "INV-0001";
   }, [apiInvoices]);
 
   const customerList: any[] = useMemo(() => {
-    if (Array.isArray(apiCustomers) && apiCustomers.length > 0) return apiCustomers;
-    if (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0) return apiCustomers.data;
+    if (Array.isArray(apiCustomers) && apiCustomers.length > 0)
+      return apiCustomers;
+    if (Array.isArray(apiCustomers?.data) && apiCustomers.data.length > 0)
+      return apiCustomers.data;
     return [];
   }, [apiCustomers]);
 
   const catalogItems: any[] = useMemo(() => {
     if (Array.isArray(apiItems) && apiItems.length > 0) return apiItems;
-    if (Array.isArray(apiItems?.data) && apiItems.data.length > 0) return apiItems.data;
+    if (Array.isArray(apiItems?.data) && apiItems.data.length > 0)
+      return apiItems.data;
     return [];
   }, [apiItems]);
 
@@ -131,7 +139,9 @@ export function CreateInvoiceModal({
   const [date, setDate] = useState(today());
   const [dueDate, setDueDate] = useState(defaultDueDate());
   const [items, setItems] = useState<InvoiceItemRow[]>([]);
-  const [status, setStatus] = useState<"Draft" | "Outstanding" | "Paid">("Draft");
+  const [status, setStatus] = useState<"Draft" | "Outstanding" | "Paid">(
+    "Draft",
+  );
   const [notes, setNotes] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -185,7 +195,8 @@ export function CreateInvoiceModal({
     if (isOpen) {
       setFormErrors({});
       if (invoiceToEdit) {
-        const hasLineItems = Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0;
+        const hasLineItems =
+          Array.isArray(invoiceToEdit.items) && invoiceToEdit.items.length > 0;
         const editCalculationState = getInvoiceEditCalculationState(
           invoiceToEdit,
           hasLineItems,
@@ -197,31 +208,55 @@ export function CreateInvoiceModal({
         setAutoGenerateNumber(false);
         setInvoiceNumber(invoiceToEdit.invoiceNumber || "");
         setManualAmount(editCalculationState.manualAmount);
-        setCustomerId(invoiceToEdit.customerId || invoiceToEdit.customers?.id || "");
+        setCustomerId(
+          invoiceToEdit.customerId || invoiceToEdit.customers?.id || "",
+        );
         setDate(invoiceToEdit.date || invoiceToEdit.issueDate || today());
         setDueDate(invoiceToEdit.dueDate || defaultDueDate());
         setStatus(
           invoiceToEdit.status === "Paid"
             ? "Paid"
             : invoiceToEdit.status === "Draft"
-            ? "Draft"
-            : "Outstanding"
+              ? "Draft"
+              : "Outstanding",
         );
         setNotes(invoiceToEdit.notes || "");
         setTermsConditions(invoiceToEdit.termsConditions || "");
         setReferenceNumber(invoiceToEdit.referenceNumber || "");
         setTerms(invoiceToEdit.terms || "Net 30");
-        setBillingAddress(invoiceToEdit.billingAddress || invoiceToEdit.customers?.billingAddress || "");
-        setShippingAddress(invoiceToEdit.shippingAddress || invoiceToEdit.customers?.shippingAddress || "");
+        setBillingAddress(
+          invoiceToEdit.billingAddress ||
+            invoiceToEdit.customers?.billingAddress ||
+            "",
+        );
+        setShippingAddress(
+          invoiceToEdit.shippingAddress ||
+            invoiceToEdit.customers?.shippingAddress ||
+            "",
+        );
         setDiscountType(invoiceToEdit.discountType || "");
         setDiscountValue(Number(invoiceToEdit.discountValue) || 0);
-        setTaxPercent(Number(invoiceToEdit.taxPercent) || 0);
-        setShippingCharges(Number(invoiceToEdit.shippingCharges) || 0);
-        setPackagingCharges(Number((invoiceToEdit as any).packagingCharges || (invoiceToEdit as any).packaging_charges) || 0);
+        setTaxPercent(
+          Number(invoiceToEdit.taxPercent ?? invoiceToEdit.tax_percent) || 0,
+        );
+        setShippingCharges(
+          Number(
+            invoiceToEdit.shippingCharges ??
+              (invoiceToEdit as any).shipping_charges,
+          ) || 0,
+        );
+        setPackagingCharges(
+          Number(
+            (invoiceToEdit as any).packagingCharges ??
+              (invoiceToEdit as any).packaging_charges,
+          ) || 0,
+        );
         setAutoRoundOff(editCalculationState.autoRoundOff);
         setRoundOff(editCalculationState.roundOff);
         setAdjustment(editCalculationState.roundOff);
-        setCustomFields(invoiceToEdit.customFields || invoiceToEdit.custom_fields || {});
+        setCustomFields(
+          invoiceToEdit.customFields || invoiceToEdit.custom_fields || {},
+        );
 
         if (hasLineItems) {
           setItems(
@@ -232,8 +267,10 @@ export function CreateInvoiceModal({
               description: it.description || "",
               quantity: Number(it.quantity) || 1,
               rate: Number(it.rate) || Number(it.unitPrice) || 0,
-              amount: (Number(it.quantity) || 1) * (Number(it.rate) || Number(it.unitPrice) || 0),
-            }))
+              amount:
+                (Number(it.quantity) || 1) *
+                (Number(it.rate) || Number(it.unitPrice) || 0),
+            })),
           );
         } else {
           setItems([]);
@@ -241,7 +278,8 @@ export function CreateInvoiceModal({
       } else {
         setIsEditing(false);
         setAutoGenerateNumber(true);
-        const immediateNumber = nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
+        const immediateNumber =
+          nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
         setInvoiceNumber(immediateNumber);
         setNumberError("");
         setManualAmount(0);
@@ -259,8 +297,10 @@ export function CreateInvoiceModal({
         if (initialCustomerId && customerList.length > 0) {
           const selected = customerList.find((c) => c.id === initialCustomerId);
           if (selected) {
-            if (selected.billingAddress || selected.address) setBillingAddress(selected.billingAddress || selected.address);
-            if (selected.shippingAddress) setShippingAddress(selected.shippingAddress);
+            if (selected.billingAddress || selected.address)
+              setBillingAddress(selected.billingAddress || selected.address);
+            if (selected.shippingAddress)
+              setShippingAddress(selected.shippingAddress);
           }
         }
         setShowAdvanced(false);
@@ -291,7 +331,12 @@ export function CreateInvoiceModal({
   ]);
 
   useEffect(() => {
-    if (isOpen && !isEditing && autoGenerateNumber && nextInvoiceNumberFromQuery) {
+    if (
+      isOpen &&
+      !isEditing &&
+      autoGenerateNumber &&
+      nextInvoiceNumberFromQuery
+    ) {
       setInvoiceNumber(nextInvoiceNumberFromQuery);
     }
   }, [isOpen, isEditing, autoGenerateNumber, nextInvoiceNumberFromQuery]);
@@ -325,7 +370,18 @@ export function CreateInvoiceModal({
       autoRoundOff,
       adjustment,
     });
-  }, [items, manualAmount, discountType, discountValue, taxPercent, shippingCharges, packagingCharges, roundOff, autoRoundOff, adjustment]);
+  }, [
+    items,
+    manualAmount,
+    discountType,
+    discountValue,
+    taxPercent,
+    shippingCharges,
+    packagingCharges,
+    roundOff,
+    autoRoundOff,
+    adjustment,
+  ]);
 
   const {
     subtotal,
@@ -343,13 +399,20 @@ export function CreateInvoiceModal({
 
   // Line Item Helpers
   const addItemToInvoice = (catItem: any) => {
-    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      amount: undefined,
+      items: undefined,
+    }));
     const rate = Number(catItem.sellingPrice) || Number(catItem.unitPrice) || 0;
+    const itemTaxRate =
+      Number(catItem.salesTaxRate ?? catItem.taxRate ?? catItem.tax_rate) || 0;
     const existingIdx = items.findIndex((it) => it.itemId === catItem.id);
     if (existingIdx >= 0) {
       const updated = [...items];
       updated[existingIdx].quantity += 1;
-      updated[existingIdx].amount = updated[existingIdx].quantity * updated[existingIdx].rate;
+      updated[existingIdx].amount =
+        updated[existingIdx].quantity * updated[existingIdx].rate;
       setItems(updated);
     } else {
       setItems([
@@ -361,13 +424,21 @@ export function CreateInvoiceModal({
           quantity: 1,
           rate,
           amount: rate,
+          taxRate: itemTaxRate,
         },
       ]);
+    }
+    if ((!taxPercent || taxPercent === 0) && itemTaxRate > 0) {
+      setTaxPercent(itemTaxRate);
     }
   };
 
   const updateItemQuantity = (index: number, newQty: number) => {
-    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      amount: undefined,
+      items: undefined,
+    }));
     const qty = Math.max(1, newQty);
     const updated = [...items];
     updated[index].quantity = qty;
@@ -376,7 +447,11 @@ export function CreateInvoiceModal({
   };
 
   const updateItemRate = (index: number, newRate: number) => {
-    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      amount: undefined,
+      items: undefined,
+    }));
     const rate = Math.max(0, newRate);
     const updated = [...items];
     updated[index].rate = rate;
@@ -391,7 +466,11 @@ export function CreateInvoiceModal({
   };
 
   const removeItem = (index: number) => {
-    setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
+    setFormErrors((current) => ({
+      ...current,
+      amount: undefined,
+      items: undefined,
+    }));
     setItems(items.filter((_, i) => i !== index));
   };
 
@@ -400,7 +479,8 @@ export function CreateInvoiceModal({
 
     let finalInvoiceNumber = invoiceNumber.trim();
     if (!isEditing && autoGenerateNumber && !finalInvoiceNumber) {
-      finalInvoiceNumber = nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
+      finalInvoiceNumber =
+        nextInvoiceNumberFromQuery || calculatedNextNumber || "INV-0001";
       setInvoiceNumber(finalInvoiceNumber);
     }
 
@@ -478,7 +558,8 @@ export function CreateInvoiceModal({
         "Failed to save invoice";
       if (!isEditing && isDuplicateDocumentNumberError(err)) {
         toast.error(message, {
-          description: "Your entries were kept and a fresh invoice number is being loaded.",
+          description:
+            "Your entries were kept and a fresh invoice number is being loaded.",
         });
         if (autoGenerateNumber) {
           await loadNextInvoiceNumber();
@@ -499,7 +580,8 @@ export function CreateInvoiceModal({
     }
   };
 
-  const isSaving = createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
+  const isSaving =
+    createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
 
   return (
     <>
@@ -559,7 +641,10 @@ export function CreateInvoiceModal({
                         }
                       }}
                     />
-                    <Label htmlFor="autoGenNumber" className="text-[11px] text-muted-foreground font-normal cursor-pointer select-none">
+                    <Label
+                      htmlFor="autoGenNumber"
+                      className="text-[11px] text-muted-foreground font-normal cursor-pointer select-none"
+                    >
                       Auto-generate
                     </Label>
                   </div>
@@ -570,7 +655,10 @@ export function CreateInvoiceModal({
                 value={invoiceNumber}
                 onChange={(e) => {
                   setInvoiceNumber(e.target.value);
-                  setFormErrors((current) => ({ ...current, invoiceNumber: undefined }));
+                  setFormErrors((current) => ({
+                    ...current,
+                    invoiceNumber: undefined,
+                  }));
                 }}
                 disabled={autoGenerateNumber && !isEditing}
                 placeholder={
@@ -615,10 +703,15 @@ export function CreateInvoiceModal({
                 <Input
                   id="invAmount"
                   type="number"
-                  value={items.length > 0 ? grandTotal.toFixed(2) : manualAmount}
+                  value={
+                    items.length > 0 ? grandTotal.toFixed(2) : manualAmount
+                  }
                   onChange={(e) => {
                     setManualAmount(e.target.value);
-                    setFormErrors((current) => ({ ...current, amount: undefined }));
+                    setFormErrors((current) => ({
+                      ...current,
+                      amount: undefined,
+                    }));
                   }}
                   disabled={items.length > 0}
                   placeholder="0.00"
@@ -687,7 +780,9 @@ export function CreateInvoiceModal({
                 }}
               />
               {formErrors.date && (
-                <p className="text-[11px] font-semibold text-destructive">{formErrors.date}</p>
+                <p className="text-[11px] font-semibold text-destructive">
+                  {formErrors.date}
+                </p>
               )}
             </div>
             <div className="space-y-1.5">
@@ -697,11 +792,16 @@ export function CreateInvoiceModal({
                 error={formErrors.dueDate}
                 onChange={(value) => {
                   setDueDate(value);
-                  setFormErrors((current) => ({ ...current, dueDate: undefined }));
+                  setFormErrors((current) => ({
+                    ...current,
+                    dueDate: undefined,
+                  }));
                 }}
               />
               {formErrors.dueDate && (
-                <p className="text-[11px] font-semibold text-destructive">{formErrors.dueDate}</p>
+                <p className="text-[11px] font-semibold text-destructive">
+                  {formErrors.dueDate}
+                </p>
               )}
             </div>
           </div>
@@ -709,28 +809,43 @@ export function CreateInvoiceModal({
           {/* Selected Items List */}
           {items.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-border/60">
-              <Label className="text-xs font-semibold">Selected Line Items ({items.length})</Label>
+              <Label className="text-xs font-semibold">
+                Selected Line Items ({items.length})
+              </Label>
               <div className="border border-border/80 rounded-xl overflow-hidden divide-y divide-border/60 bg-card">
                 {items.map((item, idx) => (
-                  <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                  <div
+                    key={idx}
+                    className="p-3 flex items-center justify-between gap-3 text-xs"
+                  >
                     <div className="flex-1 min-w-0 space-y-1.5">
-                      <p className="font-semibold truncate text-foreground text-xs">{item.itemName}</p>
+                      <p className="font-semibold truncate text-foreground text-xs">
+                        {item.itemName}
+                      </p>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground">Rate {currencySymbol}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Rate {currencySymbol}
+                        </span>
                         <Input
                           type="number"
                           value={item.rate}
-                          onChange={(e) => updateItemRate(idx, Number(e.target.value) || 0)}
+                          onChange={(e) =>
+                            updateItemRate(idx, Number(e.target.value) || 0)
+                          }
                           min={0}
                           step="any"
                           className="w-24 h-7 text-xs font-mono"
                         />
-                        <span className="text-[11px] text-muted-foreground ml-1">each</span>
+                        <span className="text-[11px] text-muted-foreground ml-1">
+                          each
+                        </span>
                       </div>
                       <Input
                         type="text"
                         value={item.description}
-                        onChange={(e) => updateItemDescription(idx, e.target.value)}
+                        onChange={(e) =>
+                          updateItemDescription(idx, e.target.value)
+                        }
                         placeholder="Description or notes for this line..."
                         className="h-7 text-xs"
                       />
@@ -741,7 +856,9 @@ export function CreateInvoiceModal({
                       <div className="flex items-center border border-border rounded-lg bg-background overflow-hidden h-7">
                         <button
                           type="button"
-                          onClick={() => updateItemQuantity(idx, item.quantity - 1)}
+                          onClick={() =>
+                            updateItemQuantity(idx, item.quantity - 1)
+                          }
                           className="px-2 text-muted-foreground hover:bg-muted text-xs font-bold cursor-pointer"
                         >
                           -
@@ -749,13 +866,17 @@ export function CreateInvoiceModal({
                         <input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateItemQuantity(idx, Number(e.target.value) || 1)}
+                          onChange={(e) =>
+                            updateItemQuantity(idx, Number(e.target.value) || 1)
+                          }
                           min={1}
                           className="w-10 text-center h-full bg-transparent border-none focus:outline-none text-xs font-mono font-medium text-foreground [appearance:textfield] border-x border-border"
                         />
                         <button
                           type="button"
-                          onClick={() => updateItemQuantity(idx, item.quantity + 1)}
+                          onClick={() =>
+                            updateItemQuantity(idx, item.quantity + 1)
+                          }
                           className="px-2 text-muted-foreground hover:bg-muted text-xs font-bold cursor-pointer"
                         >
                           +
@@ -784,7 +905,9 @@ export function CreateInvoiceModal({
           {/* Catalog Selector */}
           <div className="space-y-2 pt-2 border-t border-border/60">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Select from Catalog</Label>
+              <Label className="text-xs font-semibold">
+                Select from Catalog
+              </Label>
               <button
                 type="button"
                 onClick={() => setIsAddItemOpen(true)}
@@ -795,7 +918,9 @@ export function CreateInvoiceModal({
             </div>
 
             {formErrors.items && (
-              <p className="text-[11px] font-semibold text-destructive">{formErrors.items}</p>
+              <p className="text-[11px] font-semibold text-destructive">
+                {formErrors.items}
+              </p>
             )}
 
             {catalogItems.length > 0 ? (
@@ -815,7 +940,10 @@ export function CreateInvoiceModal({
                           {item.name}
                         </p>
                         <p className="text-[11px] text-muted-foreground font-mono">
-                          {formatCurrency(Number(item.sellingPrice ?? item.unitPrice ?? 0), currencyCode)}
+                          {formatCurrency(
+                            Number(item.sellingPrice ?? item.unitPrice ?? 0),
+                            currencyCode,
+                          )}
                         </p>
                       </div>
                     </div>
@@ -836,7 +964,9 @@ export function CreateInvoiceModal({
             ) : (
               <div className="text-center py-5 border-2 border-dashed border-border/60 rounded-xl">
                 <Package className="size-7 mx-auto mb-1.5 text-muted-foreground/40" />
-                <p className="text-xs font-medium text-muted-foreground">No catalog items found</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  No catalog items found
+                </p>
                 <button
                   type="button"
                   onClick={() => setIsAddItemOpen(true)}
@@ -859,7 +989,7 @@ export function CreateInvoiceModal({
               <ChevronDown
                 className={cn(
                   "size-4 transition-transform duration-200 text-muted-foreground",
-                  showAdvanced && "rotate-180"
+                  showAdvanced && "rotate-180",
                 )}
               />
             </button>
@@ -867,7 +997,9 @@ export function CreateInvoiceModal({
               <div className="p-4 space-y-4 border-t border-border/80 bg-background/50 animate-in fade-in duration-200">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Reference Number / PO</Label>
+                    <Label className="text-xs font-medium">
+                      Reference Number / PO
+                    </Label>
                     <Input
                       value={referenceNumber}
                       onChange={(e) => setReferenceNumber(e.target.value)}
@@ -888,7 +1020,9 @@ export function CreateInvoiceModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Billing Address</Label>
+                    <Label className="text-xs font-medium">
+                      Billing Address
+                    </Label>
                     <Textarea
                       rows={2}
                       value={billingAddress}
@@ -898,7 +1032,9 @@ export function CreateInvoiceModal({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Shipping Address</Label>
+                    <Label className="text-xs font-medium">
+                      Shipping Address
+                    </Label>
                     <Textarea
                       rows={2}
                       value={shippingAddress}
@@ -911,7 +1047,9 @@ export function CreateInvoiceModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Customer Notes</Label>
+                    <Label className="text-xs font-medium">
+                      Customer Notes
+                    </Label>
                     <Textarea
                       rows={2}
                       value={notes}
@@ -921,7 +1059,9 @@ export function CreateInvoiceModal({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Terms & Conditions</Label>
+                    <Label className="text-xs font-medium">
+                      Terms & Conditions
+                    </Label>
                     <Textarea
                       rows={2}
                       value={termsConditions}
@@ -946,7 +1086,7 @@ export function CreateInvoiceModal({
               <ChevronDown
                 className={cn(
                   "size-4 transition-transform duration-200 text-muted-foreground",
-                  showTaxesDiscounts && "rotate-180"
+                  showTaxesDiscounts && "rotate-180",
                 )}
               />
             </button>
@@ -964,12 +1104,15 @@ export function CreateInvoiceModal({
                   {Boolean(discountType) && (
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">
-                        Discount Value ({discountType === "percentage" ? "%" : currencySymbol})
+                        Discount Value (
+                        {discountType === "percentage" ? "%" : currencySymbol})
                       </Label>
                       <Input
                         type="number"
                         value={discountValue}
-                        onChange={(e) => setDiscountValue(Number(e.target.value) || 0)}
+                        onChange={(e) =>
+                          setDiscountValue(Number(e.target.value) || 0)
+                        }
                         placeholder="0"
                         className="text-xs font-mono"
                       />
@@ -979,21 +1122,29 @@ export function CreateInvoiceModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">GST / Tax Percent (%)</Label>
+                    <Label className="text-xs font-medium">
+                      GST / Tax Percent (%)
+                    </Label>
                     <Input
                       type="number"
                       value={taxPercent}
-                      onChange={(e) => setTaxPercent(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setTaxPercent(Number(e.target.value) || 0)
+                      }
                       placeholder="18"
                       className="text-xs font-mono"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Shipping Charges ({currencySymbol})</Label>
+                    <Label className="text-xs font-medium">
+                      Shipping Charges ({currencySymbol})
+                    </Label>
                     <Input
                       type="number"
                       value={shippingCharges}
-                      onChange={(e) => setShippingCharges(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setShippingCharges(Number(e.target.value) || 0)
+                      }
                       placeholder="0"
                       className="text-xs font-mono"
                     />
@@ -1002,18 +1153,24 @@ export function CreateInvoiceModal({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Packaging Charges ({currencySymbol})</Label>
+                    <Label className="text-xs font-medium">
+                      Packaging Charges ({currencySymbol})
+                    </Label>
                     <Input
                       type="number"
                       value={packagingCharges}
-                      onChange={(e) => setPackagingCharges(Number(e.target.value) || 0)}
+                      onChange={(e) =>
+                        setPackagingCharges(Number(e.target.value) || 0)
+                      }
                       placeholder="0"
                       className="text-xs font-mono"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Round Off ({currencySymbol})</Label>
+                      <Label className="text-xs font-medium">
+                        Round Off ({currencySymbol})
+                      </Label>
                       <button
                         type="button"
                         onClick={() => setAutoRoundOff((prev) => !prev)}
@@ -1053,7 +1210,10 @@ export function CreateInvoiceModal({
             {Boolean(discountType && discountAmount > 0) && (
               <div className="flex items-center justify-between font-medium text-emerald-600 dark:text-emerald-400">
                 <span>
-                  Discount {discountType === "percentage" ? `(${discountValue}%)` : "(Fixed)"}
+                  Discount{" "}
+                  {discountType === "percentage"
+                    ? `(${discountValue}%)`
+                    : "(Fixed)"}
                 </span>
                 <span className="font-mono font-semibold">
                   -{formatCurrency(discountAmount, currencyCode)}
@@ -1133,7 +1293,7 @@ export function CreateInvoiceModal({
                     "flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
                     status === s
                       ? "bg-card text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {s === "Outstanding" ? "Finalize" : s}

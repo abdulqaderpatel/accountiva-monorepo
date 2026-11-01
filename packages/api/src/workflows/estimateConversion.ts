@@ -4,17 +4,17 @@ import {
   isUuid,
   type EstimateConversionSource,
   type InvoicePayload,
-} from '@accountiva/shared';
+} from "@accountiva/shared";
 import {
   createInvoice,
   fetchNextInvoiceNumber,
   type InvoiceRecord,
-} from '../queries/invoices';
+} from "../queries/invoices";
 import {
   updateEstimateStatus,
   fetchEstimate,
   type EstimateRecord,
-} from '../queries/estimates';
+} from "../queries/estimates";
 
 export interface EstimateConversionInput {
   estimateId: string;
@@ -63,18 +63,18 @@ export interface EstimateConversionRecord {
 export interface EstimateConversionDependencies {
   fetchNextInvoiceNumber: () => Promise<string>;
   createInvoice: (payload: InvoicePayload) => Promise<InvoiceRecord>;
-  updateEstimateStatus: (id: string, status: 'Invoiced') => Promise<unknown>;
+  updateEstimateStatus: (id: string, status: "Invoiced") => Promise<unknown>;
   fetchEstimate?: (id: string) => Promise<EstimateRecord>;
 }
 
 export type EstimateConversionResult =
   | {
-      status: 'complete';
+      status: "complete";
       invoiceNumber: string;
       invoice: InvoiceRecord;
     }
   | {
-      status: 'invoice-created-status-pending';
+      status: "invoice-created-status-pending";
       invoiceNumber: string;
       invoice: InvoiceRecord;
       error: unknown;
@@ -87,7 +87,9 @@ const defaultDependencies: EstimateConversionDependencies = {
   fetchEstimate,
 };
 
-export function normalizeEstimate(source: EstimateConversionSource | EstimateConversionRecord): EstimateConversionSource {
+export function normalizeEstimate(
+  source: EstimateConversionSource | EstimateConversionRecord,
+): EstimateConversionSource {
   const record = source as EstimateConversionRecord;
   const rawSource = source as any;
 
@@ -97,11 +99,17 @@ export function normalizeEstimate(source: EstimateConversionSource | EstimateCon
     rawSource.customer_id ||
     rawSource.clientId ||
     rawSource.client_id ||
-    (typeof record.customer === 'object' && record.customer !== null ? record.customer.id : undefined) ||
+    (typeof record.customer === "object" && record.customer !== null
+      ? record.customer.id
+      : undefined) ||
     (record.customer as any)?._id ||
-    (typeof record.customers === 'object' && record.customers !== null ? record.customers.id : undefined) ||
+    (typeof record.customers === "object" && record.customers !== null
+      ? record.customers.id
+      : undefined) ||
     (record.customers as any)?._id ||
-    (typeof rawSource.customer === 'string' && isUuid(rawSource.customer) ? rawSource.customer : undefined);
+    (typeof rawSource.customer === "string" && isUuid(rawSource.customer)
+      ? rawSource.customer
+      : undefined);
 
   const rawItems = Array.isArray(source.items)
     ? source.items
@@ -146,8 +154,15 @@ export function normalizeEstimate(source: EstimateConversionSource | EstimateCon
   const taxPercent = source.taxPercent ?? rawSource.tax_percent;
   const taxAmount = source.taxAmount ?? rawSource.tax_amount;
   const shippingCharges = source.shippingCharges ?? rawSource.shipping_charges;
-  const packagingCharges = source.packagingCharges ?? rawSource.packaging_charges ?? rawSource.packingCharges;
-  const adjustment = source.adjustment ?? rawSource.adjustment ?? rawSource.roundOff ?? rawSource.round_off;
+  const packagingCharges =
+    source.packagingCharges ??
+    rawSource.packaging_charges ??
+    rawSource.packingCharges;
+  const adjustment =
+    source.adjustment ??
+    rawSource.adjustment ??
+    rawSource.roundOff ??
+    rawSource.round_off;
 
   const totals = calculateDocumentTotals({
     items,
@@ -162,12 +177,16 @@ export function normalizeEstimate(source: EstimateConversionSource | EstimateCon
     adjustment,
   });
 
-  const finalAmount = Number.isFinite(Number(source.amount)) && Number(source.amount) > 0
-    ? Number(source.amount)
-    : totals.total;
+  const finalAmount =
+    items.length > 0 && totals.total > 0
+      ? totals.total
+      : Number.isFinite(Number(source.amount)) && Number(source.amount) > 0
+        ? Number(source.amount)
+        : totals.total;
 
   return {
-    estimateNumber: source.estimateNumber || record.number || rawSource.estimate_number || "",
+    estimateNumber:
+      source.estimateNumber || record.number || rawSource.estimate_number || "",
     customerId: resolvedCustomerId,
     amount: finalAmount,
     items,
@@ -197,9 +216,13 @@ export async function convertEstimateToInvoice(
   let normalized = normalizeEstimate(input.estimate);
 
   // If customerId or items are missing and fetchEstimate is available, fetch full estimate from backend
-  if ((!normalized.customerId || normalized.items.length === 0) && input.estimateId && deps.fetchEstimate) {
+  if (
+    (!normalized.customerId || normalized.items.length === 0) &&
+    input.estimateId &&
+    deps.fetchEstimate
+  ) {
     try {
-      const fetched = await deps.fetchEstimate(input.estimateId) as any;
+      const fetched = (await deps.fetchEstimate(input.estimateId)) as any;
       if (fetched) {
         const mergedItems =
           Array.isArray(input.estimate.items) && input.estimate.items.length > 0
@@ -231,15 +254,15 @@ export async function convertEstimateToInvoice(
   });
   const invoice = await deps.createInvoice(payload);
   const createdInvoiceNumber =
-    typeof invoice.invoiceNumber === 'string' && invoice.invoiceNumber.trim()
+    typeof invoice.invoiceNumber === "string" && invoice.invoiceNumber.trim()
       ? invoice.invoiceNumber
       : invoiceNumber;
 
   try {
-    await deps.updateEstimateStatus(input.estimateId, 'Invoiced');
+    await deps.updateEstimateStatus(input.estimateId, "Invoiced");
   } catch (error) {
     return {
-      status: 'invoice-created-status-pending',
+      status: "invoice-created-status-pending",
       invoiceNumber: createdInvoiceNumber,
       invoice,
       error,
@@ -247,7 +270,7 @@ export async function convertEstimateToInvoice(
   }
 
   return {
-    status: 'complete',
+    status: "complete",
     invoiceNumber: createdInvoiceNumber,
     invoice,
   };

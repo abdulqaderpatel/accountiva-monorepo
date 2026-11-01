@@ -1,6 +1,8 @@
 export const isUuid = (value: unknown): value is string =>
   typeof value === "string" &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value.trim(),
+  );
 
 export const INVOICE_STATUSES = ["Draft", "Outstanding", "Paid"] as const;
 export const ESTIMATE_STATUSES = [
@@ -10,7 +12,12 @@ export const ESTIMATE_STATUSES = [
   "Declined",
   "Invoiced",
 ] as const;
-export const CREDIT_NOTE_STATUSES = ["Draft", "Open", "Closed", "Void"] as const;
+export const CREDIT_NOTE_STATUSES = [
+  "Draft",
+  "Open",
+  "Closed",
+  "Void",
+] as const;
 
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 export type EstimateStatus = (typeof ESTIMATE_STATUSES)[number];
@@ -82,27 +89,38 @@ export interface EstimatePayload extends FinancialDocumentFields {
   status: EstimateStatus;
 }
 
-export interface CreditNotePayload extends Omit<FinancialDocumentFields, "shippingCharges" | "terms"> {
+export interface CreditNotePayload extends Omit<
+  FinancialDocumentFields,
+  "shippingCharges" | "terms"
+> {
   creditNoteNumber: string;
   status: CreditNoteStatus;
   subtotal?: number;
   referenceInvoiceId?: string;
 }
 
-export interface EstimateConversionSource
-  extends Omit<FinancialDocumentFields, "date" | "customerId"> {
+export interface EstimateConversionSource extends Omit<
+  FinancialDocumentFields,
+  "date" | "customerId"
+> {
   estimateNumber: string;
   customerId: string | null | undefined;
 }
 
-export function validateFinancialLineItems(items: FinancialLineItemInput[]): string | null {
+export function validateFinancialLineItems(
+  items: FinancialLineItemInput[],
+): string | null {
   if (!Array.isArray(items) || items.length === 0) {
     return "At least one line item is required.";
   }
 
   for (const [index, item] of items.entries()) {
     const label = `Line item ${index + 1}`;
-    if (!item || typeof item.itemName !== "string" || item.itemName.trim() === "") {
+    if (
+      !item ||
+      typeof item.itemName !== "string" ||
+      item.itemName.trim() === ""
+    ) {
       return `${label} must have a name.`;
     }
     if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
@@ -126,7 +144,11 @@ export function calculateFinancialDocumentSubtotal(
 
   const subtotal = items.reduce((sum, item) => {
     const persistedAmount = Number(item?.amount);
-    if (item?.amount !== null && item?.amount !== undefined && Number.isFinite(persistedAmount)) {
+    if (
+      item?.amount !== null &&
+      item?.amount !== undefined &&
+      Number.isFinite(persistedAmount)
+    ) {
       return sum + persistedAmount;
     }
 
@@ -159,6 +181,7 @@ export interface DocumentTotalsInput {
   discountAmount?: number | string | null;
   taxPercent?: number | string | null;
   taxAmount?: number | string | null;
+  taxOnCharges?: boolean | null;
   shippingCharges?: number | string | null;
   packagingCharges?: number | string | null;
   packingCharges?: number | string | null;
@@ -187,40 +210,76 @@ function roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTotalsResult {
+export function calculateDocumentTotals(
+  input: DocumentTotalsInput,
+): DocumentTotalsResult {
   const items = Array.isArray(input.items) ? input.items : [];
-  const calculatedItemsSubtotal = calculateFinancialDocumentSubtotal(items as FinancialLineItemAmounts[]);
+  const calculatedItemsSubtotal = calculateFinancialDocumentSubtotal(
+    items as FinancialLineItemAmounts[],
+  );
 
   let subtotal = 0;
   if (items.length > 0 && calculatedItemsSubtotal > 0) {
     subtotal = calculatedItemsSubtotal;
-  } else if (items.length > 0 && items.some((it) => (Number(it?.amount) || 0) > 0 || ((Number(it?.quantity) || 0) > 0 && (Number(it?.rate) || 0) > 0))) {
+  } else if (
+    items.length > 0 &&
+    items.some(
+      (it) =>
+        (Number(it?.amount) || 0) > 0 ||
+        ((Number(it?.quantity) || 0) > 0 && (Number(it?.rate) || 0) > 0),
+    )
+  ) {
     subtotal = calculatedItemsSubtotal;
-  } else if (input.manualAmount !== undefined && input.manualAmount !== null && input.manualAmount !== "") {
+  } else if (
+    input.manualAmount !== undefined &&
+    input.manualAmount !== null &&
+    input.manualAmount !== ""
+  ) {
     const parsedManual = Number(input.manualAmount);
-    subtotal = Number.isFinite(parsedManual) && parsedManual >= 0 ? roundToTwo(parsedManual) : 0;
-  } else if (input.subtotal !== undefined && input.subtotal !== null && input.subtotal !== "") {
+    subtotal =
+      Number.isFinite(parsedManual) && parsedManual >= 0
+        ? roundToTwo(parsedManual)
+        : 0;
+  } else if (
+    input.subtotal !== undefined &&
+    input.subtotal !== null &&
+    input.subtotal !== ""
+  ) {
     const parsedSubtotal = Number(input.subtotal);
-    subtotal = Number.isFinite(parsedSubtotal) && parsedSubtotal >= 0 ? roundToTwo(parsedSubtotal) : 0;
+    subtotal =
+      Number.isFinite(parsedSubtotal) && parsedSubtotal >= 0
+        ? roundToTwo(parsedSubtotal)
+        : 0;
   } else {
     subtotal = calculatedItemsSubtotal;
   }
 
-  const rawDiscountType = String(input.discountType || "").toLowerCase().trim();
+  const rawDiscountType = String(input.discountType || "")
+    .toLowerCase()
+    .trim();
   const discountType: "percentage" | "fixed" | "" =
-    rawDiscountType === "percentage" || rawDiscountType === "percent" || rawDiscountType === "%"
+    rawDiscountType === "percentage" ||
+    rawDiscountType === "percent" ||
+    rawDiscountType === "%"
       ? "percentage"
-      : rawDiscountType === "fixed" || rawDiscountType === "flat" || rawDiscountType === "amount"
+      : rawDiscountType === "fixed" ||
+          rawDiscountType === "flat" ||
+          rawDiscountType === "amount"
         ? "fixed"
         : "";
 
   const parsedDiscountValue = Number(input.discountValue);
-  const discountValue = Number.isFinite(parsedDiscountValue) && parsedDiscountValue > 0 ? parsedDiscountValue : 0;
+  const discountValue =
+    Number.isFinite(parsedDiscountValue) && parsedDiscountValue > 0
+      ? parsedDiscountValue
+      : 0;
 
   const parsedExplicitDiscountAmount = Number(input.discountAmount);
-  const explicitDiscountAmount = Number.isFinite(parsedExplicitDiscountAmount) && parsedExplicitDiscountAmount > 0
-    ? parsedExplicitDiscountAmount
-    : 0;
+  const explicitDiscountAmount =
+    Number.isFinite(parsedExplicitDiscountAmount) &&
+    parsedExplicitDiscountAmount > 0
+      ? parsedExplicitDiscountAmount
+      : 0;
 
   let discountAmount = 0;
   if (discountType === "percentage" && discountValue > 0) {
@@ -239,31 +298,75 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
   const taxableAmount = roundToTwo(Math.max(0, subtotal - discountAmount));
 
   const parsedTaxPercent = Number(input.taxPercent);
-  const taxPercent = Number.isFinite(parsedTaxPercent) && parsedTaxPercent >= 0 ? parsedTaxPercent : 0;
+  let taxPercent =
+    Number.isFinite(parsedTaxPercent) && parsedTaxPercent >= 0
+      ? parsedTaxPercent
+      : 0;
 
-  const parsedExplicitTaxAmount = Number(input.taxAmount);
-  const explicitTaxAmount = Number.isFinite(parsedExplicitTaxAmount) && parsedExplicitTaxAmount >= 0
-    ? parsedExplicitTaxAmount
-    : 0;
-
-  let taxAmount = 0;
-  if (taxPercent > 0) {
-    taxAmount = roundToTwo((taxableAmount * taxPercent) / 100);
-  } else if (explicitTaxAmount > 0) {
-    taxAmount = roundToTwo(explicitTaxAmount);
+  // Auto-detect tax rate from line items if document-level taxPercent was not explicitly provided (or is 0)
+  if (taxPercent === 0 && items.length > 0) {
+    const itemWithTax = items.find((it: any) => {
+      const rate = Number(
+        it?.taxRate ??
+          it?.tax_rate ??
+          it?.taxPercent ??
+          it?.tax_percent ??
+          it?.salesTaxRate ??
+          it?.sales_tax_rate,
+      );
+      return Number.isFinite(rate) && rate > 0;
+    });
+    if (itemWithTax) {
+      const detectedRate = Number(
+        (itemWithTax as any).taxRate ??
+          (itemWithTax as any).tax_rate ??
+          (itemWithTax as any).taxPercent ??
+          (itemWithTax as any).tax_percent ??
+          (itemWithTax as any).salesTaxRate ??
+          (itemWithTax as any).sales_tax_rate,
+      );
+      if (detectedRate > 0) {
+        taxPercent = detectedRate;
+      }
+    }
   }
 
   const parsedShipping = Number(input.shippingCharges);
-  const shippingCharges = Number.isFinite(parsedShipping) && parsedShipping > 0
-    ? roundToTwo(parsedShipping)
-    : 0;
+  const shippingCharges =
+    Number.isFinite(parsedShipping) && parsedShipping > 0
+      ? roundToTwo(parsedShipping)
+      : 0;
 
-  const parsedPackaging = Number(input.packagingCharges ?? input.packingCharges);
-  const packagingCharges = Number.isFinite(parsedPackaging) && parsedPackaging > 0
-    ? roundToTwo(parsedPackaging)
-    : 0;
+  const parsedPackaging = Number(
+    input.packagingCharges ?? input.packingCharges,
+  );
+  const packagingCharges =
+    Number.isFinite(parsedPackaging) && parsedPackaging > 0
+      ? roundToTwo(parsedPackaging)
+      : 0;
 
-  const preRoundTotal = taxableAmount + taxAmount + shippingCharges + packagingCharges;
+  const totalCharges = roundToTwo(shippingCharges + packagingCharges);
+
+  const parsedExplicitTaxAmount = Number(input.taxAmount);
+  const explicitTaxAmount =
+    Number.isFinite(parsedExplicitTaxAmount) && parsedExplicitTaxAmount > 0
+      ? parsedExplicitTaxAmount
+      : 0;
+
+  let taxAmount = 0;
+  if (taxPercent > 0) {
+    const taxableBase = input.taxOnCharges
+      ? roundToTwo(taxableAmount + totalCharges)
+      : taxableAmount;
+    taxAmount = roundToTwo((taxableBase * taxPercent) / 100);
+  } else if (explicitTaxAmount > 0) {
+    taxAmount = roundToTwo(explicitTaxAmount);
+    if (taxableAmount > 0 && taxPercent === 0) {
+      taxPercent = roundToTwo((explicitTaxAmount / taxableAmount) * 100);
+    }
+  }
+
+  const preRoundTotal = taxableAmount + taxAmount + totalCharges;
 
   let adjustment = 0;
   if (input.autoRoundOff) {
@@ -277,9 +380,7 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
       : 0;
   }
 
-  const calculatedTotal = roundToTwo(
-    Math.max(0, preRoundTotal + adjustment)
-  );
+  const calculatedTotal = roundToTwo(Math.max(0, preRoundTotal + adjustment));
 
   return {
     subtotal,
@@ -328,8 +429,13 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
   const discountAmount = doc.discountAmount ?? doc.discount_amount;
   const taxPercent = doc.taxPercent ?? doc.tax_percent;
   const taxAmount = doc.taxAmount ?? doc.tax_amount;
+  const taxOnCharges = doc.taxOnCharges ?? doc.tax_on_charges;
   const shippingCharges = doc.shippingCharges ?? doc.shipping_charges;
-  const packagingCharges = doc.packagingCharges ?? doc.packaging_charges ?? doc.packingCharges ?? doc.packing_charges;
+  const packagingCharges =
+    doc.packagingCharges ??
+    doc.packaging_charges ??
+    doc.packingCharges ??
+    doc.packing_charges;
   const adjustment = doc.adjustment ?? doc.roundOff ?? doc.round_off;
   const manualAmount = doc.subtotal ?? doc.amount;
 
@@ -341,6 +447,7 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
     discountAmount,
     taxPercent,
     taxAmount,
+    taxOnCharges,
     shippingCharges,
     packagingCharges,
     adjustment,
@@ -349,7 +456,9 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
   });
 }
 
-export function calculateInvoiceOutstandingAmount(invoice: InvoiceBalanceSource): number {
+export function calculateInvoiceOutstandingAmount(
+  invoice: InvoiceBalanceSource,
+): number {
   const explicitBalance = [
     invoice.remainingAmount,
     invoice.outstandingAmount,
@@ -363,7 +472,9 @@ export function calculateInvoiceOutstandingAmount(invoice: InvoiceBalanceSource)
   const applications =
     invoice.creditNoteApplications || invoice.credit_note_applications || [];
   const applied = applications.reduce((sum, application) => {
-    const amount = Number(application.amountApplied ?? application.amount_applied ?? 0);
+    const amount = Number(
+      application.amountApplied ?? application.amount_applied ?? 0,
+    );
     return sum + (Number.isFinite(amount) ? amount : 0);
   }, 0);
   const total = Number(invoice.amount);
@@ -386,7 +497,8 @@ export function validateFinancialDocumentDates(
 
   if (endDate === undefined) return null;
   const endTimestamp = parseDocumentDate(endDate);
-  if (endTimestamp === null) return `A valid ${endDateLabel.toLowerCase()} is required.`;
+  if (endTimestamp === null)
+    return `A valid ${endDateLabel.toLowerCase()} is required.`;
   if (endTimestamp < issueTimestamp) {
     return `${endDateLabel} cannot be before the issue date.`;
   }
@@ -399,18 +511,25 @@ export function buildInvoiceFromEstimate(
   options: { invoiceNumber: string; date: string; dueDate: string },
 ): InvoicePayload {
   const estimateNumber = source.estimateNumber?.trim();
-  if (!estimateNumber) throw new Error("The estimate number is required for conversion.");
+  if (!estimateNumber)
+    throw new Error("The estimate number is required for conversion.");
 
   const customerId = source.customerId?.trim();
-  if (!customerId) throw new Error("Select a customer before converting this estimate.");
+  if (!customerId)
+    throw new Error("Select a customer before converting this estimate.");
 
   const invoiceNumber = options.invoiceNumber?.trim();
-  if (!invoiceNumber) throw new Error("An invoice number is required for conversion.");
+  if (!invoiceNumber)
+    throw new Error("An invoice number is required for conversion.");
 
   const lineItemError = validateFinancialLineItems(source.items);
   if (lineItemError) throw new Error(lineItemError);
 
-  const dateError = validateFinancialDocumentDates(options.date, options.dueDate, "Due date");
+  const dateError = validateFinancialDocumentDates(
+    options.date,
+    options.dueDate,
+    "Due date",
+  );
   if (dateError) throw new Error(dateError);
 
   if (!Number.isFinite(source.amount) || source.amount < 0) {
@@ -439,7 +558,9 @@ export function buildInvoiceFromEstimate(
     packagingCharges: source.packagingCharges,
     adjustment: source.adjustment,
     roundOff: source.roundOff,
-    notes: originalNotes ? `${conversionNote}\n\n${originalNotes}` : conversionNote,
+    notes: originalNotes
+      ? `${conversionNote}\n\n${originalNotes}`
+      : conversionNote,
     termsConditions: source.termsConditions,
     taxPercent: source.taxPercent,
     taxAmount: source.taxAmount,
@@ -480,4 +601,3 @@ export function getNextDocumentNumber(
 
   return `${selectedPrefix}${String(largest + 1).padStart(padding, "0")}`;
 }
-

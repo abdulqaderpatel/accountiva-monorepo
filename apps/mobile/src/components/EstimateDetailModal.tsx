@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
 import { X, Share2, CircleCheck, CircleX, Users, Calculator, ArrowRight, Trash, Pencil, Mail } from 'lucide-react-native';
@@ -165,10 +166,14 @@ export function EstimateDetailModal({
             );
           }
         } catch (err: any) {
-          toast.error(
-            'Conversion Failed',
-            err.response?.data?.error || err.response?.data?.message || err?.message || 'Failed to convert quote to invoice',
-          );
+          const rawError =
+            err.response?.data?.error ||
+            err.response?.data?.message ||
+            (typeof err.response?.data === 'string' && err.response.data.trim() ? err.response.data.trim() : null) ||
+            err?.message ||
+            'Failed to convert quote to invoice';
+          const displayError = typeof rawError === 'object' ? JSON.stringify(rawError) : String(rawError);
+          toast.error('Conversion Failed', displayError);
         } finally {
           setIsConverting(false);
         }
@@ -398,17 +403,22 @@ export function EstimateDetailModal({
                 </TouchableOpacity>
               )}
 
-              {isAccepted ? (
+              {!isInvoiced ? (
                 <TouchableOpacity
                   onPress={handleConvert}
                   disabled={isConverting}
                   style={[styles.actionBtnPrimary, { backgroundColor: colors.primary }]}
                   activeOpacity={0.8}
                 >
+                  {isConverting ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} style={{ marginRight: 6 }} />
+                  ) : null}
                   <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
                     {isConverting ? 'Converting...' : 'Convert to Invoice'}
                   </Text>
-                  <ArrowRight size={15} color={colors.primaryForeground} style={{ marginLeft: 6 }} />
+                  {!isConverting && (
+                    <ArrowRight size={15} color={colors.primaryForeground} style={{ marginLeft: 6 }} />
+                  )}
                 </TouchableOpacity>
               ) : null}
             </View>

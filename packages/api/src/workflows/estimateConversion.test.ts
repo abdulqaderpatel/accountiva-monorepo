@@ -2,15 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { convertEstimateToInvoice, type EstimateConversionDependencies } from "./estimateConversion";
 
+const validCatalogItemId = "c0000000-0000-0000-0000-000000000001";
+const validCustomerId = "d0000000-0000-0000-0000-000000000001";
+
 const input = {
   estimateId: "estimate-1",
   estimate: {
     estimateNumber: "EST-0001",
-    customerId: "customer-1",
+    customerId: validCustomerId,
     amount: 100,
     items: [
       {
-        itemId: "item-1",
+        itemId: validCatalogItemId,
         itemName: "Consulting",
         quantity: 1,
         rate: 100,
@@ -43,7 +46,7 @@ describe("convertEstimateToInvoice", () => {
         order.push("create");
         expect(payload).toMatchObject({
           invoiceNumber: "INV-0008",
-          customerId: "customer-1",
+          customerId: validCustomerId,
           status: "Draft",
         });
         return { id: "invoice-8", invoiceNumber: "INV-0008" };
@@ -89,7 +92,7 @@ describe("convertEstimateToInvoice", () => {
       estimateId: "estimate-mobile",
       estimate: {
         number: "EST-MOBILE-1",
-        customers: { id: "customer-mobile", name: "Mobile Customer" },
+        customers: { id: validCustomerId, name: "Mobile Customer" },
         amount: 236,
         taxPercent: 18,
         taxAmount: 36,
@@ -97,7 +100,7 @@ describe("convertEstimateToInvoice", () => {
         items: [
           {
             id: "line-mobile",
-            itemId: "item-mobile",
+            itemId: validCatalogItemId,
             name: "Mobile service",
             description: "Native line description",
             quantity: 2,
@@ -114,7 +117,7 @@ describe("convertEstimateToInvoice", () => {
 
     expect(deps.createInvoice).toHaveBeenCalledWith(expect.objectContaining({
       invoiceNumber: "INV-0008",
-      customerId: "customer-mobile",
+      customerId: validCustomerId,
       date: "2026-10-22",
       dueDate: "2026-11-21",
       amount: 236,
@@ -123,7 +126,7 @@ describe("convertEstimateToInvoice", () => {
       items: [
         expect.objectContaining({
           id: "line-mobile",
-          itemId: "item-mobile",
+          itemId: validCatalogItemId,
           itemName: "Mobile service",
           description: "Native line description",
           quantity: 2,
@@ -132,5 +135,84 @@ describe("convertEstimateToInvoice", () => {
         }),
       ],
     }));
+  });
+
+  it("sanitizes ad-hoc non-UUID item IDs so backend does not reject them", async () => {
+    const deps = dependencies();
+    const customItemInput = {
+      estimateId: "estimate-custom",
+      estimate: {
+        number: "EST-CUSTOM-1",
+        customerId: validCustomerId,
+        amount: 150,
+        items: [
+          {
+            id: "custom-1729000000000",
+            itemId: "custom-1729000000000", // Non-UUID custom id
+            name: "Custom Service Item",
+            quantity: 1,
+            rate: 150,
+            amount: 150,
+          },
+        ],
+      },
+      invoiceDate: "2026-10-22",
+      dueDate: "2026-11-21",
+    };
+
+    await convertEstimateToInvoice(customItemInput, deps);
+
+    expect(deps.createInvoice).toHaveBeenCalledWith(expect.objectContaining({
+      items: [
+        expect.objectContaining({
+          itemId: undefined,
+          itemName: "Custom Service Item",
+          quantity: 1,
+          rate: 150,
+          amount: 150,
+        }),
+      ],
+    }));
+  });
+
+  it("falls back to fetching full estimate from API if customerId is missing from input", async () => {
+    const fetchEstimate = vi.fn().mockResolvedValue({
+      id: "estimate-remote",
+      estimateNumber: "EST-REMOTE-1",
+      customerId: validCustomerId,
+      amount: 500,
+      items: [
+        {
+          id: "item-remote",
+          itemId: validCatalogItemId,
+          itemName: "Remote Line Item",
+          quantity: 1,
+          rate: 500,
+          amount: 500,
+        },
+      ],
+    });
+
+    const deps = dependencies({ fetchEstimate });
+    const missingCustomerInput = {
+      estimateId: "estimate-remote",
+      estimate: {
+        number: "EST-REMOTE-1",
+        // customerId intentionally missing
+        amount: 500,
+        items: [],
+      },
+      invoiceDate: "2026-10-22",
+      dueDate: "2026-11-21",
+    };
+
+    const result = await convertEstimateToInvoice(missingCustomerInput, deps);
+
+    expect(fetchEstimate).toHaveBeenCalledWith("estimate-remote");
+    expect(deps.createInvoice).toHaveBeenCalledWith(expect.objectContaining({
+      customerId: validCustomerId,
+      amount: 500,
+    }));
+    expect(result.status).toBe("complete");
   });
 });

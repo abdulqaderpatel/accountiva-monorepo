@@ -58,11 +58,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentOrgState((prev) => {
           if (!prev) {
             setActiveOrganizationId(list[0].id);
+            AsyncStorage.setItem('accountiva_org_id', list[0].id).catch(() => {});
+            AsyncStorage.setItem('accountiva_current_org', JSON.stringify(list[0])).catch(() => {});
             return list[0];
           }
           const matched = list.find((o: any) => o.id === prev.id);
           const chosen = matched || list[0];
           setActiveOrganizationId(chosen.id);
+          AsyncStorage.setItem('accountiva_org_id', chosen.id).catch(() => {});
+          AsyncStorage.setItem('accountiva_current_org', JSON.stringify(chosen)).catch(() => {});
           return chosen;
         });
       } else {

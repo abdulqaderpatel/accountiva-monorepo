@@ -1,3 +1,7 @@
+export const isUuid = (value: unknown): value is string =>
+  typeof value === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+
 export const INVOICE_STATUSES = ["Draft", "Outstanding", "Paid"] as const;
 export const ESTIMATE_STATUSES = [
   "Draft",
@@ -432,7 +436,9 @@ export function buildInvoiceFromEstimate(
     discountValue: source.discountValue,
     discountAmount: source.discountAmount,
     shippingCharges: source.shippingCharges,
+    packagingCharges: source.packagingCharges,
     adjustment: source.adjustment,
+    roundOff: source.roundOff,
     notes: originalNotes ? `${conversionNote}\n\n${originalNotes}` : conversionNote,
     termsConditions: source.termsConditions,
     taxPercent: source.taxPercent,

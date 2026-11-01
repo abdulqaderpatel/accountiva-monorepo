@@ -31,6 +31,11 @@ export async function fetchNextEstimateNumber(): Promise<string> {
   return readNextNumber(data);
 }
 
+export async function fetchEstimate(id: string): Promise<EstimateRecord> {
+  const { data } = await api.get(`/estimates/${id}`);
+  return data;
+}
+
 export async function createEstimate(payload: EstimatePayload): Promise<EstimateRecord> {
   const { data } = await api.post('/estimates', payload);
   return data;

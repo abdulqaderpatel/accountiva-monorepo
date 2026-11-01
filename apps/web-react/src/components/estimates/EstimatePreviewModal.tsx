@@ -7,7 +7,12 @@ import {
   Settings2,
   Bookmark as BookmarkIcon,
   Check,
+  ArrowRight,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { convertEstimateToInvoice } from "@accountiva/api";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -38,6 +43,9 @@ export function EstimatePreviewModal({
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("standard");
   const [settings, setSettings] = useState<TemplateSettings>(defaultTemplateSettings);
   const [isSendOpen, setIsSendOpen] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
@@ -74,6 +82,63 @@ export function EstimatePreviewModal({
       ...prev,
       [key]: !prev[key],
     }));
+  };
+
+  const handleConvertEstimate = async () => {
+    if (!estimate) return;
+    setIsConverting(true);
+    try {
+      const invoiceDate = new Date().toISOString().split("T")[0];
+      const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+
+      const result = await convertEstimateToInvoice({
+        estimateId: estimate.id,
+        estimate,
+        invoiceDate,
+        dueDate,
+      });
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["estimates"] }),
+        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
+      ]);
+
+      if (result.status === "complete") {
+        toast.success(`Estimate converted to Invoice ${result.invoiceNumber}!`, {
+          description: "Draft invoice created and estimate marked as Invoiced.",
+          action: {
+            label: "View Invoices",
+            onClick: () => navigate({ to: "/invoices" }),
+          },
+        });
+        onSuccess?.();
+        onClose();
+        navigate({ to: "/invoices" });
+      } else {
+        const statusError = result.error as any;
+        const reason =
+          statusError?.response?.data?.message ||
+          statusError?.response?.data?.error ||
+          statusError?.message ||
+          "The estimate status could not be updated.";
+        toast.warning(`Invoice ${result.invoiceNumber} was created`, {
+          description: `${reason} The estimate still needs status recovery.`,
+        });
+        onClose();
+      }
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          err.response?.data?.error ||
+          (typeof err.response?.data === "string" ? err.response.data : null) ||
+          err.message ||
+          "Failed to convert estimate to invoice",
+      );
+    } finally {
+      setIsConverting(false);
+    }
   };
 
   return (
@@ -225,6 +290,19 @@ export function EstimatePreviewModal({
             </div>
 
             <div className="flex items-center gap-2">
+              {String(estimate.status || "").toLowerCase() !== "invoiced" && (
+                <Button
+                  size="sm"
+                  onClick={handleConvertEstimate}
+                  disabled={isConverting}
+                  loading={isConverting}
+                  className="gap-1.5 text-xs font-semibold h-8 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
+                >
+                  <ArrowRight className="size-3.5" />
+                  <span>Convert to Invoice</span>
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"

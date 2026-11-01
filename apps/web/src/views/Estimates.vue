@@ -172,7 +172,7 @@ const newEstimate = ref<Omit<Estimate, "id">>({
   roundOff: 0,
   notes: "",
   termsConditions: "",
-  taxPercent: 0,
+  taxPercent: 18,
   taxAmount: 0,
   customFields: {},
 });
@@ -246,8 +246,8 @@ const startEditEstimate = async (estimate: Estimate) => {
     roundOff: (source as any).roundOff ?? source.adjustment ?? 0,
     notes: source.notes || "",
     termsConditions: source.termsConditions || "",
-    taxPercent: source.taxPercent || 0,
-    taxAmount: source.taxAmount || 0,
+    taxPercent: Number(source.taxPercent ?? (source as any).tax_percent) || 0,
+    taxAmount: Number(source.taxAmount ?? (source as any).tax_amount) || 0,
     customFields: source.customFields ? { ...source.customFields } : {},
   };
 
@@ -286,8 +286,8 @@ const startEditEstimate = async (estimate: Estimate) => {
       roundOff: (details as any).roundOff ?? details.adjustment ?? 0,
       notes: details.notes || "",
       termsConditions: details.termsConditions || "",
-      taxPercent: details.taxPercent || 0,
-      taxAmount: details.taxAmount || 0,
+      taxPercent: Number(details.taxPercent ?? (details as any).tax_percent) || 0,
+      taxAmount: Number(details.taxAmount ?? (details as any).tax_amount) || 0,
       customFields: details.customFields ? { ...details.customFields } : (estimate.customFields || {}),
     };
   } catch (err) {
@@ -326,7 +326,7 @@ const resetEstimateForm = () => {
     roundOff: 0,
     notes: "",
     termsConditions: "",
-    taxPercent: 0,
+    taxPercent: 18,
     taxAmount: 0,
     customFields: {},
   };

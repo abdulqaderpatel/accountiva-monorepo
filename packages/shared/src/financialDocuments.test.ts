@@ -295,6 +295,98 @@ describe("calculateDocumentTotals", () => {
     expect(result.taxAmount).toBe(810);
     expect(result.total).toBe(5410);
   });
+
+  it("calculates GST accurately on basic amount without charges", () => {
+    // ProBake Oven: 1 x 119,000 = 119,000
+    // Classic Bakeware: 1 x 6,000 = 6,000
+    // Subtotal = 125,000
+    // Discount = 500
+    // Basic taxable amount = 124,500
+    // GST (18%) = 124,500 * 0.18 = 22,410
+    // Adjustment = 250
+    // Total = 124,500 + 22,410 + 250 = 147,160
+    const result = calculateDocumentTotals({
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discountType: "fixed",
+      discountValue: 500,
+      taxPercent: 18,
+      adjustment: 250,
+    });
+
+    expect(result.subtotal).toBe(125000);
+    expect(result.discountAmount).toBe(500);
+    expect(result.taxableAmount).toBe(124500);
+    expect(result.taxPercent).toBe(18);
+    expect(result.taxAmount).toBe(22410);
+    expect(result.shippingCharges).toBe(0);
+    expect(result.packagingCharges).toBe(0);
+    expect(result.adjustment).toBe(250);
+    expect(result.total).toBe(147160);
+  });
+
+  it("calculates GST on basic amount when charges are added (without taxing charges)", () => {
+    // Basic taxable amount = 124,500
+    // GST (18%) on basic amount = 22,410
+    // Shipping = 1,500, Packaging = 500
+    // Total = 124,500 + 22,410 + 1,500 + 500 = 148,910
+    const result = calculateDocumentTotals({
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discountType: "fixed",
+      discountValue: 500,
+      taxPercent: 18,
+      shippingCharges: 1500,
+      packagingCharges: 500,
+      taxOnCharges: false,
+    });
+
+    expect(result.subtotal).toBe(125000);
+    expect(result.taxableAmount).toBe(124500);
+    expect(result.taxAmount).toBe(22410);
+    expect(result.shippingCharges).toBe(1500);
+    expect(result.packagingCharges).toBe(500);
+    expect(result.total).toBe(148910);
+  });
+
+  it("calculates GST with charges included when taxOnCharges is enabled", () => {
+    // Basic taxable = 124,500, Charges = 1,500 + 500 = 2,000
+    // Taxable base with charges = 126,500
+    // GST (18%) = 126,500 * 0.18 = 22,770
+    // Total = 126,500 + 22,770 = 149,270
+    const result = calculateDocumentTotals({
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discountType: "fixed",
+      discountValue: 500,
+      taxPercent: 18,
+      shippingCharges: 1500,
+      packagingCharges: 500,
+      taxOnCharges: true,
+    });
+
+    expect(result.taxableAmount).toBe(124500);
+    expect(result.taxAmount).toBe(22770);
+    expect(result.total).toBe(149270);
+  });
+
+  it("auto-detects GST rate from line items when document-level taxPercent is omitted", () => {
+    const result = calculateDocumentTotals({
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 10000, amount: 10000, taxRate: 18 },
+      ],
+    });
+
+    expect(result.taxPercent).toBe(18);
+    expect(result.taxAmount).toBe(1800);
+    expect(result.total).toBe(11800);
+  });
 });
 
 describe("getDocumentSummaryDetails", () => {
@@ -321,6 +413,27 @@ describe("getDocumentSummaryDetails", () => {
     expect(summary.adjustment).toBe(-10);
     expect(summary.roundOff).toBe(-10);
     expect(summary.total).toBe(2402);
+  });
+
+  it("calculates GST from tax_percent on basic amount even if tax_amount in DB is null or 0", () => {
+    const doc = {
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discount_amount: 500,
+      tax_percent: "18",
+      tax_amount: null,
+      adjustment: 250,
+    };
+
+    const summary = getDocumentSummaryDetails(doc);
+    expect(summary.subtotal).toBe(125000);
+    expect(summary.discountAmount).toBe(500);
+    expect(summary.taxableAmount).toBe(124500);
+    expect(summary.taxPercent).toBe(18);
+    expect(summary.taxAmount).toBe(22410);
+    expect(summary.total).toBe(147160);
   });
 
   it("calculates packaging charges and auto round-off accurately", () => {

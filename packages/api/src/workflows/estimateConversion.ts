@@ -162,9 +162,9 @@ export function normalizeEstimate(source: EstimateConversionSource | EstimateCon
     adjustment,
   });
 
-  const finalAmount = Number.isFinite(Number(source.amount)) && Number(source.amount) > 0
-    ? Number(source.amount)
-    : totals.total;
+  const finalAmount = items.length > 0 && totals.total > 0
+    ? totals.total
+    : (Number.isFinite(Number(source.amount)) && Number(source.amount) > 0 ? Number(source.amount) : totals.total);
 
   return {
     estimateNumber: source.estimateNumber || record.number || rawSource.estimate_number || "",

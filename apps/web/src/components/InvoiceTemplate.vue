@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatCurrency, formatDate, getInvoiceStatusInfo } from '@/utils/formatters';
+import { getDocumentSummaryDetails } from '@accountiva/shared';
 
 interface InvoiceItem {
   id: string;
@@ -103,54 +104,17 @@ const invoiceItems = computed(() => {
   ];
 });
 
-const subtotal = computed(() => {
-  return invoiceItems.value.reduce((acc, item) => acc + Number(item.amount), 0);
-});
+const summary = computed(() => getDocumentSummaryDetails(props.invoice));
 
-const tax = computed(() => {
-  if (props.invoice.taxAmount !== undefined && props.invoice.taxAmount !== null && Number(props.invoice.taxAmount) > 0) {
-    return Number(props.invoice.taxAmount);
-  }
-  if (props.invoice.taxPercent !== undefined && props.invoice.taxPercent !== null && Number(props.invoice.taxPercent) > 0) {
-    return (subtotal.value * Number(props.invoice.taxPercent)) / 100;
-  }
-  if (props.invoice.amount !== undefined && Number(props.invoice.amount) > subtotal.value) {
-    return Number(props.invoice.amount) - subtotal.value;
-  }
-  return 0;
-});
-
-const discount = computed(() => {
-  if (props.invoice.discountAmount !== undefined && props.invoice.discountAmount !== null && Number(props.invoice.discountAmount) > 0) {
-    return Number(props.invoice.discountAmount);
-  }
-  if (props.invoice.discountType === 'percentage' && props.invoice.discountValue !== undefined && Number(props.invoice.discountValue) > 0) {
-    return (subtotal.value * Number(props.invoice.discountValue)) / 100;
-  }
-  if (props.invoice.discountType === 'fixed' && props.invoice.discountValue !== undefined && Number(props.invoice.discountValue) > 0) {
-    return Number(props.invoice.discountValue);
-  }
-  return 0;
-});
-
-const shipping = computed(() => {
-  return Number((props.invoice as any).shippingCharges || (props.invoice as any).shipping_charges) || 0;
-});
-
-const packaging = computed(() => {
-  return Number((props.invoice as any).packagingCharges || (props.invoice as any).packaging_charges) || 0;
-});
-
-const roundOff = computed(() => {
-  return Number((props.invoice as any).roundOff || (props.invoice as any).adjustment) || 0;
-});
-
-const total = computed(() => {
-  if (props.invoice.amount !== undefined && props.invoice.amount !== null && Number(props.invoice.amount) > 0) {
-    return Number(props.invoice.amount);
-  }
-  return subtotal.value - discount.value + tax.value + shipping.value + packaging.value + roundOff.value;
-});
+const subtotal = computed(() => summary.value.subtotal);
+const discount = computed(() => summary.value.discountAmount);
+const taxableAmount = computed(() => summary.value.taxableAmount);
+const tax = computed(() => summary.value.taxAmount);
+const taxPercent = computed(() => summary.value.taxPercent);
+const shipping = computed(() => summary.value.shippingCharges);
+const packaging = computed(() => summary.value.packagingCharges);
+const roundOff = computed(() => summary.value.roundOff || summary.value.adjustment);
+const total = computed(() => summary.value.total);
 const documentLogoUrl = computed(() =>
   props.organization?.large_logo_url || props.organization?.logo_url,
 );
@@ -244,12 +208,16 @@ const printableCustomFields = computed(() => {
           </div>
           <div v-if="discount > 0" class="flex justify-between text-xs">
             <span class="text-slate-400 font-bold uppercase tracking-wider">
-              Discount<template v-if="invoice.discountType === 'percentage' && invoice.discountValue"> ({{ invoice.discountValue }}%)</template>
+              Discount<template v-if="summary.discountType === 'percentage' && summary.discountValue"> ({{ summary.discountValue }}%)</template>
             </span>
             <span class="text-slate-700 font-bold">- {{ formatCurrency(discount) }}</span>
           </div>
-          <div v-if="settings.showTax" class="flex justify-between text-xs">
-            <span class="text-slate-400 font-bold uppercase tracking-wider">GST (18%)</span>
+          <div v-if="discount > 0 && tax > 0" class="flex justify-between text-xs text-slate-400">
+            <span class="font-semibold uppercase tracking-wider text-[10px]">Taxable Amount</span>
+            <span class="font-mono text-slate-600 font-semibold">{{ formatCurrency(taxableAmount) }}</span>
+          </div>
+          <div v-if="settings.showTax && (tax > 0 || taxPercent > 0)" class="flex justify-between text-xs">
+            <span class="text-slate-400 font-bold uppercase tracking-wider">GST {{ taxPercent > 0 ? `(${taxPercent}%)` : '' }}</span>
             <span class="text-slate-700 font-bold">{{ formatCurrency(tax) }}</span>
           </div>
           <div v-if="shipping > 0" class="flex justify-between text-xs">
@@ -417,11 +385,11 @@ const printableCustomFields = computed(() => {
              <span>{{ formatCurrency(subtotal) }}</span>
            </div>
            <div v-if="discount > 0" class="flex justify-between opacity-50">
-             <span>Discount<template v-if="invoice.discountType === 'percentage' && invoice.discountValue"> ({{ invoice.discountValue }}%)</template></span>
+             <span>Discount<template v-if="summary.discountType === 'percentage' && summary.discountValue"> ({{ summary.discountValue }}%)</template></span>
              <span>- {{ formatCurrency(discount) }}</span>
            </div>
-           <div v-if="settings.showTax" class="flex justify-between opacity-50">
-             <span>Tax</span>
+           <div v-if="settings.showTax && (tax > 0 || taxPercent > 0)" class="flex justify-between opacity-50">
+             <span>GST {{ taxPercent > 0 ? `(${taxPercent}%)` : '' }}</span>
              <span>{{ formatCurrency(tax) }}</span>
            </div>
            <div v-if="shipping > 0" class="flex justify-between opacity-50">
@@ -518,11 +486,11 @@ const printableCustomFields = computed(() => {
                 <span>{{ formatCurrency(subtotal) }}</span>
               </div>
               <div v-if="discount > 0" class="flex justify-between text-sm italic text-slate-500">
-                <span>Discount<template v-if="invoice.discountType === 'percentage' && invoice.discountValue"> ({{ invoice.discountValue }}%)</template></span>
+                <span>Discount<template v-if="summary.discountType === 'percentage' && summary.discountValue"> ({{ summary.discountValue }}%)</template></span>
                 <span>- {{ formatCurrency(discount) }}</span>
               </div>
-              <div v-if="settings.showTax" class="flex justify-between text-sm italic text-slate-500">
-                <span>Tax (GST 18%)</span>
+              <div v-if="settings.showTax && (tax > 0 || taxPercent > 0)" class="flex justify-between text-sm italic text-slate-500">
+                <span>GST {{ taxPercent > 0 ? `(${taxPercent}%)` : '' }}</span>
                 <span>{{ formatCurrency(tax) }}</span>
               </div>
               <div v-if="shipping > 0" class="flex justify-between text-sm italic text-slate-500">

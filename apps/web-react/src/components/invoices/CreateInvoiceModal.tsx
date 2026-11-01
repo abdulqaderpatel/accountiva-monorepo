@@ -51,6 +51,7 @@ interface InvoiceItemRow {
   quantity: number;
   rate: number;
   amount: number;
+  taxRate?: number;
 }
 
 interface CreateInvoiceModalProps {
@@ -215,9 +216,9 @@ export function CreateInvoiceModal({
         setShippingAddress(invoiceToEdit.shippingAddress || invoiceToEdit.customers?.shippingAddress || "");
         setDiscountType(invoiceToEdit.discountType || "");
         setDiscountValue(Number(invoiceToEdit.discountValue) || 0);
-        setTaxPercent(Number(invoiceToEdit.taxPercent) || 0);
-        setShippingCharges(Number(invoiceToEdit.shippingCharges) || 0);
-        setPackagingCharges(Number((invoiceToEdit as any).packagingCharges || (invoiceToEdit as any).packaging_charges) || 0);
+        setTaxPercent(Number(invoiceToEdit.taxPercent ?? invoiceToEdit.tax_percent) || 0);
+        setShippingCharges(Number(invoiceToEdit.shippingCharges ?? (invoiceToEdit as any).shipping_charges) || 0);
+        setPackagingCharges(Number((invoiceToEdit as any).packagingCharges ?? (invoiceToEdit as any).packaging_charges) || 0);
         setAutoRoundOff(editCalculationState.autoRoundOff);
         setRoundOff(editCalculationState.roundOff);
         setAdjustment(editCalculationState.roundOff);
@@ -345,6 +346,7 @@ export function CreateInvoiceModal({
   const addItemToInvoice = (catItem: any) => {
     setFormErrors((current) => ({ ...current, amount: undefined, items: undefined }));
     const rate = Number(catItem.sellingPrice) || Number(catItem.unitPrice) || 0;
+    const itemTaxRate = Number(catItem.salesTaxRate ?? catItem.taxRate ?? catItem.tax_rate) || 0;
     const existingIdx = items.findIndex((it) => it.itemId === catItem.id);
     if (existingIdx >= 0) {
       const updated = [...items];
@@ -361,8 +363,12 @@ export function CreateInvoiceModal({
           quantity: 1,
           rate,
           amount: rate,
+          taxRate: itemTaxRate,
         },
       ]);
+    }
+    if ((!taxPercent || taxPercent === 0) && itemTaxRate > 0) {
+      setTaxPercent(itemTaxRate);
     }
   };
 

@@ -159,6 +159,7 @@ export interface DocumentTotalsInput {
   discountAmount?: number | string | null;
   taxPercent?: number | string | null;
   taxAmount?: number | string | null;
+  taxOnCharges?: boolean | null;
   shippingCharges?: number | string | null;
   packagingCharges?: number | string | null;
   packingCharges?: number | string | null;
@@ -239,18 +240,20 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
   const taxableAmount = roundToTwo(Math.max(0, subtotal - discountAmount));
 
   const parsedTaxPercent = Number(input.taxPercent);
-  const taxPercent = Number.isFinite(parsedTaxPercent) && parsedTaxPercent >= 0 ? parsedTaxPercent : 0;
+  let taxPercent = Number.isFinite(parsedTaxPercent) && parsedTaxPercent >= 0 ? parsedTaxPercent : 0;
 
-  const parsedExplicitTaxAmount = Number(input.taxAmount);
-  const explicitTaxAmount = Number.isFinite(parsedExplicitTaxAmount) && parsedExplicitTaxAmount >= 0
-    ? parsedExplicitTaxAmount
-    : 0;
-
-  let taxAmount = 0;
-  if (taxPercent > 0) {
-    taxAmount = roundToTwo((taxableAmount * taxPercent) / 100);
-  } else if (explicitTaxAmount > 0) {
-    taxAmount = roundToTwo(explicitTaxAmount);
+  // Auto-detect tax rate from line items if document-level taxPercent was not explicitly provided (or is 0)
+  if (taxPercent === 0 && items.length > 0) {
+    const itemWithTax = items.find((it: any) => {
+      const rate = Number(it?.taxRate ?? it?.tax_rate ?? it?.taxPercent ?? it?.tax_percent ?? it?.salesTaxRate ?? it?.sales_tax_rate);
+      return Number.isFinite(rate) && rate > 0;
+    });
+    if (itemWithTax) {
+      const detectedRate = Number((itemWithTax as any).taxRate ?? (itemWithTax as any).tax_rate ?? (itemWithTax as any).taxPercent ?? (itemWithTax as any).tax_percent ?? (itemWithTax as any).salesTaxRate ?? (itemWithTax as any).sales_tax_rate);
+      if (detectedRate > 0) {
+        taxPercent = detectedRate;
+      }
+    }
   }
 
   const parsedShipping = Number(input.shippingCharges);
@@ -263,7 +266,25 @@ export function calculateDocumentTotals(input: DocumentTotalsInput): DocumentTot
     ? roundToTwo(parsedPackaging)
     : 0;
 
-  const preRoundTotal = taxableAmount + taxAmount + shippingCharges + packagingCharges;
+  const totalCharges = roundToTwo(shippingCharges + packagingCharges);
+
+  const parsedExplicitTaxAmount = Number(input.taxAmount);
+  const explicitTaxAmount = Number.isFinite(parsedExplicitTaxAmount) && parsedExplicitTaxAmount > 0
+    ? parsedExplicitTaxAmount
+    : 0;
+
+  let taxAmount = 0;
+  if (taxPercent > 0) {
+    const taxableBase = input.taxOnCharges ? roundToTwo(taxableAmount + totalCharges) : taxableAmount;
+    taxAmount = roundToTwo((taxableBase * taxPercent) / 100);
+  } else if (explicitTaxAmount > 0) {
+    taxAmount = roundToTwo(explicitTaxAmount);
+    if (taxableAmount > 0 && taxPercent === 0) {
+      taxPercent = roundToTwo((explicitTaxAmount / taxableAmount) * 100);
+    }
+  }
+
+  const preRoundTotal = taxableAmount + taxAmount + totalCharges;
 
   let adjustment = 0;
   if (input.autoRoundOff) {
@@ -328,6 +349,7 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
   const discountAmount = doc.discountAmount ?? doc.discount_amount;
   const taxPercent = doc.taxPercent ?? doc.tax_percent;
   const taxAmount = doc.taxAmount ?? doc.tax_amount;
+  const taxOnCharges = doc.taxOnCharges ?? doc.tax_on_charges;
   const shippingCharges = doc.shippingCharges ?? doc.shipping_charges;
   const packagingCharges = doc.packagingCharges ?? doc.packaging_charges ?? doc.packingCharges ?? doc.packing_charges;
   const adjustment = doc.adjustment ?? doc.roundOff ?? doc.round_off;
@@ -341,6 +363,7 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
     discountAmount,
     taxPercent,
     taxAmount,
+    taxOnCharges,
     shippingCharges,
     packagingCharges,
     adjustment,

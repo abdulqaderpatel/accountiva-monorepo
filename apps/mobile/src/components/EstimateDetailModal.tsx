@@ -169,6 +169,8 @@ export function EstimateDetailModal({
           const rawError =
             err.response?.data?.error ||
             err.response?.data?.message ||
+            (Array.isArray(err.response?.data?.errors) ? err.response.data.errors.join(', ') : null) ||
+            err.response?.data?.details ||
             (typeof err.response?.data === 'string' && err.response.data.trim() ? err.response.data.trim() : null) ||
             err?.message ||
             'Failed to convert quote to invoice';

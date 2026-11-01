@@ -48,6 +48,7 @@ interface EstimateItemRow {
   quantity: number;
   rate: number;
   amount: number;
+  taxRate?: number;
 }
 
 interface CreateEstimateModalProps {
@@ -197,9 +198,9 @@ export function CreateEstimateModal({
         setShippingAddress(estimateToEdit.shippingAddress || estimateToEdit.customers?.shippingAddress || "");
         setDiscountType(estimateToEdit.discountType || "");
         setDiscountValue(Number(estimateToEdit.discountValue) || 0);
-        setTaxPercent(Number(estimateToEdit.taxPercent) || 0);
-        setShippingCharges(Number(estimateToEdit.shippingCharges) || 0);
-        setPackagingCharges(Number((estimateToEdit as any).packagingCharges || (estimateToEdit as any).packaging_charges) || 0);
+        setTaxPercent(Number(estimateToEdit.taxPercent ?? estimateToEdit.tax_percent) || 0);
+        setShippingCharges(Number(estimateToEdit.shippingCharges ?? (estimateToEdit as any).shipping_charges) || 0);
+        setPackagingCharges(Number((estimateToEdit as any).packagingCharges ?? (estimateToEdit as any).packaging_charges) || 0);
         setRoundOff(Number((estimateToEdit as any).roundOff ?? estimateToEdit.adjustment) || 0);
         setAdjustment(Number((estimateToEdit as any).roundOff ?? estimateToEdit.adjustment) || 0);
         setCustomFields(estimateToEdit.customFields || estimateToEdit.custom_fields || {});
@@ -305,6 +306,7 @@ export function CreateEstimateModal({
   // Line item helpers
   const addItemToEstimate = (catItem: any) => {
     const rate = Number(catItem.sellingPrice) || Number(catItem.unitPrice) || 0;
+    const itemTaxRate = Number(catItem.salesTaxRate ?? catItem.taxRate ?? catItem.tax_rate) || 0;
     const existingIdx = items.findIndex((it) => it.itemId === catItem.id);
     if (existingIdx >= 0) {
       const updated = [...items];
@@ -321,8 +323,12 @@ export function CreateEstimateModal({
           quantity: 1,
           rate,
           amount: rate,
+          taxRate: itemTaxRate,
         },
       ]);
+    }
+    if ((!taxPercent || taxPercent === 0) && itemTaxRate > 0) {
+      setTaxPercent(itemTaxRate);
     }
   };
 

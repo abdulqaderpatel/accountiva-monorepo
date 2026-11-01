@@ -172,9 +172,12 @@ export function CreateEstimateModal({
       setEstimateNumber(initialEstimate.number || initialEstimate.estimateNumber || '');
       setDiscountValue(initialEstimate.discountValue != null ? String(initialEstimate.discountValue) : '');
       setDiscountType(initialEstimate.discountType === 'fixed' ? 'fixed' : 'percentage');
-      setTaxPercent(initialEstimate.taxPercent != null ? String(initialEstimate.taxPercent) : '18');
-      setShippingCharges(initialEstimate.shippingCharges != null ? String(initialEstimate.shippingCharges) : '');
-      setPackagingCharges(initialEstimate.packagingCharges != null ? String(initialEstimate.packagingCharges) : '');
+      const existingTax = initialEstimate.taxPercent ?? initialEstimate.tax_percent;
+      setTaxPercent(existingTax != null && existingTax !== '' ? String(existingTax) : '18');
+      const existingShipping = initialEstimate.shippingCharges ?? initialEstimate.shipping_charges;
+      setShippingCharges(existingShipping != null && existingShipping !== '' ? String(existingShipping) : '');
+      const existingPackaging = initialEstimate.packagingCharges ?? initialEstimate.packaging_charges;
+      setPackagingCharges(existingPackaging != null && existingPackaging !== '' ? String(existingPackaging) : '');
       setAdjustment(initialEstimate.adjustment != null ? String(initialEstimate.adjustment) : '');
       setNotes(initialEstimate.notes || '');
       setTermsConditions(initialEstimate.termsConditions || initialEstimate.terms || '');
@@ -271,6 +274,7 @@ export function CreateEstimateModal({
 
   const addItemFromCatalog = (catalogItem: any) => {
     const rate = Number(catalogItem.sellingPrice) || Number(catalogItem.unitPrice) || 0;
+    const itemTax = Number(catalogItem.salesTaxRate ?? catalogItem.taxRate ?? catalogItem.tax_rate) || 0;
     const existingIndex = items.findIndex((i) => i.itemId === catalogItem.id);
 
     if (existingIndex > -1) {
@@ -289,8 +293,13 @@ export function CreateEstimateModal({
           description: catalogItem.description || '',
           quantity: 1,
           rate,
+          taxRate: itemTax,
         },
       ]);
+    }
+
+    if ((!taxPercent || taxPercent === '0') && itemTax > 0) {
+      setTaxPercent(String(itemTax));
     }
 
     if (errors.items) {

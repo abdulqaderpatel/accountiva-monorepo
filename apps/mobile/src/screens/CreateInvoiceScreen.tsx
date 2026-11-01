@@ -159,15 +159,18 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>(
     initialInvoice?.discountType === 'fixed' ? 'fixed' : 'percentage'
   );
-  const [taxPercent, setTaxPercent] = useState(
-    initialInvoice?.taxPercent != null ? String(initialInvoice.taxPercent) : '18'
-  );
-  const [shippingCharges, setShippingCharges] = useState(
-    initialInvoice?.shippingCharges != null ? String(initialInvoice.shippingCharges) : ''
-  );
-  const [packagingCharges, setPackagingCharges] = useState(
-    initialInvoice?.packagingCharges != null ? String(initialInvoice.packagingCharges) : ''
-  );
+  const [taxPercent, setTaxPercent] = useState(() => {
+    const existing = initialInvoice?.taxPercent ?? initialInvoice?.tax_percent;
+    return existing != null && existing !== '' ? String(existing) : '18';
+  });
+  const [shippingCharges, setShippingCharges] = useState(() => {
+    const existing = initialInvoice?.shippingCharges ?? initialInvoice?.shipping_charges;
+    return existing != null && existing !== '' ? String(existing) : '';
+  });
+  const [packagingCharges, setPackagingCharges] = useState(() => {
+    const existing = initialInvoice?.packagingCharges ?? initialInvoice?.packaging_charges;
+    return existing != null && existing !== '' ? String(existing) : '';
+  });
   const [adjustment, setAdjustment] = useState(
     initialInvoice?.adjustment != null ? String(initialInvoice.adjustment) : ''
   );
@@ -245,6 +248,7 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
 
   const addItemFromCatalog = (catalogItem: any) => {
     const rate = Number(catalogItem.sellingPrice) || Number(catalogItem.unitPrice) || 0;
+    const itemTax = Number(catalogItem.salesTaxRate ?? catalogItem.taxRate ?? catalogItem.tax_rate) || 0;
     const existingIndex = items.findIndex((i) => i.itemId === catalogItem.id);
 
     if (existingIndex > -1) {
@@ -263,8 +267,13 @@ export function CreateInvoiceScreen({ onNavigate, initialInvoice, onDone }: Crea
           description: catalogItem.description || '',
           quantity: 1,
           rate,
+          taxRate: itemTax,
         },
       ]);
+    }
+
+    if ((!taxPercent || taxPercent === '0') && itemTax > 0) {
+      setTaxPercent(String(itemTax));
     }
 
     if (errors.items) {

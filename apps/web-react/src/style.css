@@ -432,3 +432,136 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+/* ==========================================================================
+   Print Isolation & Document Printing Rules
+   Removes app backdrop, sidebars, headers, and UI chrome during print so that
+   only the invoice / estimate document sheet is printed cleanly.
+   ========================================================================== */
+@media print {
+  @page {
+    size: auto;
+    margin: 8mm 10mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Force clean white paper & black text in dark mode during print */
+  .dark {
+    --background: oklch(1 0 0) !important;
+    --foreground: oklch(0.145 0 0) !important;
+    --card: oklch(1 0 0) !important;
+    --card-foreground: oklch(0.145 0 0) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* When printing from a document preview modal (invoice / estimate), completely isolate and hide background app tree */
+  body.printable-modal-open #root,
+  body:has(.printable-preview-modal) #root {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Hide application chrome by default */
+  aside,
+  nav,
+  header.print\:hidden,
+  .print\:hidden,
+  [data-slot="sidebar"],
+  [data-slot="topbar"],
+  [data-sonner-toaster],
+  .toaster,
+  .chat-widget {
+    display: none !important;
+  }
+
+  /* Reset the modal backdrop container completely for print */
+  .printable-preview-modal {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .printable-preview-modal > div {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Clean up the printable canvas and document wrappers */
+  .printable-document-canvas {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .printable-document-container {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .printable-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Prevent awkward page breaks inside table rows */
+  tr,
+  .avoid-page-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Hide scrollbars during print */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
+

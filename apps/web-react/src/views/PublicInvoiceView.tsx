@@ -126,7 +126,7 @@ export function PublicInvoiceView() {
   const items = Array.isArray(invoice.items) && invoice.items.length > 0 ? invoice.items : [];
 
   return (
-    <div className="min-h-screen bg-muted/10 text-foreground flex flex-col antialiased">
+    <div className="min-h-screen bg-muted/10 text-foreground flex flex-col antialiased print:bg-white print:min-h-0 print:p-0">
       {/* Top Floating Action Bar (Hidden in Print) */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/80 shadow-2xs print:hidden">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
@@ -188,7 +188,7 @@ export function PublicInvoiceView() {
       </header>
 
       {/* Invoice Document Canvas */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 my-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 my-6 printable-document-container print:m-0 print:p-0 print:max-w-none">
         <InvoiceTemplate
           invoice={invoice}
           organization={organization}

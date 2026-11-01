@@ -137,10 +137,10 @@ export function InvoiceTemplate({
     "";
 
   return (
-    <div className={cn("w-full max-w-[800px] mx-auto select-text print:max-w-none print:m-0", `template-${templateId}`)}>
+    <div className={cn("w-full max-w-[800px] mx-auto select-text printable-document print:max-w-none print:m-0 print:w-full", `template-${templateId}`)}>
       {/* 1. Standard Template */}
       {templateId === "standard" && (
-        <div className="p-8 bg-white text-slate-800 font-sans shadow-xs rounded-xl border border-slate-100 print:shadow-none print:border-none">
+        <div className="p-8 bg-white text-slate-800 font-sans shadow-xs rounded-xl border border-slate-100 print:shadow-none print:border-none print:p-2 print:rounded-none">
           <div className="flex justify-between items-start mb-10">
             <div>
               {documentLogoUrl && settings.showLogo && (
@@ -341,7 +341,7 @@ export function InvoiceTemplate({
 
       {/* 2. Modern Template */}
       {templateId === "modern" && (
-        <div className="bg-white min-h-[600px] shadow-sm rounded-2xl overflow-hidden font-sans border border-slate-100 print:border-none print:shadow-none">
+        <div className="bg-white min-h-[600px] shadow-sm rounded-2xl overflow-hidden font-sans border border-slate-100 print:border-none print:shadow-none print:rounded-none print:min-h-0">
           <div className="bg-slate-950 p-8 sm:p-10 text-white flex justify-between items-end">
             <div>
               {(settings.showLogo || settings.showOrgName) && (
@@ -487,7 +487,7 @@ export function InvoiceTemplate({
 
       {/* 3. Minimal Template */}
       {templateId === "minimal" && (
-        <div className="p-10 bg-white text-gray-900 font-mono text-xs max-w-2xl mx-auto shadow-xs border border-gray-100 print:border-none print:shadow-none">
+        <div className="p-10 bg-white text-gray-900 font-mono text-xs max-w-2xl mx-auto shadow-xs border border-gray-100 print:border-none print:shadow-none print:rounded-none print:max-w-none print:p-2">
           <div className="border-b border-gray-100 pb-6 mb-6 flex justify-between items-start">
             <div>
               {settings.showOrgName && <h1 className="text-base font-bold">{org.name || "Accountiva"}</h1>}
@@ -584,8 +584,8 @@ export function InvoiceTemplate({
 
       {/* 4. Premium Template */}
       {templateId === "premium" && (
-        <div className="bg-slate-50 p-1 rounded-xl shadow-md overflow-hidden border border-slate-200 print:border-none print:shadow-none print:p-0">
-          <div className="bg-white border-[10px] border-slate-900 p-8 sm:p-10 min-h-[650px] flex flex-col font-serif">
+        <div className="bg-slate-50 p-1 rounded-xl shadow-md overflow-hidden border border-slate-200 print:border-none print:shadow-none print:p-0 print:bg-white print:rounded-none">
+          <div className="bg-white border-[10px] border-slate-900 p-8 sm:p-10 min-h-[650px] flex flex-col font-serif print:min-h-0 print:border-[4px] print:p-4">
             <div className="flex justify-between items-start mb-12">
               <div>
                 {documentLogoUrl && settings.showLogo ? (

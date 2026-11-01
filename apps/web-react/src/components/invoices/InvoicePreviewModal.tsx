@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -41,6 +42,14 @@ export function InvoicePreviewModal({
 
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
+  useEffect(() => {
+    if (!open) return;
+    document.body.classList.add("printable-modal-open");
+    return () => {
+      document.body.classList.remove("printable-modal-open");
+    };
+  }, [open]);
+
   if (!open || !invoice) return null;
 
   const templates: Array<{ id: TemplateId; name: string; description: string }> = [
@@ -76,11 +85,11 @@ export function InvoicePreviewModal({
     }));
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="w-full h-full flex flex-col md:flex-row overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-xl animate-in fade-in duration-200 printable-preview-modal print:static print:inset-auto print:z-auto print:block print:bg-transparent print:backdrop-blur-none print:p-0 print:m-0 print:overflow-visible">
+      <div className="w-full h-full flex flex-col md:flex-row overflow-hidden print:block print:h-auto print:overflow-visible">
         {/* Left Control Sidebar */}
-        <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r border-border flex flex-col shadow-2xl z-10 shrink-0">
+        <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r border-border flex flex-col shadow-2xl z-10 shrink-0 print:hidden">
           <div className="p-5 border-b border-border flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-foreground">Invoice Preview</h2>
@@ -215,7 +224,7 @@ export function InvoicePreviewModal({
         </div>
 
         {/* Right Canvas / Invoice Preview Area */}
-        <div className="flex-1 flex flex-col bg-muted/30 overflow-hidden relative">
+        <div className="flex-1 flex flex-col bg-muted/30 overflow-hidden relative print:block print:bg-transparent print:p-0 print:m-0 print:overflow-visible">
           {/* Top Actions Floating Bar */}
           <header className="h-14 border-b border-border bg-card/80 backdrop-blur-md px-6 flex items-center justify-between shrink-0 print:hidden z-20">
             <div className="flex items-center gap-3">
@@ -270,8 +279,8 @@ export function InvoicePreviewModal({
           </header>
 
           {/* Document Canvas */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center custom-scrollbar print:p-0">
-            <div className="w-full max-w-[800px]">
+          <div className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center custom-scrollbar printable-document-canvas print:p-0 print:m-0 print:overflow-visible print:block">
+            <div className="w-full max-w-[800px] printable-document-container print:max-w-none print:w-full print:m-0 print:p-0">
               <InvoiceTemplate
                 invoice={invoice}
                 templateId={selectedTemplate}
@@ -288,7 +297,8 @@ export function InvoicePreviewModal({
         onClose={() => setIsSendOpen(false)}
         onSuccess={() => onSuccess?.()}
       />
-    </div>
+    </div>,
+    document.body
   );
 }
 

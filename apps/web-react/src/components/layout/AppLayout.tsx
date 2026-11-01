@@ -25,7 +25,7 @@ export function AppLayout() {
   });
 
   return (
-    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden print:h-auto print:overflow-visible print:bg-white">
       {/* Full-width TopBar on top matching Vue */}
       <TopBar
         isCollapsed={isCollapsed}
@@ -34,32 +34,36 @@ export function AppLayout() {
       />
 
       {/* Main Row: Sidebar on left + Content area on right */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden print:overflow-visible print:h-auto">
         <Sidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
         />
-        <main className="flex-1 overflow-y-auto bg-background custom-scrollbar flex flex-col">
+        <main className="flex-1 overflow-y-auto bg-background custom-scrollbar flex flex-col print:overflow-visible print:h-auto print:bg-white">
           <Outlet />
         </main>
       </div>
 
       {/* Global Command Palette */}
-      <GlobalSearch
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-      />
+      <div className="print:hidden">
+        <GlobalSearch
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+        />
+      </div>
 
       {/* Keyboard Shortcuts Dialog & Floating HUD */}
-      <KeyboardShortcutsDialog
-        isOpen={isShortcutsDialogOpen}
-        onClose={closeShortcutsDialog}
-        activeLeaderKey={activeLeaderKey}
-        onClearLeaderKey={clearLeaderKey}
-        navigationShortcuts={navigationShortcuts}
-        createShortcuts={createShortcuts}
-        generalShortcuts={generalShortcuts}
-      />
+      <div className="print:hidden">
+        <KeyboardShortcutsDialog
+          isOpen={isShortcutsDialogOpen}
+          onClose={closeShortcutsDialog}
+          activeLeaderKey={activeLeaderKey}
+          onClearLeaderKey={clearLeaderKey}
+          navigationShortcuts={navigationShortcuts}
+          createShortcuts={createShortcuts}
+          generalShortcuts={generalShortcuts}
+        />
+      </div>
     </div>
   );
 }

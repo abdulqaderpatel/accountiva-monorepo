@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Printer,
@@ -48,6 +49,14 @@ export function EstimatePreviewModal({
   const navigate = useNavigate();
 
   const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  useEffect(() => {
+    if (!open) return;
+    document.body.classList.add("printable-modal-open");
+    return () => {
+      document.body.classList.remove("printable-modal-open");
+    };
+  }, [open]);
 
   if (!open || !estimate) return null;
 
@@ -141,11 +150,11 @@ export function EstimatePreviewModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="w-full h-full flex flex-col md:flex-row overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-xl animate-in fade-in duration-200 printable-preview-modal print:static print:inset-auto print:z-auto print:block print:bg-transparent print:backdrop-blur-none print:p-0 print:m-0 print:overflow-visible">
+      <div className="w-full h-full flex flex-col md:flex-row overflow-hidden print:block print:h-auto print:overflow-visible">
         {/* Left Control Sidebar */}
-        <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r border-border flex flex-col shadow-2xl z-10 shrink-0">
+        <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r border-border flex flex-col shadow-2xl z-10 shrink-0 print:hidden">
           <div className="p-5 border-b border-border flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-foreground">Estimate Preview</h2>
@@ -348,8 +357,8 @@ export function EstimatePreviewModal({
           </header>
 
           {/* Document Canvas */}
-          <div className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center custom-scrollbar print:p-0">
-            <div className="w-full max-w-[800px]">
+          <div className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center custom-scrollbar printable-document-canvas print:p-0 print:m-0 print:overflow-visible print:block">
+            <div className="w-full max-w-[800px] printable-document-container print:max-w-none print:w-full print:m-0 print:p-0">
               <InvoiceTemplate
                 invoice={estimate}
                 templateId={selectedTemplate}
@@ -366,7 +375,8 @@ export function EstimatePreviewModal({
         onClose={() => setIsSendOpen(false)}
         onSuccess={() => onSuccess?.()}
       />
-    </div>
+    </div>,
+    document.body
   );
 }
 

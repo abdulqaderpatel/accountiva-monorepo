@@ -477,7 +477,7 @@ export function CreditNotes() {
         </div>
       </StickyPageHeader>
 
-      <div className="px-8 pt-2 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full">
+      <div className="px-8 pt-2 pb-36 max-w-7xl mx-auto space-y-8 flex-1 w-full">
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {isLoading && creditNoteList.length === 0 ? (
@@ -527,7 +527,7 @@ export function CreditNotes() {
         </div>
 
         {/* Filter & Table Card */}
-        <div className="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs">
+        <div className="bg-card/60 border border-border/60 rounded-2xl overflow-hidden shadow-2xs min-h-[300px]">
           <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 border-b border-border/60 bg-muted/25">
             {/* Search Input */}
             <div className="relative w-full sm:w-72 md:w-80 group">

@@ -26,6 +26,13 @@ const getApiBaseUrl = () => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+export const APP_ENV = (
+  process.env.EXPO_PUBLIC_APP_ENV ||
+  (API_BASE_URL.includes('uat') ? 'uat' : 'production')
+).toLowerCase();
+
+export const IS_UAT = APP_ENV === 'uat' || API_BASE_URL.includes('uat');
+
 export async function setupMobileApi() {
   api.defaults.headers.common['Origin'] = 'https://accountiva.ai';
 

@@ -53,10 +53,36 @@ export const customerSchema = z.object({
   }
 });
 
+const preprocessNumber = (v: any) => {
+  if (v === undefined || v === null || v === "") return undefined;
+  if (typeof v === "number") return isNaN(v) ? undefined : v;
+  if (typeof v === "string") {
+    const cleaned = v.replace(/[^0-9.-]/g, "");
+    if (!cleaned) return undefined;
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? undefined : num;
+  }
+  return v;
+};
+
 export const itemSchema = z.object({
   name: z.string().min(1, 'Item name is required'),
-  type: z.enum(['Product', 'Service']).default('Product'),
-  productType: z.enum(['Inventory', 'Non-Inventory']).nullable().optional(),
+  type: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const lower = val.toLowerCase().trim();
+      if (lower === 'service') return 'Service';
+      if (lower === 'product') return 'Product';
+    }
+    return val;
+  }, z.enum(['Product', 'Service']).default('Product')),
+  productType: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      const lower = val.toLowerCase().trim().replace(/[-_]/g, '');
+      if (lower === 'inventory') return 'Inventory';
+      if (lower === 'noninventory') return 'Non-Inventory';
+    }
+    return val;
+  }, z.enum(['Inventory', 'Non-Inventory']).nullable().optional()),
   sku: z.string().optional().or(z.literal('')),
   category: z.string().optional().or(z.literal('')),
   uom: z.string().optional().or(z.literal('')),
@@ -64,24 +90,24 @@ export const itemSchema = z.object({
   taxPreference: z.string().optional().or(z.literal('')),
   imageUrl: z.string().optional().or(z.literal('')),
   isSellable: z.boolean().optional(),
-  sellingPrice: z.coerce.number().min(0, 'Price cannot be negative').optional(),
+  sellingPrice: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Selling price cannot be negative').optional()),
   salesTaxInclusive: z.boolean().optional(),
-  salesTaxRate: z.coerce.number().min(0).optional(),
+  salesTaxRate: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Sales tax rate cannot be negative').optional()),
   incomeAccount: z.string().optional(),
   salesDescription: z.string().optional().or(z.literal('')),
   isPurchasable: z.boolean().optional(),
-  costPrice: z.coerce.number().min(0, 'Cost price cannot be negative').optional(),
+  costPrice: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Cost price cannot be negative').optional()),
   purchaseTaxInclusive: z.boolean().optional(),
-  purchaseTaxRate: z.coerce.number().min(0).optional(),
+  purchaseTaxRate: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Purchase tax rate cannot be negative').optional()),
   expenseAccount: z.string().optional(),
   preferredVendorId: z.string().optional().nullable(),
   purchaseDescription: z.string().optional().or(z.literal('')),
   inventoryAccount: z.string().optional(),
-  openingStock: z.coerce.number().min(0, 'Opening stock cannot be negative').optional(),
-  valuationRate: z.coerce.number().min(0, 'Valuation rate cannot be negative').optional(),
+  openingStock: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Opening stock cannot be negative').optional()),
+  valuationRate: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Valuation rate cannot be negative').optional()),
   asOfDate: z.string().optional().nullable(),
-  reorderPoint: z.coerce.number().min(0).optional(),
-  unitPrice: z.coerce.number().min(0).optional(),
+  reorderPoint: z.preprocess(preprocessNumber, z.coerce.number().min(0, 'Reorder point cannot be negative').optional()),
+  unitPrice: z.preprocess(preprocessNumber, z.coerce.number().min(0).optional()),
   description: z.string().optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
   if (data.type === 'Product' && data.productType === 'Inventory') {

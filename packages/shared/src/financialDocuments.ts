@@ -170,6 +170,10 @@ export interface DocumentLineItemCalculationInput {
   quantity?: number | string | null;
   rate?: number | string | null;
   amount?: number | string | null;
+  taxRate?: number | string | null;
+  tax_rate?: number | string | null;
+  taxPercent?: number | string | null;
+  tax_percent?: number | string | null;
 }
 
 export interface DocumentTotalsInput {
@@ -185,6 +189,8 @@ export interface DocumentTotalsInput {
   shippingCharges?: number | string | null;
   packagingCharges?: number | string | null;
   packingCharges?: number | string | null;
+  otherCharges?: number | string | null;
+  additionalCharges?: number | string | null;
   adjustment?: number | string | null;
   roundOff?: number | string | null;
   autoRoundOff?: boolean;
@@ -201,6 +207,7 @@ export interface DocumentTotalsResult {
   taxAmount: number;
   shippingCharges: number;
   packagingCharges: number;
+  otherCharges: number;
   adjustment: number;
   roundOff: number;
   total: number;
@@ -345,7 +352,15 @@ export function calculateDocumentTotals(
       ? roundToTwo(parsedPackaging)
       : 0;
 
-  const totalCharges = roundToTwo(shippingCharges + packagingCharges);
+  const parsedOtherCharges = Number(
+    input.otherCharges ?? input.additionalCharges,
+  );
+  const otherCharges =
+    Number.isFinite(parsedOtherCharges) && parsedOtherCharges > 0
+      ? roundToTwo(parsedOtherCharges)
+      : 0;
+
+  const totalCharges = roundToTwo(shippingCharges + packagingCharges + otherCharges);
 
   const parsedExplicitTaxAmount = Number(input.taxAmount);
   const explicitTaxAmount =
@@ -368,6 +383,7 @@ export function calculateDocumentTotals(
 
   const preRoundTotal = taxableAmount + taxAmount + totalCharges;
 
+  const explicitDocTotal = Number(input.amount);
   let adjustment = 0;
   if (input.autoRoundOff) {
     const rounded = Math.round(preRoundTotal);
@@ -375,9 +391,16 @@ export function calculateDocumentTotals(
   } else {
     const rawAdjustment = input.roundOff ?? input.adjustment;
     const parsedAdjustment = Number(rawAdjustment);
-    adjustment = Number.isFinite(parsedAdjustment)
-      ? roundToTwo(parsedAdjustment)
-      : 0;
+    if (Number.isFinite(parsedAdjustment) && parsedAdjustment !== 0) {
+      adjustment = roundToTwo(parsedAdjustment);
+    } else if (
+      Number.isFinite(explicitDocTotal) &&
+      explicitDocTotal > 0 &&
+      Math.abs(explicitDocTotal - preRoundTotal) > 0.001
+    ) {
+      // Reconcile unexplained difference between item breakdown and persisted document total
+      adjustment = roundToTwo(explicitDocTotal - preRoundTotal);
+    }
   }
 
   const calculatedTotal = roundToTwo(Math.max(0, preRoundTotal + adjustment));
@@ -392,6 +415,7 @@ export function calculateDocumentTotals(
     taxAmount,
     shippingCharges,
     packagingCharges,
+    otherCharges,
     adjustment,
     roundOff: adjustment,
     total: calculatedTotal,
@@ -410,6 +434,7 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
       taxAmount: 0,
       shippingCharges: 0,
       packagingCharges: 0,
+      otherCharges: 0,
       adjustment: 0,
       roundOff: 0,
       total: 0,
@@ -430,12 +455,26 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
   const taxPercent = doc.taxPercent ?? doc.tax_percent;
   const taxAmount = doc.taxAmount ?? doc.tax_amount;
   const taxOnCharges = doc.taxOnCharges ?? doc.tax_on_charges;
-  const shippingCharges = doc.shippingCharges ?? doc.shipping_charges;
+  const shippingCharges =
+    doc.shippingCharges ??
+    doc.shipping_charges ??
+    doc.shipping ??
+    doc.shippingFee ??
+    doc.delivery_charges;
   const packagingCharges =
     doc.packagingCharges ??
     doc.packaging_charges ??
     doc.packingCharges ??
-    doc.packing_charges;
+    doc.packing_charges ??
+    doc.packaging;
+  const otherCharges =
+    doc.otherCharges ??
+    doc.other_charges ??
+    doc.additionalCharges ??
+    doc.additional_charges ??
+    doc.charges ??
+    doc.extraCharges ??
+    doc.extra_charges;
   const adjustment = doc.adjustment ?? doc.roundOff ?? doc.round_off;
   const manualAmount = doc.subtotal ?? doc.amount;
 
@@ -450,6 +489,7 @@ export function getDocumentSummaryDetails(doc: any): DocumentTotalsResult {
     taxOnCharges,
     shippingCharges,
     packagingCharges,
+    otherCharges,
     adjustment,
     roundOff: adjustment,
     amount: doc.amount,

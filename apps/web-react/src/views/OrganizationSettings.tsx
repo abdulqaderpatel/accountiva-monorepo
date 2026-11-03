@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   MapPin,
   Receipt,
+  CreditCard,
   Camera,
   RotateCcw,
   Check,
@@ -26,6 +27,8 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { openRazorpayCheckout } from "@/lib/razorpay";
+import { cn } from "@/lib/utils";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,13 +53,23 @@ import { RecentlyDeleted } from "@/components/settings/RecentlyDeleted";
 type SettingsTab =
   | "info"
   | "branding"
+  | "templates"
+  | "plans"
   | "members"
   | "custom-fields"
   | "audit-logs"
   | "recently-deleted";
 
 export function OrganizationSettings() {
-  const { currentOrganization, updateOrganization, fetchOrganizations, setCurrentOrganization, organizations } = useAuth();
+  const {
+    currentOrganization,
+    updateOrganization,
+    fetchOrganizations,
+    setCurrentOrganization,
+    organizations,
+    user,
+    updateCurrentOrgPlan,
+  } = useAuth();
   const navigate = useNavigate();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,6 +78,8 @@ export function OrganizationSettings() {
     if (typeof window !== "undefined") {
       const p = new URLSearchParams(window.location.search).get("tab");
       if (p === "branding") return "branding";
+      if (p === "templates" || p === "invoices") return "templates";
+      if (p === "plans" || p === "billing") return "plans";
       if (p === "members" || p === "team") return "members";
       if (p === "custom-fields" || p === "custom_fields") return "custom-fields";
       if (p === "audit-logs" || p === "audit") return "audit-logs";
@@ -78,6 +93,162 @@ export function OrganizationSettings() {
 
   const canEdit = ["owner", "admin"].includes(currentOrganization?.role || "");
   const isOwner = currentOrganization?.role === "owner";
+
+  // Invoice Templates (Per-Organization)
+  const [defaultTemplate, setDefaultTemplate] = useState(() => {
+    if (typeof window !== "undefined") {
+      const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
+      return (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template") || "standard";
+    }
+    return "standard";
+  });
+
+  useEffect(() => {
+    if (currentOrganization?.id && typeof window !== "undefined") {
+      const saved =
+        localStorage.getItem(`accountiva_template_${currentOrganization.id}`) ||
+        localStorage.getItem("accountiva_template") ||
+        "standard";
+      setDefaultTemplate(saved);
+    }
+  }, [currentOrganization?.id]);
+
+  const handleUpdateTemplate = (id: string) => {
+    setDefaultTemplate(id);
+    if (typeof window !== "undefined") {
+      if (currentOrganization?.id) {
+        localStorage.setItem(`accountiva_template_${currentOrganization.id}`, id);
+      }
+      localStorage.setItem("accountiva_template", id);
+    }
+    toast.success("Invoice template default updated for this workspace");
+  };
+
+  // Billing State (Per-Organization)
+  const [isBillingMonthly, setIsBillingMonthly] = useState(true);
+  const [isSwitchingPlan, setIsSwitchingPlan] = useState(false);
+
+  const isPlanActive = (planId: string) => {
+    const currentOrgPlan =
+      currentOrganization?.plan ||
+      (currentOrganization?.plan_id === "00000000-0000-0000-0000-000000000002" ? "pro" : "free");
+    if (planId === "free") return currentOrgPlan === "free";
+    if (planId === "pro") return currentOrgPlan === "pro";
+    return false;
+  };
+
+  const handlePlanUpgrade = async (planId: string) => {
+    if (isPlanActive(planId)) return;
+
+    if (planId === "free") {
+      toast.info("Plan Downgrade", {
+        description:
+          "Your Pro subscription will automatically transition to Free Starter at the end of your paid billing period.",
+      });
+      return;
+    }
+
+    try {
+      setIsSwitchingPlan(true);
+      const { data: orderData } = await api.post("/billing/create-order", {
+        billingCycle: isBillingMonthly ? "monthly" : "yearly",
+      });
+
+      if (!orderData?.orderId || !orderData?.keyId) {
+        throw new Error("Payment session was not created.");
+      }
+
+      await openRazorpayCheckout({
+        keyId: orderData.keyId,
+        orderId: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "Accountiva",
+        description: `Accountiva Pro Plan (${isBillingMonthly ? "Monthly" : "Annual"}) for ${currentOrganization?.name || "Workspace"}`,
+        prefill: {
+          name: user?.name || currentOrganization?.name || "",
+          email: user?.email || "",
+        },
+        onSuccess: async (response) => {
+          try {
+            const verifyRes = await api.post("/billing/verify-payment", {
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+
+            if (verifyRes.data?.success) {
+              updateCurrentOrgPlan({
+                plan: "pro",
+                plan_id: "00000000-0000-0000-0000-000000000002",
+                plan_expires_at: verifyRes.data.expiresAt,
+                billing_cycle: verifyRes.data.billingCycle,
+              });
+              toast.success("🎉 Welcome to Accountiva Pro!", {
+                description: `${currentOrganization?.name || "Workspace"} has been upgraded successfully.`,
+              });
+              await fetchOrganizations();
+            }
+          } catch (verifyErr: any) {
+            console.error("[Billing] Payment verification failed:", verifyErr);
+            toast.error(verifyErr.response?.data?.error || "Payment verification failed");
+          }
+        },
+        onDismiss: () => {
+          toast.info("Payment window was closed.");
+        },
+      });
+    } catch (err: any) {
+      console.error("Plan upgrade error:", err);
+      toast.error(err.response?.data?.error || err.message || "Payment initiation failed");
+    } finally {
+      setIsSwitchingPlan(false);
+    }
+  };
+
+  const plans = [
+    {
+      id: "free",
+      name: "Free Starter",
+      priceMonthly: 0,
+      priceAnnually: 0,
+      description: "Essential invoicing tools for growing your business.",
+      features: [
+        { text: "Invoices & Estimates", included: true },
+        { text: "Credit Notes & Refunds", included: true },
+        { text: "Customer & Product Catalog", included: true },
+        { text: "Multi-Currency Invoicing", included: true },
+        { text: "Multiple Invoice Templates", included: true },
+        { text: "Direct Email Invoicing", included: true },
+        { text: "CSV & JSON Data Exports", included: true },
+        { text: "5 GSTIN Fetches included", included: true },
+        { text: "Multiple Users", included: false },
+        { text: "Watermark Removal", included: false },
+        { text: "Custom Fields", included: false },
+      ],
+    },
+    {
+      id: "pro",
+      name: "Professional",
+      priceMonthly: 199,
+      priceAnnually: 1999,
+      description: "Complete power and automation for your entire team.",
+      popular: true,
+      features: [
+        { text: "Invoices & Estimates", included: true },
+        { text: "Credit Notes & Refunds", included: true },
+        { text: "Customer & Product Catalog", included: true },
+        { text: "Multi-Currency Invoicing", included: true },
+        { text: "Multiple Invoice Templates", included: true },
+        { text: "Direct Email Invoicing", included: true },
+        { text: "CSV & JSON Data Exports", included: true },
+        { text: "Unlimited GSTIN Auto-Fetching", included: true },
+        { text: "Multiple Users", included: true },
+        { text: "Watermark Removal", included: true },
+        { text: "Custom Fields", included: true },
+      ],
+    },
+  ];
 
   // Form State
   const [formData, setFormData] = useState({
@@ -258,6 +429,8 @@ export function OrganizationSettings() {
     const sections: { id: SettingsTab; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
       { id: "info", icon: Building2, label: "General" },
       { id: "branding", icon: Palette, label: "Branding" },
+      { id: "templates", icon: Receipt, label: "Invoice Templates" },
+      { id: "plans", icon: CreditCard, label: "Plans & Billing" },
       { id: "members", icon: Users, label: "Team & Invites" },
     ];
     if (canEdit) {
@@ -696,6 +869,258 @@ export function OrganizationSettings() {
 
             {/* Branding Tab */}
             {activeTab === "branding" && <OrganizationBrandingSettings />}
+
+            {/* Invoice Templates Section */}
+            {activeTab === "templates" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                <Card className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-2xs py-0 gap-0">
+                  <CardHeader className="p-5 md:p-6 border-b border-border/50 bg-muted/10 text-left">
+                    <CardTitle className="text-sm md:text-base font-bold text-foreground flex items-center gap-2">
+                      <Receipt className="size-4 text-primary" />
+                      <span>Invoice Template Selection</span>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      Select the default visual PDF template for generated invoices and estimates in{" "}
+                      {currentOrganization?.name || "this workspace"}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        { id: "standard", name: "Template 1", desc: "Professional & Classic" },
+                        { id: "modern", name: "Template 2", desc: "Sleek & Contemporary" },
+                        { id: "minimal", name: "Template 3", desc: "Simple & Minimal" },
+                        { id: "premium", name: "Template 4", desc: "Elegant & Sophisticated" },
+                      ].map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleUpdateTemplate(t.id)}
+                          className={cn(
+                            "p-4 rounded-xl border text-left space-y-3 transition-all group shadow-2xs cursor-pointer",
+                            defaultTemplate === t.id
+                              ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/20"
+                              : "border-border/60 bg-muted/20 hover:border-primary/40 hover:bg-muted/30"
+                          )}
+                        >
+                          <div className="w-full aspect-[4/3] bg-muted/20 rounded-lg border border-border flex flex-col items-center justify-center gap-2 overflow-hidden relative">
+                            {t.id === "standard" && (
+                              <div className="w-full h-full p-4 flex flex-col">
+                                <div className="w-10 h-2 rounded-full bg-muted-foreground/20 mb-1" />
+                                <div className="w-6 h-1 rounded-full bg-muted-foreground/10 mb-6" />
+                                <div className="space-y-2 mt-auto">
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                  <div className="w-3/4 h-1 rounded-full bg-muted-foreground/5" />
+                                </div>
+                              </div>
+                            )}
+                            {t.id === "modern" && (
+                              <div className="w-full h-full flex flex-col">
+                                <div className="w-full h-1/3 bg-muted-foreground/10 p-3">
+                                  <div className="w-8 h-2 rounded-full bg-muted-foreground/20" />
+                                </div>
+                                <div className="p-3 space-y-2">
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                  <div className="w-2/3 h-1 rounded-full bg-muted-foreground/5" />
+                                </div>
+                              </div>
+                            )}
+                            {t.id === "minimal" && (
+                              <div className="w-full h-full p-6 flex flex-col items-center text-center">
+                                <div className="size-8 rounded-full bg-muted-foreground/10 mb-2" />
+                                <div className="w-full space-y-1">
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                </div>
+                              </div>
+                            )}
+                            {t.id === "premium" && (
+                              <div className="w-full h-full border-4 border-muted-foreground/10 p-4 flex flex-col">
+                                <div className="flex justify-between mb-6">
+                                  <div className="size-8 bg-muted-foreground/20 rounded" />
+                                  <div className="w-12 h-2 bg-muted-foreground/10 rounded" />
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                  <div className="w-full h-1 rounded-full bg-muted-foreground/5" />
+                                </div>
+                              </div>
+                            )}
+
+                            {defaultTemplate === t.id && (
+                              <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+                                <Check className="size-8 text-primary opacity-50" />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-xs">{t.name}</span>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{t.desc}</p>
+                            </div>
+                            {defaultTemplate === t.id && (
+                              <div className="size-4 rounded-full bg-primary flex items-center justify-center shadow-none">
+                                <div className="size-1.5 rounded-full bg-primary-foreground" />
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Plans & Billing Section */}
+            {activeTab === "plans" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                <Card className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-2xs py-0 gap-0">
+                  <CardHeader className="p-5 md:p-6 border-b border-border/50 bg-muted/10 text-left">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div className="grid gap-1">
+                        <CardTitle className="text-sm md:text-base font-bold text-foreground flex items-center gap-2">
+                          <CreditCard className="size-4 text-primary" />
+                          <span>Subscription Plans & Billing</span>
+                          {currentOrganization?.name && (
+                            <span className="font-normal text-xs text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border/40">
+                              {currentOrganization.name}
+                            </span>
+                          )}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">
+                          Subscription plans and entitlements are managed per-organization. All members in{" "}
+                          {currentOrganization?.name || "this workspace"} share plan benefits.
+                        </CardDescription>
+                      </div>
+
+                      {/* Billing Cycle Toggle */}
+                      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border/60 self-start md:self-auto shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => setIsBillingMonthly(true)}
+                          className={cn(
+                            "px-3.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                            isBillingMonthly
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground/80 hover:text-foreground hover:bg-muted/50"
+                          )}
+                        >
+                          Monthly
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsBillingMonthly(false)}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer",
+                            !isBillingMonthly
+                              ? "bg-primary text-primary-foreground shadow-xs"
+                              : "text-muted-foreground/80 hover:text-foreground hover:bg-muted/50"
+                          )}
+                        >
+                          <span>Annual</span>
+                          <span className="bg-primary-foreground/20 text-primary-foreground text-[8px] font-bold px-1.5 py-0.5 rounded-md">
+                            -16%
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto text-left">
+                      {plans.map((plan) => {
+                        const isCurrent = isPlanActive(plan.id);
+
+                        return (
+                          <div
+                            key={plan.id}
+                            className={cn(
+                              "relative flex flex-col p-6 rounded-2xl border transition-all duration-300 shadow-2xs",
+                              isCurrent
+                                ? "border-primary/50 bg-primary/[0.04] ring-1 ring-primary/20"
+                                : "border-border/60 hover:border-primary/40 bg-card/50"
+                            )}
+                          >
+                            {plan.popular && (
+                              <span className="absolute top-4 right-4 bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xs">
+                                Most Popular
+                              </span>
+                            )}
+
+                            <div className="mb-4">
+                              <h3 className="text-base font-bold text-foreground">{plan.name}</h3>
+                              <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
+                            </div>
+
+                            <div className="mb-6">
+                              <span className="text-3xl font-extrabold text-foreground">
+                                ₹{isBillingMonthly ? plan.priceMonthly : plan.priceAnnually}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-1">
+                                /{isBillingMonthly ? "month" : "year"}
+                              </span>
+                            </div>
+
+                            <ul className="space-y-2.5 mb-8 flex-1">
+                              {plan.features.map((feat, fIdx) => (
+                                <li
+                                  key={fIdx}
+                                  className={cn(
+                                    "flex items-center gap-2 text-xs",
+                                    feat.included ? "text-foreground font-medium" : "text-muted-foreground/50 line-through"
+                                  )}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "size-3.5 shrink-0",
+                                      feat.included ? "text-primary" : "text-muted-foreground/30"
+                                    )}
+                                  />
+                                  <span>{feat.text}</span>
+                                </li>
+                              ))}
+                            </ul>
+
+                            <Button
+                              type="button"
+                              disabled={isCurrent || isSwitchingPlan || !canEdit}
+                              variant={isCurrent ? "outline" : "default"}
+                              className={cn(
+                                "w-full h-10 rounded-xl font-bold uppercase tracking-wider text-[11px] shadow-sm cursor-pointer",
+                                isCurrent
+                                  ? "border-primary/30 text-primary cursor-default"
+                                  : "bg-primary text-primary-foreground hover:bg-primary/95"
+                              )}
+                              onClick={() => handlePlanUpgrade(plan.id)}
+                            >
+                              {isSwitchingPlan && plan.id === "pro" ? (
+                                <Loader2 className="size-3.5 animate-spin mr-1.5" />
+                              ) : null}
+                              {isCurrent ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Check className="size-3.5 font-bold" />
+                                  Active Plan
+                                </span>
+                              ) : !canEdit ? (
+                                "Owner Only"
+                              ) : plan.priceMonthly >
+                                (plans.find((p) => isPlanActive(p.id))?.priceMonthly || 0) ? (
+                                `Upgrade to ${plan.name}`
+                              ) : (
+                                `Switch to ${plan.name}`
+                              )}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Team & Invites Tab */}
             {activeTab === "members" && <MemberManagement />}

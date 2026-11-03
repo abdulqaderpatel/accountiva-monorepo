@@ -38,6 +38,17 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
 
       rafId = window.requestAnimationFrame(() => {
         rafId = null;
+
+        const maxScroll = scrollParent && scrollParent !== document.documentElement
+          ? scrollParent.scrollHeight - scrollParent.clientHeight
+          : Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+
+        // If page has insufficient scrollable content, never trigger scrolled state to prevent oscillation
+        if (maxScroll < 60) {
+          setIsScrolled(false);
+          return;
+        }
+
         const currentScroll =
           scrollParent && scrollParent !== document.documentElement
             ? scrollParent.scrollTop
@@ -63,8 +74,9 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
       if (style.overflowY === "auto" || style.overflowY === "scroll") {
         scrollParent = parent;
         scrollParent.addEventListener("scroll", handleScroll, { passive: true });
+        const maxScroll = scrollParent.scrollHeight - scrollParent.clientHeight;
         const activateThreshold = scrollThreshold ?? 40;
-        setIsScrolled(scrollParent.scrollTop > activateThreshold);
+        setIsScrolled(maxScroll >= 60 && scrollParent.scrollTop > activateThreshold);
         break;
       }
       parent = parent.parentElement;
@@ -73,8 +85,9 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
     if (!scrollParent) {
       scrollParent = document.documentElement;
       window.addEventListener("scroll", handleScroll, { passive: true });
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
       const activateThreshold = scrollThreshold ?? 40;
-      setIsScrolled((window.scrollY || document.documentElement.scrollTop) > activateThreshold);
+      setIsScrolled(maxScroll >= 60 && (window.scrollY || document.documentElement.scrollTop) > activateThreshold);
     }
 
     return () => {
@@ -93,17 +106,17 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
     <header
       ref={headerRef}
       className={cn(
-        "sticky top-0 z-20 w-full transition-all duration-200 select-none",
+        "sticky top-0 z-20 w-full transition-[background-color,border-color,box-shadow] duration-200 select-none py-3.5 md:py-4",
         isScrolled
-          ? "bg-background/80 dark:bg-background/85 backdrop-blur-md border-b border-border shadow-2xs py-2.5 md:py-3"
-          : "bg-transparent border-b border-transparent py-4 md:pt-5 md:pb-4",
+          ? "bg-background/85 dark:bg-background/90 backdrop-blur-md border-b border-border shadow-2xs"
+          : "bg-transparent border-b border-transparent",
         className
       )}
       style={{ overflowAnchor: "none" }}
     >
       <div
         className={cn(
-          "max-w-7xl mx-auto px-8 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-200",
+          "max-w-7xl mx-auto px-8 flex flex-col md:flex-row md:items-center justify-between gap-4",
           containerClassName
         )}
       >
@@ -114,31 +127,16 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
           <div className="flex items-center gap-3.5 min-w-0">
             {Icon && (
               <div
-                className={cn(
-                  "rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 transition-all duration-200",
-                  isScrolled ? "w-8 h-8 rounded-lg" : "w-11 h-11 shadow-2xs"
-                )}
+                className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 shadow-2xs"
               >
-                <Icon
-                  className={cn(
-                    "transition-all duration-200",
-                    isScrolled ? "w-4 h-4" : "w-5 h-5"
-                  )}
-                />
+                <Icon className="size-5" />
               </div>
             )}
 
             <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
                 {title && (
-                  <h1
-                    className={cn(
-                      "font-bold tracking-tight text-foreground transition-all duration-200 truncate",
-                      isScrolled
-                        ? "text-lg md:text-xl"
-                        : "ui-page-title text-2xl md:text-3xl"
-                    )}
-                  >
+                  <h1 className="ui-page-title text-2xl md:text-3xl font-bold tracking-tight text-foreground truncate">
                     {title}
                   </h1>
                 )}
@@ -147,18 +145,9 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
               </div>
 
               {subtitle && (
-                <div
-                  className={cn(
-                    "transition-all duration-200 overflow-hidden",
-                    isScrolled
-                      ? "max-h-0 opacity-0 -translate-y-1"
-                      : "max-h-12 opacity-100 translate-y-0"
-                  )}
-                >
-                  <p className="ui-page-description text-xs md:text-sm text-muted-foreground truncate">
-                    {subtitle}
-                  </p>
-                </div>
+                <p className="ui-page-description text-xs md:text-sm text-muted-foreground truncate">
+                  {subtitle}
+                </p>
               )}
             </div>
           </div>

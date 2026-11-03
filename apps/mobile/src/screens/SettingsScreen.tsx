@@ -47,6 +47,7 @@ import { OrganizationSwitcherModal } from '../components/OrganizationSwitcherMod
 import { OrganizationSettingsModal, OrgSettingsTab } from '../components/OrganizationSettingsModal';
 import { ScreenType } from '../components/BottomNav';
 import { isFeatureEnabled } from '@accountiva/shared';
+import { IS_UAT } from '../config/api';
 
 interface SettingsScreenProps {
   onNavigate?: (screen: ScreenType) => void;
@@ -501,7 +502,7 @@ export function SettingsScreen({ onNavigate }: SettingsScreenProps = {}) {
         </TouchableOpacity>
 
         <Text style={[styles.appVersion, { color: colors.mutedForeground }]}>
-          Accountiva Mobile • Version 1.0.0
+          Accountiva Mobile • Version 1.0.0{IS_UAT ? ' (UAT)' : ''}
         </Text>
       </ScrollView>
 

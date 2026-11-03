@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import api, { cancelOrganizationRequests, setActiveOrganizationId } from '@accountiva/api';
 import { extractAuthToken, normalizeAuthenticatedUser, type MobileUser } from '../auth/session';
+import { IS_UAT } from '../config/api';
 
 export type { MobileUser } from '../auth/session';
 
@@ -48,35 +49,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshOrganizations = useCallback(async () => {
+  const refreshOrganizations = useCallback(async (tokenOverride?: string) => {
     try {
-      const { data: orgs } = await api.get('/organizations');
+      const headers: Record<string, string> = {};
+      if (tokenOverride) {
+        headers['Authorization'] = `Bearer ${tokenOverride}`;
+      }
+      const { data: orgs } = await api.get('/organizations', {
+        headers,
+        params: { _t: Date.now() },
+      });
       const list = Array.isArray(orgs) ? orgs : (Array.isArray(orgs?.data) ? orgs.data : []);
       setOrganizations(list);
       await AsyncStorage.setItem('accountiva_organizations', JSON.stringify(list));
       if (list.length > 0) {
-        setCurrentOrgState((prev) => {
-          if (!prev) {
-            setActiveOrganizationId(list[0].id);
-            AsyncStorage.setItem('accountiva_org_id', list[0].id).catch(() => {});
-            AsyncStorage.setItem('accountiva_current_org', JSON.stringify(list[0])).catch(() => {});
-            return list[0];
-          }
-          const matched = list.find((o: any) => o.id === prev.id);
-          const chosen = matched || list[0];
-          setActiveOrganizationId(chosen.id);
-          AsyncStorage.setItem('accountiva_org_id', chosen.id).catch(() => {});
-          AsyncStorage.setItem('accountiva_current_org', JSON.stringify(chosen)).catch(() => {});
-          return chosen;
-        });
+        const storedOrgId = await AsyncStorage.getItem('accountiva_org_id').catch(() => null);
+        const matched = storedOrgId ? list.find((o: any) => o.id === storedOrgId) : null;
+        const chosen = matched || list[0];
+        setActiveOrganizationId(chosen.id);
+        await Promise.allSettled([
+          AsyncStorage.setItem('accountiva_org_id', chosen.id),
+          AsyncStorage.setItem('accountiva_current_org', JSON.stringify(chosen)),
+        ]);
+        setCurrentOrgState(chosen);
       } else {
         setActiveOrganizationId(null);
         setCurrentOrgState(null);
-        await AsyncStorage.removeItem('accountiva_org_id');
-        await AsyncStorage.removeItem('accountiva_current_org');
+        await Promise.allSettled([
+          AsyncStorage.removeItem('accountiva_org_id'),
+          AsyncStorage.removeItem('accountiva_current_org'),
+        ]);
       }
       return list;
-    } catch {
+    } catch (err) {
+      console.warn('[AuthContext] Failed to refresh organizations:', err);
       return [];
     }
   }, []);
@@ -90,26 +96,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedOrg = await AsyncStorage.getItem('accountiva_current_org');
         const storedOrgs = await AsyncStorage.getItem('accountiva_organizations');
 
-        if (storedToken && storedUser) {
-          setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+        let initialOrgs: MobileOrganization[] = [];
+        let initialOrg: MobileOrganization | null = null;
+
+        if (storedOrgs) {
+          try {
+            initialOrgs = JSON.parse(storedOrgs);
+            setOrganizations(initialOrgs);
+          } catch {}
         }
 
         if (storedOrg) {
-          const parsed = JSON.parse(storedOrg);
-          setCurrentOrgState(parsed);
-          if (parsed?.id) {
-            setActiveOrganizationId(parsed.id);
+          try {
+            initialOrg = JSON.parse(storedOrg);
+            setCurrentOrgState(initialOrg);
+            if (initialOrg?.id) {
+              setActiveOrganizationId(initialOrg.id);
+            }
+          } catch {}
+        }
+
+        if (storedToken && storedUser) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            // If cached organizations were empty or missing, fetch from server before releasing loading state
+            // to avoid flashing the Onboarding screen
+            if (initialOrgs.length === 0) {
+              const freshList = await Promise.race([
+                refreshOrganizations(storedToken),
+                new Promise<MobileOrganization[]>((resolve) => setTimeout(() => resolve([]), 3500)),
+              ]);
+              if (freshList.length > 0) {
+                initialOrgs = freshList;
+                initialOrg = freshList[0];
+              }
+            } else {
+              // Refresh in background if we already have valid cached orgs
+              refreshOrganizations(storedToken).catch(() => {});
+            }
+
+            setToken(storedToken);
+            setUser(parsedUser);
+          } catch (err) {
+            console.error('Failed to parse stored user:', err);
           }
-        }
-
-        if (storedOrgs) {
-          setOrganizations(JSON.parse(storedOrgs));
-        }
-
-        // Fetch fresh organization list if authenticated
-        if (storedToken) {
-          refreshOrganizations().catch(() => {});
         } else if (Platform.OS === 'web') {
           // If on web and no stored token, check active session cookie (e.g. from social redirect)
           try {
@@ -117,13 +147,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const sessionToken = sessionData?.session?.token;
             const sessionUser = normalizeAuthenticatedUser(sessionData?.user);
             if (sessionToken && sessionUser) {
-              setToken(sessionToken);
-              setUser(sessionUser);
               await Promise.all([
                 AsyncStorage.setItem('accountiva_token', sessionToken),
                 AsyncStorage.setItem('accountiva_user', JSON.stringify(sessionUser)),
               ]);
-              refreshOrganizations().catch(() => {});
+              await refreshOrganizations(sessionToken);
+              setToken(sessionToken);
+              setUser(sessionUser);
             }
           } catch {}
         }
@@ -185,15 +215,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(response.data?.message || 'Authentication did not return a valid user.');
     }
 
+    // 1. Immediately store token and user in storage
     await Promise.all([
       AsyncStorage.setItem('accountiva_token', authToken),
       AsyncStorage.setItem('accountiva_user', JSON.stringify(authUser)),
     ]);
+
+    // 2. Fetch fresh organizations using the authToken BEFORE activating authentication in React state.
+    // This ensures organizations and currentOrg are established before the auth gate evaluates,
+    // completely eliminating page flicking to OnboardingScreen!
+    let list: MobileOrganization[] = [];
+    try {
+      list = await refreshOrganizations(authToken);
+    } catch (err) {
+      console.warn('[AuthContext] Could not fetch organizations on login:', err);
+    }
+
+    if (list.length > 0) {
+      const activeOrg = list[0];
+      await setCurrentOrg(activeOrg);
+    } else {
+      await setCurrentOrg(null);
+    }
+
+    // 3. Atomically activate authentication in React state now that organization state is ready
     setToken(authToken);
     setUser(authUser);
 
-    const list = await refreshOrganizations();
-    await setCurrentOrg(list[0] || null);
     return response.data;
   }, [refreshOrganizations, setCurrentOrg]);
 
@@ -296,8 +344,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check for Google Play Services Developer Error (code 10)
       if (codeStr === '10' || msg.includes('DEVELOPER_ERROR') || msg.includes('10:')) {
+        const expectedPkg = IS_UAT ? 'com.accountiva.app.uat' : 'com.accountiva.app';
         throw new Error(
-          'Google Sign-In configuration error (Developer Error 10). The Android package name (com.accountiva.app) and signing SHA-1 fingerprint (5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25) must be registered in the Google Cloud Console.',
+          `Google Sign-In configuration error (Developer Error 10). The Android package name (${expectedPkg}) and signing SHA-1 fingerprint (5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25) must be registered in the Google Cloud Console.`,
         );
       }
 

@@ -89,7 +89,8 @@ export default function Login() {
         description: "You have successfully signed in to your account.",
       });
 
-      const redirectPath = searchParams.get("redirect") || "/";
+      const redirectParam = searchParams.get("redirect");
+      const redirectPath = redirectParam && redirectParam !== "/" ? redirectParam : "/dashboard";
       navigate({ to: redirectPath } as any);
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || "Failed to sign in";

@@ -121,7 +121,7 @@ export function AddItemModal({ visible, onClose, onSuccess, initialItem }: AddIt
       sellingPrice: sellingPrice ? parseFloat(sellingPrice) : 0,
       costPrice: costPrice ? parseFloat(costPrice) : undefined,
       description: description.trim() || undefined,
-      openingStock: type === 'Product' && openingStock ? parseInt(openingStock, 10) : undefined,
+      openingStock: type === 'Product' && openingStock !== '' && openingStock !== undefined ? parseInt(openingStock, 10) : undefined,
     };
 
     const result = itemSchema.safeParse(formData);

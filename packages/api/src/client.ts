@@ -71,8 +71,14 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     }
   }
 
-  let orgId = activeOrganizationId;
-  if (!orgId && currentConfig.getOrganizationId) {
+  const isOrgListing = Boolean(
+    config.url &&
+      config.url.includes('/organizations') &&
+      (!config.method || config.method.toLowerCase() === 'get')
+  );
+
+  let orgId = isOrgListing ? null : activeOrganizationId;
+  if (!orgId && !isOrgListing && currentConfig.getOrganizationId) {
     orgId = await currentConfig.getOrganizationId();
   }
 
@@ -90,20 +96,22 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     }
   }
 
-  if (currentConfig.getAuthToken) {
-    const token = await currentConfig.getAuthToken();
+  let token = config.headers.get('Authorization')?.toString().replace(/^Bearer\s+/i, '').trim();
+  if (!token && currentConfig.getAuthToken) {
+    token = (await currentConfig.getAuthToken()) || undefined;
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`);
-      if (!isBrowserRuntime) {
-        const existingCookie = config.headers.get('Cookie');
-        const cookieStr = typeof existingCookie === 'string' ? existingCookie : '';
-        if (!cookieStr.includes('session_token')) {
-          config.headers.set(
-            'Cookie',
-            `better-auth.session_token=${token}; __Secure-better-auth.session_token=${token}${cookieStr ? '; ' + cookieStr : ''}`
-          );
-        }
-      }
+    }
+  }
+
+  if (token && !isBrowserRuntime) {
+    const existingCookie = config.headers.get('Cookie');
+    const cookieStr = typeof existingCookie === 'string' ? existingCookie : '';
+    if (!cookieStr.includes('session_token')) {
+      config.headers.set(
+        'Cookie',
+        `better-auth.session_token=${token}; __Secure-better-auth.session_token=${token}${cookieStr ? '; ' + cookieStr : ''}`
+      );
     }
   }
 

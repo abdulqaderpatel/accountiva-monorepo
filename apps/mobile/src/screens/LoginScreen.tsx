@@ -17,6 +17,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { fonts } from '../theme/typography';
 import { GoogleIcon } from '../components/ui/GoogleIcon';
+import { IS_UAT } from '../config/api';
 
 interface LoginScreenProps {
   onNavigateToSignup: () => void;
@@ -108,7 +109,14 @@ export function LoginScreen({
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={[styles.brandTitle, { color: colors.foreground }]}>Accountiva™</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <Text style={[styles.brandTitle, { color: colors.foreground }]}>Accountiva™</Text>
+            {IS_UAT && (
+              <View style={{ backgroundColor: '#f59e0b25', borderColor: '#f59e0b', borderWidth: 1, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#d97706', fontSize: 11, fontWeight: '800' }}>UAT</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.brandSubtitle, { color: colors.mutedForeground }]}>
             Sign in to access your financial dashboard
           </Text>

@@ -278,7 +278,7 @@ export function Customers() {
         </div>
       </StickyPageHeader>
 
-      <div className="px-8 pt-2 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full">
+      <div className="px-8 pt-2 pb-36 max-w-7xl mx-auto space-y-8 flex-1 w-full">
         {/* Search & Select All Toolbar */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="relative max-w-md w-full group">

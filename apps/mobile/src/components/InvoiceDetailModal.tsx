@@ -9,7 +9,7 @@ import {
   Share,
 } from 'react-native';
 import { toast, confirm } from '../context/FeedbackContext';
-import { X, Share2, CircleCheck, Users, Send, Trash, Pencil, Eye, FileMinus } from 'lucide-react-native';
+import { X, Share2, CircleCheck, Users, Send, Trash, Pencil, Eye, FileMinus, Mail } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -23,6 +23,7 @@ import { useUpdateInvoiceStatus, useDeleteInvoice } from '@accountiva/api';
 import { fonts } from '../theme/typography';
 import { useAuth } from '../context/AuthContext';
 import { InvoicePreviewModal } from './InvoicePreviewModal';
+import { SendInvoiceModal } from './SendInvoiceModal';
 import { CreateCreditNoteModal } from './CreateCreditNoteModal';
 
 interface InvoiceDetailModalProps {
@@ -42,6 +43,7 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
 
   const [previewVisible, setPreviewVisible] = useState(false);
   const [creditNoteVisible, setCreditNoteVisible] = useState(false);
+  const [sendEmailVisible, setSendEmailVisible] = useState(false);
 
   if (!invoice) return null;
 
@@ -157,6 +159,14 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                 accessibilityLabel="Preview Invoice"
               >
                 <Eye size={18} color={colors.foreground} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSendEmailVisible(true)}
+                style={styles.iconBtn}
+                activeOpacity={0.7}
+                accessibilityLabel="Send Invoice via Email"
+              >
+                <Mail size={18} color={colors.foreground} />
               </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete} style={styles.iconBtn} activeOpacity={0.7}>
                 <Trash size={18} color={colors.destructive} />
@@ -370,6 +380,20 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
                   </Text>
                 </TouchableOpacity>
               ) : null}
+
+              <TouchableOpacity
+                onPress={() => setSendEmailVisible(true)}
+                style={[
+                  styles.secondaryActionBtn,
+                  { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' },
+                ]}
+                activeOpacity={0.7}
+              >
+                <Mail size={15} color={colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.secondaryActionText, { color: colors.primary }]}>
+                  Send Email
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Notes & Terms */}
@@ -423,6 +447,16 @@ export function InvoiceDetailModal({ visible, invoice, onClose, onRefresh, onEdi
       visible={previewVisible}
       invoice={invoice}
       onClose={() => setPreviewVisible(false)}
+    />
+
+    <SendInvoiceModal
+      visible={sendEmailVisible}
+      invoice={invoice}
+      onClose={() => setSendEmailVisible(false)}
+      onSuccess={() => {
+        setSendEmailVisible(false);
+        if (onRefresh) onRefresh();
+      }}
     />
 
     {isFeatureEnabled('creditNotes') ? (
@@ -625,6 +659,7 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 8,
   },

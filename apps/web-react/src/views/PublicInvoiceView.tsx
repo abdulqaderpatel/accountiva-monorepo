@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatCurrency, formatDate, getDocumentSummaryDetails } from "@accountiva/shared";
 import { toast } from "sonner";
 import { InvoiceTemplate, TemplateId } from "@/components/invoices/InvoiceTemplate";
+import { printDocument } from "@/lib/printDocument";
 import { cn } from "@/lib/utils";
 
 export function PublicInvoiceView() {
@@ -68,7 +69,15 @@ export function PublicInvoiceView() {
   }, [id]);
 
   const handlePrint = () => {
-    window.print();
+    const target = document.querySelector(".printable-document");
+    if (target instanceof HTMLElement) {
+      printDocument(
+        target,
+        `Invoice-${invoice?.invoiceNumber || invoice?.number || "INV"}`
+      );
+    } else {
+      window.print();
+    }
   };
 
   const handleCopyLink = async () => {

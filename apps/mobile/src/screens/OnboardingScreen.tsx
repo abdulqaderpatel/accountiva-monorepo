@@ -135,6 +135,11 @@ export function OnboardingScreen() {
                 Welcome, {user.name}
               </Text>
             ) : null}
+            {user?.email ? (
+              <Text style={[styles.accountEmail, { color: colors.mutedForeground }]}>
+                Signed in as {user.email}
+              </Text>
+            ) : null}
           </View>
 
           {/* STEP 1: CHOICE */}
@@ -145,7 +150,7 @@ export function OnboardingScreen() {
                   Set up your workspace
                 </Text>
                 <Text style={[styles.subHeading, { color: colors.mutedForeground }]}>
-                  Choose how you want to get started with Accountiva
+                  You don't have an active workspace yet. Choose how you want to get started with Accountiva
                 </Text>
               </View>
 
@@ -423,8 +428,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 13,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.medium,
     marginTop: 2,
+  },
+  accountEmail: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    marginTop: 1,
+    opacity: 0.8,
   },
   section: {
     width: '100%',

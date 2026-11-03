@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import {
   X,
@@ -31,6 +32,7 @@ import {
   CircleAlert,
   Calendar,
   Percent,
+  Mail,
 } from "lucide-react-native";
 import { useTheme } from "../theme/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -51,6 +53,7 @@ import {
 import { ScreenType } from "../components/BottomNav";
 import { fonts } from "../theme/typography";
 import { AddCustomerModal } from "../components/AddCustomerModal";
+import { SendInvoiceModal } from "../components/SendInvoiceModal";
 import { useKeyboard } from "../hooks/useKeyboard";
 import { CustomFieldRenderer } from "../components/ui/CustomFieldRenderer";
 import { buildMobileInvoicePayload } from "../documents/payloads";
@@ -118,6 +121,9 @@ export function CreateInvoiceScreen({
 
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
+  const [isSavingAndSending, setIsSavingAndSending] = useState(false);
+  const [savedInvoiceToSend, setSavedInvoiceToSend] = useState<any | null>(null);
+  const [isSendInvoiceModalVisible, setIsSendInvoiceModalVisible] = useState(false);
 
   const [invoiceNumber, setInvoiceNumber] = useState(
     initialInvoice?.number || initialInvoice?.invoiceNumber || "",
@@ -397,9 +403,13 @@ export function CreateInvoiceScreen({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (andSendEmail = false) => {
     setApiError(null);
     if (!validateForm()) return;
+
+    if (andSendEmail) {
+      setIsSavingAndSending(true);
+    }
 
     const rawStatus = String(initialInvoice?.status || "Draft").toLowerCase();
     const status: InvoiceStatus =
@@ -440,15 +450,69 @@ export function CreateInvoiceScreen({
     }
 
     try {
+      let result: any;
       if (initialInvoice?.id) {
-        await updateInvoiceMutation.mutateAsync({
+        result = await updateInvoiceMutation.mutateAsync({
           id: initialInvoice.id,
           payload,
         });
       } else {
-        await createInvoiceMutation.mutateAsync(payload);
+        result = await createInvoiceMutation.mutateAsync(payload);
       }
-      handleClose();
+
+      const res = result as any;
+      const selectedCustomerObj = rawCustomers.find(
+        (c: any) => c.id === customerId,
+      );
+      const resolvedEmail =
+        selectedCustomerObj?.email ||
+        res?.customer?.email ||
+        res?.customers?.email ||
+        initialInvoice?.email ||
+        "";
+      const resolvedCustomerName =
+        customer ||
+        selectedCustomerObj?.name ||
+        res?.customer?.name ||
+        res?.customers?.name ||
+        "Valued Client";
+
+      const invoiceForSending = {
+        ...res,
+        id: res?.id || initialInvoice?.id,
+        number: res?.invoiceNumber || invoiceNumber,
+        invoiceNumber: res?.invoiceNumber || invoiceNumber,
+        customer: resolvedCustomerName,
+        customerName: resolvedCustomerName,
+        email: resolvedEmail,
+        customerEmail: resolvedEmail,
+      };
+
+      if (andSendEmail) {
+        setSavedInvoiceToSend(invoiceForSending);
+        setIsSendInvoiceModalVisible(true);
+      } else {
+        Alert.alert(
+          "Invoice Saved",
+          resolvedEmail
+            ? `Would you like to email this invoice to ${resolvedCustomerName} (${resolvedEmail}) now?`
+            : "Would you like to email this invoice to your client now?",
+          [
+            {
+              text: "Not Now",
+              style: "cancel",
+              onPress: () => handleClose(),
+            },
+            {
+              text: "Send Email",
+              onPress: () => {
+                setSavedInvoiceToSend(invoiceForSending);
+                setIsSendInvoiceModalVisible(true);
+              },
+            },
+          ],
+        );
+      }
     } catch (err: any) {
       const msg =
         err.response?.data?.error ||
@@ -463,6 +527,8 @@ export function CreateInvoiceScreen({
         return;
       }
       setApiError(msg);
+    } finally {
+      setIsSavingAndSending(false);
     }
   };
 
@@ -491,33 +557,80 @@ export function CreateInvoiceScreen({
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>
           {initialInvoice ? "Edit Invoice" : "Create Invoice"}
         </Text>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={
-            createInvoiceMutation.isPending ||
-            updateInvoiceMutation.isPending ||
-            (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
-          }
-          style={[
-            styles.saveBtn,
-            { backgroundColor: colors.primary },
-            !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim())
-              ? styles.disabledBtn
-              : null,
-          ]}
-          activeOpacity={0.8}
-        >
-          {createInvoiceMutation.isPending ||
-          updateInvoiceMutation.isPending ? (
-            <ActivityIndicator size="small" color={colors.primaryForeground} />
-          ) : (
-            <Text
-              style={[styles.saveBtnText, { color: colors.primaryForeground }]}
-            >
-              Save
-            </Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerRightActions}>
+          <TouchableOpacity
+            onPress={() => handleSave(true)}
+            disabled={
+              isSavingAndSending ||
+              createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending ||
+              (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
+            }
+            style={[
+              styles.saveAndSendHeaderBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "12",
+              },
+              !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim())
+                ? styles.disabledBtn
+                : null,
+            ]}
+            activeOpacity={0.8}
+          >
+            {isSavingAndSending ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View style={styles.headerBtnContent}>
+                <Mail size={13} color={colors.primary} />
+                <Text
+                  style={[
+                    styles.saveAndSendHeaderText,
+                    { color: colors.primary },
+                  ]}
+                >
+                  Save & Send
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleSave(false)}
+            disabled={
+              isSavingAndSending ||
+              createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending ||
+              (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
+            }
+            style={[
+              styles.saveBtn,
+              { backgroundColor: colors.primary },
+              !initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim())
+                ? styles.disabledBtn
+                : null,
+            ]}
+            activeOpacity={0.8}
+          >
+            {!isSavingAndSending &&
+            (createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending) ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryForeground}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.saveBtnText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                Save
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -1434,6 +1547,76 @@ export function CreateInvoiceScreen({
           values={customFields}
           onChange={setCustomFields}
         />
+
+        {/* Quick Processing Bottom Actions */}
+        <View style={styles.bottomActionsCard}>
+          <TouchableOpacity
+            onPress={() => handleSave(true)}
+            disabled={
+              isSavingAndSending ||
+              createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending ||
+              (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
+            }
+            style={[
+              styles.bottomSaveAndSendBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primary + "15",
+              },
+            ]}
+            activeOpacity={0.8}
+          >
+            {isSavingAndSending ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View style={styles.bottomBtnContent}>
+                <Mail size={16} color={colors.primary} />
+                <Text
+                  style={[
+                    styles.bottomSaveAndSendText,
+                    { color: colors.primary },
+                  ]}
+                >
+                  Save & Send Email
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => handleSave(false)}
+            disabled={
+              isSavingAndSending ||
+              createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending ||
+              (!initialInvoice?.id && (isNumberLoading || !invoiceNumber.trim()))
+            }
+            style={[
+              styles.bottomSaveBtn,
+              { backgroundColor: colors.primary },
+            ]}
+            activeOpacity={0.8}
+          >
+            {!isSavingAndSending &&
+            (createInvoiceMutation.isPending ||
+              updateInvoiceMutation.isPending) ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryForeground}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.bottomSaveText,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                {initialInvoice ? "Save Changes" : "Save Invoice"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Customer Selection Modal */}
@@ -1754,6 +1937,24 @@ export function CreateInvoiceScreen({
           setCreateCustomerModalOpen(false);
         }}
       />
+
+      {/* Send Invoice by Email Modal */}
+      {savedInvoiceToSend && (
+        <SendInvoiceModal
+          visible={isSendInvoiceModalVisible}
+          invoice={savedInvoiceToSend}
+          onClose={() => {
+            setIsSendInvoiceModalVisible(false);
+            setSavedInvoiceToSend(null);
+            handleClose();
+          }}
+          onSuccess={() => {
+            setIsSendInvoiceModalVisible(false);
+            setSavedInvoiceToSend(null);
+            handleClose();
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -1778,6 +1979,27 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: fonts.display,
   },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  saveAndSendHeaderBtn: {
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  saveAndSendHeaderText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
   saveBtn: {
     paddingHorizontal: 16,
     paddingVertical: 7,
@@ -1790,6 +2012,39 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.55,
+  },
+  bottomActionsCard: {
+    marginTop: 10,
+    gap: 10,
+  },
+  bottomBtnContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  bottomSaveAndSendBtn: {
+    borderWidth: 1.5,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSaveAndSendText: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
+  },
+  bottomSaveBtn: {
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bottomSaveText: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: fonts.bold,
   },
   formContent: {
     padding: 16,

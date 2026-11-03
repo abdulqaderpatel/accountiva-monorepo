@@ -508,12 +508,18 @@ export function CreateEstimateModal({
         toast.success(`Estimate created successfully!`);
       }
 
-      onSuccess?.(result);
+      try {
+        onSuccess?.(result);
+      } catch (onSuccessErr) {
+        console.error("onSuccess callback error:", onSuccessErr);
+      }
       onClose();
     } catch (err: any) {
+      console.error("Failed to save estimate error:", err);
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
+        err.message ||
         "Failed to save estimate";
       if (!isEditing && isDuplicateDocumentNumberError(err)) {
         toast.error(message, {

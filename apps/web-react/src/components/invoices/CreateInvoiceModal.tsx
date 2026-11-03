@@ -169,6 +169,8 @@ export function CreateInvoiceModal({
   const [isSavingAndSending, setIsSavingAndSending] = useState(false);
   const [invoiceToSend, setInvoiceToSend] = useState<any | null>(null);
   const [isSendInvoiceOpen, setIsSendInvoiceOpen] = useState(false);
+  const wasOpenRef = useRef(false);
+  const prevInvoiceToEditIdRef = useRef<string | undefined>(undefined);
 
   const loadNextInvoiceNumber = useCallback(async () => {
     const requestId = ++numberRequestRef.current;
@@ -197,6 +199,16 @@ export function CreateInvoiceModal({
 
   useEffect(() => {
     if (isOpen) {
+      const isJustOpening = !wasOpenRef.current;
+      const currentEditingId = invoiceToEdit?.id;
+      const isEditingChanged = currentEditingId !== prevInvoiceToEditIdRef.current;
+      wasOpenRef.current = true;
+      prevInvoiceToEditIdRef.current = currentEditingId;
+
+      if (!isJustOpening && !isEditingChanged) {
+        return;
+      }
+
       setInvoiceToSend(null);
       setIsSendInvoiceOpen(false);
       setIsSavingAndSending(false);
@@ -323,6 +335,9 @@ export function CreateInvoiceModal({
         setCustomFields({});
         void loadNextInvoiceNumber();
       }
+    } else {
+      wasOpenRef.current = false;
+      prevInvoiceToEditIdRef.current = undefined;
     }
     return () => {
       numberRequestRef.current += 1;
@@ -557,7 +572,7 @@ export function CreateInvoiceModal({
         result = await createInvoiceMutation.mutateAsync(payload);
       }
 
-      const selectedCustomer = apiCustomers?.find((c: any) => c.id === customerId);
+      const selectedCustomer = customerList.find((c: any) => c.id === customerId);
       const savedInvoice = {
         ...result,
         id: result?.id || (isEditing ? invoiceToEdit?.id : undefined),
@@ -573,7 +588,11 @@ export function CreateInvoiceModal({
 
       if (andSendEmail) {
         toast.success(isEditing ? "Invoice updated successfully!" : "Invoice created successfully!");
-        onSuccess?.(savedInvoice);
+        try {
+          onSuccess?.(savedInvoice);
+        } catch (onSuccessErr) {
+          console.error("onSuccess callback error:", onSuccessErr);
+        }
         onClose();
         setInvoiceToSend(savedInvoice);
         setIsSendInvoiceOpen(true);
@@ -591,13 +610,19 @@ export function CreateInvoiceModal({
             },
           }
         );
-        onSuccess?.(savedInvoice);
+        try {
+          onSuccess?.(savedInvoice);
+        } catch (onSuccessErr) {
+          console.error("onSuccess callback error:", onSuccessErr);
+        }
         onClose();
       }
     } catch (err: any) {
+      console.error("Failed to save invoice error:", err);
       const message =
         err.response?.data?.message ||
         err.response?.data?.error ||
+        err.message ||
         "Failed to save invoice";
       if (!isEditing && isDuplicateDocumentNumberError(err)) {
         toast.error(message, {

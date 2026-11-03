@@ -64,7 +64,7 @@ interface AuthContextType {
   logout: (search?: Record<string, string | undefined>) => Promise<void>;
   signOut: (search?: Record<string, string | undefined>) => Promise<void>;
   setCurrentOrganization: (org: Organization | null) => void;
-  fetchOrganizations: () => Promise<void>;
+  fetchOrganizations: () => Promise<Organization[]>;
   updateCurrentOrgPlan: (planData: {
     plan: string;
     plan_id?: string;
@@ -132,7 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchOrganizations = useCallback(async () => {
     try {
-      const { data } = await api.get<Organization[]>("/organizations");
+      const { data } = await api.get<Organization[]>("/organizations", {
+        params: { _t: Date.now() },
+      });
       setOrganizations(data);
 
       const storedOrgId = localStorage.getItem("accountiva_org_id");
@@ -142,8 +144,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setCurrentOrganization(null);
       }
+      return data;
     } catch (err) {
       console.error("Failed to fetch organizations:", err);
+      return [];
     }
   }, [setCurrentOrganization]);
 
@@ -235,7 +239,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sessionPromise = (authClient.getSession as any)();
         const session = await Promise.race([sessionPromise, timeoutPromise]);
         if (session?.data?.user) {
-          setUser(session.data.user as User);
           try {
             await Promise.allSettled([
               Promise.race([
@@ -247,6 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch (orgErr) {
             console.warn("Organization/admin access fetch timed out:", orgErr);
           }
+          setUser(session.data.user as User);
         }
       } catch (err) {
         console.error("Session restore error:", err);
@@ -259,7 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [fetchAdminAccess, fetchOrganizations]);
 
   const login = async (email: string, password: string) => {
     clearLogoutPending();
@@ -273,8 +277,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (result.data?.user) {
+      // Fetch organizations and admin access BEFORE activating user in state.
+      // This prevents GuestRoute from prematurely navigating to /onboarding while organizations are empty.
+      try {
+        await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
+      } catch (err) {
+        console.error("Failed to fetch organizations on login:", err);
+      }
       setUser(result.data.user as User);
-      await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
     }
     return result.data;
   };

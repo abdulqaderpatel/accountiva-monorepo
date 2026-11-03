@@ -123,28 +123,50 @@ export function AddItemModal({
   const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const normalizeType = (t?: string): "Product" | "Service" => {
+    if (!t) return "Product";
+    return t.toLowerCase().trim() === "service" ? "Service" : "Product";
+  };
+
+  const normalizeProductType = (pt?: string | null): "Inventory" | "Non-Inventory" => {
+    if (!pt) return "Inventory";
+    const cleaned = pt.toLowerCase().trim().replace(/[-_]/g, "");
+    return cleaned === "noninventory" ? "Non-Inventory" : "Inventory";
+  };
+
+  const cleanNumber = (val: any, fallback = 0): number => {
+    if (typeof val === "number") return isNaN(val) ? fallback : val;
+    if (val === undefined || val === null || val === "") return fallback;
+    const cleaned = String(val).replace(/[^0-9.-]/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? fallback : num;
+  };
+
   useEffect(() => {
     if (isOpen) {
       setErrors({});
       if (itemToEdit) {
-        setType(itemToEdit.type || "Product");
-        setProductType(itemToEdit.productType || "Inventory");
+        const resolvedType = normalizeType(itemToEdit.type);
+        setType(resolvedType);
+        setProductType(
+          resolvedType === "Service" ? "Inventory" : normalizeProductType(itemToEdit.productType)
+        );
         setName(itemToEdit.name || "");
         setSku(itemToEdit.sku || "");
         setCategory(itemToEdit.category || "General");
-        setUom(itemToEdit.uom || (itemToEdit.type === "Service" ? "Hours" : "Pcs"));
+        setUom(itemToEdit.uom || (resolvedType === "Service" ? "Hours" : "Pcs"));
         setHsnSacCode(itemToEdit.hsnSacCode || "");
         setTaxPreference(itemToEdit.taxPreference || "Taxable");
 
         setSellingPrice(itemToEdit.sellingPrice ?? itemToEdit.unitPrice ?? 0);
         setSalesTaxRate(String(itemToEdit.salesTaxRate ?? 18));
         setSalesDescription(itemToEdit.salesDescription || itemToEdit.description || "");
-        setIncomeAccount(itemToEdit.incomeAccount || (itemToEdit.type === "Service" ? "Service Income" : "Sales / Operating Revenue"));
+        setIncomeAccount(itemToEdit.incomeAccount || (resolvedType === "Service" ? "Service Income" : "Sales / Operating Revenue"));
 
         setCostPrice(itemToEdit.costPrice ?? 0);
         setPurchaseTaxRate(String(itemToEdit.purchaseTaxRate ?? 18));
         setPurchaseDescription(itemToEdit.purchaseDescription || "");
-        setExpenseAccount(itemToEdit.expenseAccount || (itemToEdit.type === "Service" ? "Direct Expenses" : "Cost of Goods Sold"));
+        setExpenseAccount(itemToEdit.expenseAccount || (resolvedType === "Service" ? "Direct Expenses" : "Cost of Goods Sold"));
 
         setOpeningStock(itemToEdit.openingStock ?? itemToEdit.stockOnHand ?? 0);
         setValuationRate(itemToEdit.valuationRate ?? itemToEdit.costPrice ?? 0);
@@ -215,30 +237,38 @@ export function AddItemModal({
     e.preventDefault();
     setErrors({});
 
+    const normalizedType = normalizeType(type);
+    const normalizedProductType = normalizedType === "Product" ? normalizeProductType(productType) : null;
+
+    const parsedOpeningStock =
+      normalizedType === "Product" && normalizedProductType === "Inventory"
+        ? cleanNumber(openingStock, 0)
+        : undefined;
+
     const formData = {
       name: name.trim(),
-      type,
-      productType: type === "Product" ? productType : null,
+      type: normalizedType,
+      productType: normalizedProductType,
       sku: sku.trim(),
       category: category.trim(),
       uom,
       hsnSacCode: hsnSacCode.trim(),
       taxPreference,
-      sellingPrice: Number(sellingPrice) || 0,
-      unitPrice: Number(sellingPrice) || 0,
-      salesTaxRate: Number(salesTaxRate) || 0,
+      sellingPrice: cleanNumber(sellingPrice, 0),
+      unitPrice: cleanNumber(sellingPrice, 0),
+      salesTaxRate: cleanNumber(salesTaxRate, 0),
       salesDescription: salesDescription.trim(),
       description: salesDescription.trim(),
       incomeAccount,
-      costPrice: Number(costPrice) || 0,
-      purchaseTaxRate: Number(purchaseTaxRate) || 0,
+      costPrice: cleanNumber(costPrice, 0),
+      purchaseTaxRate: cleanNumber(purchaseTaxRate, 0),
       purchaseDescription: purchaseDescription.trim(),
       expenseAccount,
-      openingStock: type === "Product" && productType === "Inventory" ? Number(openingStock) || 0 : undefined,
-      valuationRate: Number(valuationRate) || 0,
-      reorderPoint: Number(reorderPoint) || 5,
-      inventoryAccount: type === "Product" && productType === "Inventory" ? inventoryAccount : undefined,
-      asOfDate,
+      openingStock: parsedOpeningStock,
+      valuationRate: cleanNumber(valuationRate, 0),
+      reorderPoint: cleanNumber(reorderPoint, 5),
+      inventoryAccount: normalizedType === "Product" && normalizedProductType === "Inventory" ? inventoryAccount : undefined,
+      asOfDate: asOfDate || new Date().toISOString().split("T")[0],
       isSellable: true,
       isPurchasable: true,
       customFields,
@@ -247,15 +277,36 @@ export function AddItemModal({
     const result = itemSchema.safeParse(formData);
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
+      const errorSummaries: string[] = [];
+      const fieldLabels: Record<string, string> = {
+        name: "Item Name",
+        type: "Item Type",
+        productType: "Product Classification",
+        sellingPrice: "Selling Price",
+        costPrice: "Cost Price",
+        openingStock: "Opening Stock Quantity",
+        valuationRate: "Valuation Rate",
+        asOfDate: "As of Date",
+        reorderPoint: "Reorder Point",
+        sku: "Item SKU",
+        salesTaxRate: "Sales Tax Rate",
+        purchaseTaxRate: "Purchase Tax Rate",
+      };
+
       for (const issue of result.error.issues) {
-        const fieldName = issue.path[0] as string;
+        const fieldName = (issue.path[0] as string) || "general";
         if (!fieldErrors[fieldName]) {
           fieldErrors[fieldName] = issue.message;
+          const label = fieldLabels[fieldName] || fieldName;
+          errorSummaries.push(`${label} (${issue.message})`);
         }
       }
       setErrors(fieldErrors);
       toast.error("Form Validation Failed", {
-        description: "Please fill out all required fields before saving.",
+        description:
+          errorSummaries.length > 0
+            ? `Please correct required fields: ${errorSummaries.join(" • ")}`
+            : "Please fill out all required fields before saving.",
       });
       return;
     }
@@ -481,8 +532,13 @@ export function AddItemModal({
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 placeholder="e.g. PRD-1002"
-                className="font-mono text-xs"
+                className={cn("font-mono text-xs", errors.sku && "border-destructive ring-destructive/20")}
               />
+              {errors.sku && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3" /> {errors.sku}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -501,8 +557,13 @@ export function AddItemModal({
                 value={hsnSacCode}
                 onChange={(e) => setHsnSacCode(e.target.value)}
                 placeholder="e.g. 84713010"
-                className="font-mono text-xs"
+                className={cn("font-mono text-xs", errors.hsnSacCode && "border-destructive ring-destructive/20")}
               />
+              {errors.hsnSacCode && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3" /> {errors.hsnSacCode}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -531,12 +592,18 @@ export function AddItemModal({
               <Input
                 id="sellingPrice"
                 type="number"
+                step="0.01"
                 value={sellingPrice}
                 onChange={(e) => setSellingPrice(e.target.value)}
                 placeholder="0.00"
-                className="text-xs font-mono"
+                className={cn("text-xs font-mono", errors.sellingPrice && "border-destructive ring-destructive/20")}
                 required
               />
+              {errors.sellingPrice && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3" /> {errors.sellingPrice}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -583,11 +650,17 @@ export function AddItemModal({
               <Input
                 id="costPrice"
                 type="number"
+                step="0.01"
                 value={costPrice}
                 onChange={(e) => setCostPrice(e.target.value)}
                 placeholder="0.00"
-                className="text-xs font-mono"
+                className={cn("text-xs font-mono", errors.costPrice && "border-destructive ring-destructive/20")}
               />
+              {errors.costPrice && (
+                <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3" /> {errors.costPrice}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -625,35 +698,11 @@ export function AddItemModal({
         {/* ================= 4. INVENTORY DETAILS (IF INVENTORY PRODUCT) ================= */}
         {type === "Product" && productType === "Inventory" && (
           <div className="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-2xs">
-            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Inventory Tracking & Stock
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+              <Package className="size-4 text-muted-foreground" /> Inventory Tracking & Valuation
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="openingStock" className="text-xs font-semibold">Opening Stock Quantity</Label>
-                <Input
-                  id="openingStock"
-                  type="number"
-                  value={openingStock}
-                  onChange={(e) => setOpeningStock(e.target.value)}
-                  placeholder="0"
-                  className="text-xs font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="reorderPoint" className="text-xs font-semibold">Low Stock Alert Threshold</Label>
-                <Input
-                  id="reorderPoint"
-                  type="number"
-                  value={reorderPoint}
-                  onChange={(e) => setReorderPoint(e.target.value)}
-                  placeholder="5"
-                  className="text-xs font-mono"
-                />
-              </div>
-
               <div className="space-y-1.5 sm:col-span-2">
                 <Label className="text-xs font-semibold">Inventory Asset Account</Label>
                 <Select
@@ -661,6 +710,88 @@ export function AddItemModal({
                   onChange={setInventoryAccount}
                   options={INVENTORY_ACCOUNTS}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="openingStock" className="text-xs font-semibold">
+                  Opening Stock Quantity <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="openingStock"
+                  type="number"
+                  value={openingStock}
+                  onChange={(e) => setOpeningStock(e.target.value)}
+                  placeholder="0"
+                  className={cn("text-xs font-mono", errors.openingStock && "border-destructive ring-destructive/20")}
+                />
+                {errors.openingStock && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3" /> {errors.openingStock}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="valuationRate" className="text-xs font-semibold">
+                  Cost Per Unit / Valuation Rate ({currencySymbol}) <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs text-muted-foreground font-mono">
+                    {currencySymbol}
+                  </span>
+                  <Input
+                    id="valuationRate"
+                    type="number"
+                    step="0.01"
+                    value={valuationRate}
+                    onChange={(e) => setValuationRate(e.target.value)}
+                    placeholder="0.00"
+                    className={cn("pl-7 text-xs font-mono", errors.valuationRate && "border-destructive ring-destructive/20")}
+                  />
+                </div>
+                {errors.valuationRate && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3" /> {errors.valuationRate}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="asOfDate" className="text-xs font-semibold">
+                  As of Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="asOfDate"
+                  type="date"
+                  value={asOfDate}
+                  onChange={(e) => setAsOfDate(e.target.value)}
+                  className={cn("text-xs", errors.asOfDate && "border-destructive ring-destructive/20")}
+                />
+                {errors.asOfDate && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3" /> {errors.asOfDate}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="reorderPoint" className="text-xs font-semibold flex items-center justify-between">
+                  <span>Reorder Point / Safety Stock Level</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">Triggers Low Stock Alert</span>
+                </Label>
+                <Input
+                  id="reorderPoint"
+                  type="number"
+                  value={reorderPoint}
+                  onChange={(e) => setReorderPoint(e.target.value)}
+                  placeholder="5"
+                  className={cn("text-xs font-mono", errors.reorderPoint && "border-destructive ring-destructive/20")}
+                />
+                {errors.reorderPoint && (
+                  <p className="text-xs text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3" /> {errors.reorderPoint}
+                  </p>
+                )}
               </div>
             </div>
           </div>

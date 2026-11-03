@@ -8,9 +8,11 @@ import {
   Calculator,
   ChevronRight,
   Briefcase,
-  Building2,
-  CreditCard,
-  Wallet,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Users,
+  Package,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,17 +57,22 @@ export function Dashboard() {
     return [];
   }, [apiEstimates]);
 
-  // Compute metrics with API fallback
+  // Compute metrics strictly for Invoicing
   const totalReceivables = useMemo(() => {
     if (metricsData?.receivables !== undefined) return metricsData.receivables;
     return rawInvoices
-      .filter((inv) => String(inv.status || "").toLowerCase() !== "paid" && String(inv.status || "").toLowerCase() !== "draft")
+      .filter((inv) => {
+        const st = String(inv.status || "").toLowerCase();
+        return st !== "paid" && st !== "draft";
+      })
       .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
   }, [metricsData, rawInvoices]);
 
-  const totalPayables = useMemo(() => {
-    return metricsData?.payables ?? 0;
-  }, [metricsData]);
+  const totalPaid = useMemo(() => {
+    return rawInvoices
+      .filter((inv) => String(inv.status || "").toLowerCase() === "paid")
+      .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  }, [rawInvoices]);
 
   const totalRevenue = useMemo(() => {
     if (metricsData?.revenue !== undefined) return metricsData.revenue;
@@ -74,10 +81,19 @@ export function Dashboard() {
       .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
   }, [metricsData, rawInvoices]);
 
-  const netProfit = useMemo(() => {
-    if (metricsData?.netProfit !== undefined) return metricsData.netProfit;
-    return totalRevenue - (metricsData?.expenses ?? 0);
-  }, [metricsData, totalRevenue]);
+  const totalOverdue = useMemo(() => {
+    const now = new Date();
+    return rawInvoices
+      .filter((inv) => {
+        const st = String(inv.status || "").toLowerCase();
+        if (st === "paid" || st === "draft") return false;
+        if (inv.dueDate) {
+          return new Date(inv.dueDate) < now;
+        }
+        return false;
+      })
+      .reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  }, [rawInvoices]);
 
   const activeEstimates = useMemo(() => {
     return rawEstimates.filter((e) => {
@@ -90,7 +106,57 @@ export function Dashboard() {
     return activeEstimates.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   }, [activeEstimates]);
 
-  // Dynamic Summary Stats Strip
+  // Invoice collection breakdown
+  const invoiceBreakdown = useMemo(() => {
+    let paidCount = 0;
+    let paidAmount = 0;
+    let outstandingCount = 0;
+    let outstandingAmount = 0;
+    let overdueCount = 0;
+    let overdueAmount = 0;
+    let draftCount = 0;
+    let draftAmount = 0;
+
+    const now = new Date();
+
+    rawInvoices.forEach((inv) => {
+      const amt = Number(inv.amount) || 0;
+      const st = String(inv.status || "").toLowerCase();
+
+      if (st === "paid") {
+        paidCount++;
+        paidAmount += amt;
+      } else if (st === "draft") {
+        draftCount++;
+        draftAmount += amt;
+      } else {
+        const isPastDue = inv.dueDate && new Date(inv.dueDate) < now;
+        if (isPastDue || st === "overdue") {
+          overdueCount++;
+          overdueAmount += amt;
+        } else {
+          outstandingCount++;
+          outstandingAmount += amt;
+        }
+      }
+    });
+
+    const totalCount = rawInvoices.length || 1;
+    return {
+      paid: { count: paidCount, amount: paidAmount, pct: Math.round((paidCount / totalCount) * 100) },
+      outstanding: { count: outstandingCount, amount: outstandingAmount, pct: Math.round((outstandingCount / totalCount) * 100) },
+      overdue: { count: overdueCount, amount: overdueAmount, pct: Math.round((overdueCount / totalCount) * 100) },
+      draft: { count: draftCount, amount: draftAmount, pct: Math.round((draftCount / totalCount) * 100) },
+      totalCount: rawInvoices.length,
+    };
+  }, [rawInvoices]);
+
+  const collectionRate = useMemo(() => {
+    if (totalRevenue <= 0) return 0;
+    return Math.min(100, Math.round((totalPaid / totalRevenue) * 100));
+  }, [totalPaid, totalRevenue]);
+
+  // Invoicing Summary Stats Strip (4 distinct invoicing metrics)
   const summaryStats = useMemo(() => {
     const stats: Array<{
       title: string;
@@ -105,8 +171,28 @@ export function Dashboard() {
       {
         title: "Total Receivables",
         amount: formatCurrency(totalReceivables, currency),
-        description: "Outstanding",
-        icon: FileText,
+        description: "Outstanding Payments",
+        icon: Clock,
+        color: "text-amber-700 dark:text-amber-400",
+        accent: "bg-amber-500/50",
+        tone: "hover:border-amber-500/40",
+        iconBg: "bg-amber-500/10 border border-amber-500/15 text-amber-700 dark:text-amber-400",
+      },
+      {
+        title: "Total Collected",
+        amount: formatCurrency(totalPaid, currency),
+        description: "Paid Invoices to Date",
+        icon: CheckCircle2,
+        color: "text-emerald-700 dark:text-emerald-400",
+        accent: "bg-emerald-500/50",
+        tone: "hover:border-emerald-500/40",
+        iconBg: "bg-emerald-500/10 border border-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+      },
+      {
+        title: "Total Invoiced",
+        amount: formatCurrency(totalRevenue, currency),
+        description: "Total Invoiced to Date",
+        icon: TrendingUp,
         color: "text-primary",
         accent: "bg-primary/50",
         tone: "hover:border-primary/40",
@@ -114,42 +200,7 @@ export function Dashboard() {
       },
     ];
 
-    if (isFeatureEnabled("bills") || isFeatureEnabled("expenses")) {
-      stats.push({
-        title: "Total Payables",
-        amount: formatCurrency(totalPayables, currency),
-        description: "Unpaid",
-        icon: Receipt,
-        color: "text-amber-700 dark:text-amber-400",
-        accent: "bg-amber-500/50",
-        tone: "hover:border-amber-500/40",
-        iconBg: "bg-amber-500/10 border border-amber-500/15 text-amber-700 dark:text-amber-400",
-      });
-    } else {
-      stats.push({
-        title: "Total Revenue",
-        amount: formatCurrency(totalRevenue, currency),
-        description: "Total Invoiced to Date",
-        icon: TrendingUp,
-        color: "text-emerald-700 dark:text-emerald-400",
-        accent: "bg-emerald-500/50",
-        tone: "hover:border-emerald-500/40",
-        iconBg: "bg-emerald-500/10 border border-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-      });
-    }
-
-    if (isFeatureEnabled("banking")) {
-      stats.push({
-        title: "Bank Balance",
-        amount: formatCurrency(0, currency),
-        description: "Cash & Bank Balance",
-        icon: Wallet,
-        color: "text-primary",
-        accent: "bg-primary/50",
-        tone: "hover:border-primary/40",
-        iconBg: "bg-primary/10 border border-primary/15 text-primary",
-      });
-    } else if (isFeatureEnabled("estimates")) {
+    if (isFeatureEnabled("estimates")) {
       stats.push({
         title: "Active Estimates",
         amount: formatCurrency(activeEstimatesValue, currency),
@@ -160,46 +211,23 @@ export function Dashboard() {
         tone: "hover:border-sky-500/40",
         iconBg: "bg-sky-500/10 border border-sky-500/15 text-sky-700 dark:text-sky-400",
       });
+    } else {
+      stats.push({
+        title: "Overdue Amount",
+        amount: formatCurrency(totalOverdue, currency),
+        description: "Unpaid Past Due",
+        icon: AlertCircle,
+        color: "text-rose-700 dark:text-rose-400",
+        accent: "bg-rose-500/50",
+        tone: "hover:border-rose-500/40",
+        iconBg: "bg-rose-500/10 border border-rose-500/15 text-rose-700 dark:text-rose-400",
+      });
     }
-
-    stats.push({
-      title: "Net Profit",
-      amount: formatCurrency(netProfit, currency),
-      description: "Revenue vs Expenses",
-      icon: TrendingUp,
-      color: "text-emerald-700 dark:text-emerald-400",
-      accent: "bg-emerald-500/50",
-      tone: "hover:border-emerald-500/40",
-      iconBg: "bg-emerald-500/10 border border-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-    });
 
     return stats;
-  }, [totalReceivables, totalPayables, totalRevenue, netProfit, activeEstimatesValue, activeEstimates.length, currency]);
+  }, [totalReceivables, totalPaid, totalRevenue, totalOverdue, activeEstimatesValue, activeEstimates.length, currency]);
 
-  // Cash Flow Data
-  const cashFlowData = useMemo(() => {
-    if (metricsData?.cashFlow && metricsData.cashFlow.length > 0) {
-      return metricsData.cashFlow.map((entry, idx) => ({ id: idx, ...entry }));
-    }
-    // Fallback: 12 daily entries
-    return Array.from({ length: 12 }, (_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (11 - index));
-      return {
-        id: index,
-        date: date.toISOString().slice(0, 10),
-        income: 0,
-        expense: 0,
-      };
-    });
-  }, [metricsData]);
-
-  const maxCashFlow = useMemo(() => {
-    const allValues = cashFlowData.flatMap((d) => [d.income, d.expense]);
-    return Math.max(...allValues, 1);
-  }, [cashFlowData]);
-
-  // Recent Activity / Recent Invoices
+  // Recent Invoices Activity
   const recentActivity = useMemo(() => {
     const sorted = [...rawInvoices].sort((a, b) => {
       const dateA = new Date(a.date || a.issueDate || a.createdAt || 0).getTime();
@@ -207,7 +235,7 @@ export function Dashboard() {
       return dateB - dateA;
     });
 
-    return sorted.slice(0, 5).map((inv: any) => {
+    return sorted.slice(0, 7).map((inv: any) => {
       const rawDate = inv.date || inv.issueDate || inv.createdAt || new Date();
       const dateStr = new Date(rawDate).toLocaleDateString("en-US", {
         month: "short",
@@ -215,16 +243,20 @@ export function Dashboard() {
       });
       const customerName = inv.customers?.name || inv.customerName || "Customer";
       const invNumber = inv.invoiceNumber || `INV-${inv.id}`;
-      const status = inv.status || "Invoice";
-      const isPaid = String(status).toLowerCase() === "paid";
+      const status = inv.status || "Draft";
+      const st = String(status).toLowerCase();
+      const isPaid = st === "paid";
+      const isOverdue = st === "overdue" || (inv.dueDate && new Date(inv.dueDate) < new Date() && st !== "paid" && st !== "draft");
 
       return {
         id: inv.id,
         date: dateStr,
-        description: `${invNumber} • ${customerName}`,
-        type: status,
+        invoiceNumber: invNumber,
+        customerName: customerName,
+        status: isOverdue ? "Overdue" : status,
         amount: formatCurrency(Number(inv.amount) || 0, currency),
-        amountClass: isPaid ? "text-emerald-500" : "text-foreground",
+        isPaid,
+        isOverdue,
       };
     });
   }, [rawInvoices, currency]);
@@ -232,7 +264,7 @@ export function Dashboard() {
   const userName = user?.name ? user.name.split(" ")[0] : "Member";
 
   return (
-    <div className="px-8 pt-4 md:pt-5 pb-8 max-w-7xl mx-auto space-y-8 flex-1 w-full flex flex-col">
+    <div className="px-8 pt-4 md:pt-5 pb-36 max-w-7xl mx-auto space-y-8 flex-1 w-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-4">
@@ -244,7 +276,7 @@ export function Dashboard() {
               Hello, {userName}
             </h1>
             <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-              Welcome back! Here's an overview of your organization's cash flow.
+              Your financial overview for today.
             </p>
           </div>
         </div>
@@ -261,7 +293,7 @@ export function Dashboard() {
 
       {/* Body Content */}
       <div className="flex-1 space-y-8 min-h-0">
-        {/* Summary Stats */}
+        {/* Invoicing Summary Stats Strip */}
         <div id="dashboard-stats" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {summaryStats.map((stat) => {
             const Icon = stat.icon;
@@ -301,88 +333,17 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Cash Flow & Activity */}
+          {/* Left Column: Recent Invoices & Collection Performance */}
           <div className="lg:col-span-8 space-y-8">
-            {/* Cash Flow */}
-            <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden">
+            {/* Recent Invoices Card */}
+            <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden min-h-[340px]">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 bg-card/30 p-5 md:p-6">
                 <div className="space-y-1">
                   <CardTitle className="text-sm md:text-base font-bold text-foreground">
-                    Cash Flow
+                    Recent Invoices
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground">
-                    Cash Flow Overview
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Income
-                    </span>
-                  </div>
-                  {isFeatureEnabled("expenses") && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary" />
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Expenses
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="p-6 md:p-8">
-                {metricsLoading && !metricsData ? (
-                  <div className="h-64 flex items-end gap-3 px-2">
-                    {[35, 60, 45, 80, 50, 75, 90, 40].map((val, idx) => (
-                      <div key={idx} className="flex-1 bg-muted/40 rounded-t animate-pulse" style={{ height: `${val}%` }} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-end gap-2 md:gap-3 relative px-2">
-                    <div className="absolute inset-0 flex flex-col justify-between py-1 pointer-events-none opacity-10">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div key={i} className="w-full h-px bg-foreground" />
-                      ))}
-                    </div>
-                    {cashFlowData.map((bar) => (
-                      <div
-                        key={bar.id}
-                        className="flex-1 flex items-end gap-1 h-full group relative"
-                        title={`${bar.date} — Income: ${formatCurrency(bar.income, currency)}${isFeatureEnabled("expenses") ? ` | Expense: ${formatCurrency(bar.expense, currency)}` : ""}`}
-                      >
-                        <div
-                          className="flex-1 bg-emerald-500/40 group-hover:bg-emerald-500 transition-all rounded-t-sm"
-                          style={{
-                            height: `${Math.max(4, (bar.income / maxCashFlow) * 100)}%`,
-                          }}
-                        />
-                        {isFeatureEnabled("expenses") && (
-                          <div
-                            className="flex-1 bg-primary/40 group-hover:bg-primary transition-all rounded-t-sm"
-                            style={{
-                              height: `${Math.max(4, (bar.expense / maxCashFlow) * 100)}%`,
-                            }}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/60 bg-card/30 p-5 md:p-6">
-                <div className="space-y-1">
-                  <CardTitle className="text-sm md:text-base font-bold text-foreground">
-                    {isFeatureEnabled("transactions") ? "Recent Activity" : "Recent Invoices"}
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    {isFeatureEnabled("transactions")
-                      ? "Latest account activity"
-                      : "Latest generated invoices"}
+                    Latest generated invoices and payment status
                   </CardDescription>
                 </div>
                 <Link to="/invoices">
@@ -410,38 +371,61 @@ export function Dashboard() {
                     ))}
                   </div>
                 ) : recentActivity.length === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground text-xs">
-                    No recent activity to display.
+                  <div className="py-16 text-center text-muted-foreground text-xs space-y-2">
+                    <FileText className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                    <p className="font-medium text-foreground">No invoices generated yet</p>
+                    <p className="text-[11px]">Create your first invoice to begin tracking billing status.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-border/50 bg-muted/20 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <th className="py-3 px-6">Invoice # & Client</th>
+                          <th className="py-3 px-6">Date</th>
+                          <th className="py-3 px-6 text-center">Status</th>
+                          <th className="py-3 px-6 text-right">Amount</th>
+                        </tr>
+                      </thead>
                       <tbody className="divide-y divide-border/60">
-                        {recentActivity.map((tx) => (
+                        {recentActivity.map((inv) => (
                           <tr
-                            key={tx.id}
+                            key={inv.id}
                             onClick={() => navigate({ to: "/invoices" })}
                             className="hover:bg-muted/50 transition-colors group cursor-pointer"
                           >
-                            <td className="py-4.5 px-6">
+                            <td className="py-4 px-6">
                               <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                  {tx.date}
+                                <span className="font-mono text-xs font-bold text-foreground group-hover:text-primary transition-colors">
+                                  {inv.invoiceNumber}
                                 </span>
-                                <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors mt-0.5">
-                                  {tx.description}
+                                <span className="text-xs text-muted-foreground mt-0.5">
+                                  {inv.customerName}
                                 </span>
                               </div>
                             </td>
-                            <td className="py-4.5 px-6">
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/60 border border-border/60 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                                {tx.type}
+                            <td className="py-4 px-6 text-xs text-muted-foreground font-medium">
+                              {inv.date}
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                  inv.isPaid
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                    : inv.isOverdue
+                                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
+                                    : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                }`}
+                              >
+                                {inv.status}
                               </span>
                             </td>
                             <td
-                              className={`py-4.5 px-6 text-right font-mono text-xs font-bold ${tx.amountClass}`}
+                              className={`py-4 px-6 text-right font-mono text-xs font-bold ${
+                                inv.isPaid ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
+                              }`}
                             >
-                              {tx.amount}
+                              {inv.amount}
                             </td>
                           </tr>
                         ))}
@@ -451,16 +435,126 @@ export function Dashboard() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Invoicing Collection Performance */}
+            <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-border/60 bg-card/30 p-5 md:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-sm md:text-base font-bold text-foreground">
+                      Collection Performance
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Rate of collected revenue vs outstanding receivables
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-bold">
+                    <span>{collectionRate}% Collected</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 md:p-8 space-y-6">
+                {/* Visual Progress Bar */}
+                <div className="space-y-2">
+                  <div className="h-3 w-full bg-muted/40 rounded-full overflow-hidden flex">
+                    <div
+                      className="bg-emerald-500 transition-all duration-700"
+                      style={{ width: `${invoiceBreakdown.paid.pct}%` }}
+                      title={`Paid: ${invoiceBreakdown.paid.pct}%`}
+                    />
+                    <div
+                      className="bg-amber-500 transition-all duration-700"
+                      style={{ width: `${invoiceBreakdown.outstanding.pct}%` }}
+                      title={`Outstanding: ${invoiceBreakdown.outstanding.pct}%`}
+                    />
+                    <div
+                      className="bg-rose-500 transition-all duration-700"
+                      style={{ width: `${invoiceBreakdown.overdue.pct}%` }}
+                      title={`Overdue: ${invoiceBreakdown.overdue.pct}%`}
+                    />
+                    <div
+                      className="bg-muted-foreground/30 transition-all duration-700"
+                      style={{ width: `${invoiceBreakdown.draft.pct}%` }}
+                      title={`Draft: ${invoiceBreakdown.draft.pct}%`}
+                    />
+                  </div>
+                </div>
+
+                {/* Legend & Breakdown Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                  <div className="space-y-1 p-3 rounded-xl bg-card/50 border border-border/50">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      Paid
+                    </div>
+                    <div className="font-mono text-sm font-bold text-foreground">
+                      {formatCurrency(invoiceBreakdown.paid.amount, currency)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-medium">
+                      {invoiceBreakdown.paid.count} {invoiceBreakdown.paid.count === 1 ? "invoice" : "invoices"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 p-3 rounded-xl bg-card/50 border border-border/50">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      Outstanding
+                    </div>
+                    <div className="font-mono text-sm font-bold text-foreground">
+                      {formatCurrency(invoiceBreakdown.outstanding.amount, currency)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-medium">
+                      {invoiceBreakdown.outstanding.count} {invoiceBreakdown.outstanding.count === 1 ? "invoice" : "invoices"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 p-3 rounded-xl bg-card/50 border border-border/50">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-rose-500" />
+                      Overdue
+                    </div>
+                    <div className="font-mono text-sm font-bold text-foreground">
+                      {formatCurrency(invoiceBreakdown.overdue.amount, currency)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-medium">
+                      {invoiceBreakdown.overdue.count} {invoiceBreakdown.overdue.count === 1 ? "invoice" : "invoices"}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 p-3 rounded-xl bg-card/50 border border-border/50">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
+                      Draft
+                    </div>
+                    <div className="font-mono text-sm font-bold text-foreground">
+                      {formatCurrency(invoiceBreakdown.draft.amount, currency)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-medium">
+                      {invoiceBreakdown.draft.count} {invoiceBreakdown.draft.count === 1 ? "invoice" : "invoices"}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Right Column: Pipeline & Accounts */}
+          {/* Right Column: Pipeline & Quick Actions */}
           <div className="lg:col-span-4 space-y-8">
             {/* Sales Pipeline */}
             <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden">
-              <CardHeader className="border-b border-border/60 bg-card/30 p-5 md:p-6">
+              <CardHeader className="border-b border-border/60 bg-card/30 p-5 md:p-6 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm md:text-base font-bold text-foreground">
                   Sales Pipeline
                 </CardTitle>
+                <Link to="/estimates">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[11px] font-bold uppercase tracking-wider text-primary hover:text-primary/85 hover:bg-primary/8 gap-1 rounded-xl h-8 px-2 cursor-pointer"
+                  >
+                    Estimates <ChevronRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
               </CardHeader>
               <CardContent className="p-5 md:p-6 space-y-5">
                 {(["Sent", "Accepted"] as const).map((status) => {
@@ -487,12 +581,73 @@ export function Dashboard() {
                 })}
                 <div className="pt-3 border-t border-border/60">
                   <p className="text-[10px] text-muted-foreground font-medium italic">
-                    Potential:{" "}
+                    Pipeline Potential:{" "}
                     <span className="font-mono font-bold text-foreground not-italic">
                       {formatCurrency(activeEstimatesValue, currency)}
                     </span>
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Invoicing Actions */}
+            <Card className="bg-card/60 border border-border/60 shadow-2xs rounded-2xl overflow-hidden">
+              <CardHeader className="border-b border-border/60 bg-card/30 p-5 md:p-6">
+                <CardTitle className="text-sm md:text-base font-bold text-foreground">
+                  Quick Actions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 md:p-6 space-y-2.5">
+                <Button
+                  variant="outline"
+                  onClick={handleCreateInvoice}
+                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    New Invoice
+                  </span>
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    quickCreate.trigger("estimate");
+                    navigate({ to: "/estimates" });
+                  }}
+                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-sky-500" />
+                    New Estimate
+                  </span>
+                  <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => navigate({ to: "/customers" })}
+                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-violet-500" />
+                    Manage Clients
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => navigate({ to: "/items" })}
+                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-amber-500" />
+                    Manage Items / Catalog
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -501,3 +656,5 @@ export function Dashboard() {
     </div>
   );
 }
+
+export default Dashboard;

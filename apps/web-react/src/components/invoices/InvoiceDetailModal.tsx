@@ -20,6 +20,8 @@ import {
   Copy,
 } from "lucide-react";
 import { SendInvoiceModal } from "./SendInvoiceModal";
+import { InvoiceTemplate } from "./InvoiceTemplate";
+import { printDocument } from "@/lib/printDocument";
 
 interface InvoiceDetailModalProps {
   isOpen: boolean;
@@ -72,7 +74,15 @@ export function InvoiceDetailModal({
   };
 
   const handlePrint = () => {
-    window.print();
+    const target = document.getElementById("invoice-detail-print-container");
+    if (target instanceof HTMLElement) {
+      printDocument(
+        target,
+        `Invoice-${invoice?.invoiceNumber || invoice?.number || "INV"}`
+      );
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -338,6 +348,11 @@ export function InvoiceDetailModal({
           onSuccess?.();
         }}
       />
+
+      {/* Hidden Invoice Template for Clean Isolated Printing */}
+      <div id="invoice-detail-print-container" style={{ display: "none" }}>
+        <InvoiceTemplate invoice={invoice} />
+      </div>
     </Modal>
   );
 }

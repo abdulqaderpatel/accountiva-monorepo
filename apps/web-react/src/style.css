@@ -440,7 +440,7 @@ html {
 @media print {
   @page {
     size: auto;
-    margin: 8mm 10mm;
+    margin: 5mm 8mm;
   }
 
   html,
@@ -465,8 +465,28 @@ html {
   }
 
   /* When printing from a document preview modal (invoice / estimate), completely isolate and hide background app tree */
+  body.printable-modal-open > #root,
   body.printable-modal-open #root,
-  body:has(.printable-preview-modal) #root {
+  html.printable-modal-open #root,
+  body:has(.printable-preview-modal) > #root,
+  body:has(.printable-preview-modal) #root,
+  #root:has(~ .printable-preview-modal),
+  .printable-modal-open #root {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+  }
+
+  body.printable-modal-open main,
+  body.printable-modal-open header,
+  body:has(.printable-preview-modal) main,
+  body:has(.printable-preview-modal) header {
     display: none !important;
     visibility: hidden !important;
   }
@@ -474,13 +494,15 @@ html {
   /* Hide application chrome by default */
   aside,
   nav,
+  header,
   header.print\:hidden,
   .print\:hidden,
   [data-slot="sidebar"],
   [data-slot="topbar"],
   [data-sonner-toaster],
   .toaster,
-  .chat-widget {
+  .chat-widget,
+  .floating-hud {
     display: none !important;
   }
 
@@ -526,7 +548,9 @@ html {
     overflow: visible !important;
   }
 
-  .printable-document-container {
+  .printable-document-container,
+  #printable-invoice-container,
+  #printable-estimate-container {
     display: block !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -536,6 +560,8 @@ html {
     box-shadow: none !important;
     border: none !important;
     background: transparent !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .printable-document {
@@ -547,8 +573,8 @@ html {
     border: none !important;
     background: #ffffff !important;
     color: #000000 !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   /* Prevent awkward page breaks inside table rows */
@@ -561,6 +587,47 @@ html {
   /* Hide scrollbars during print */
   ::-webkit-scrollbar {
     display: none !important;
+  }
+
+  /* Landscape print fit optimization to ensure standard single-page document fit */
+  @media print and (orientation: landscape) {
+    @page {
+      size: landscape;
+      margin: 4mm 6mm;
+    }
+    html,
+    body {
+      font-size: 11px !important;
+    }
+    .printable-document {
+      font-size: 11px !important;
+      max-width: 100% !important;
+      width: 100% !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .printable-document h1,
+    .printable-document h2 {
+      font-size: 1.25rem !important;
+      line-height: 1.2 !important;
+      margin-bottom: 2px !important;
+    }
+    .printable-document .text-4xl,
+    .printable-document .text-5xl {
+      font-size: 1.5rem !important;
+    }
+    .printable-document .min-h-\[600px\],
+    .printable-document .min-h-\[650px\] {
+      min-height: 0 !important;
+    }
+    .printable-document .border-\[10px\] {
+      border-width: 2px !important;
+    }
+    .printable-document table th,
+    .printable-document table td {
+      padding-top: 2px !important;
+      padding-bottom: 2px !important;
+    }
   }
 }
 

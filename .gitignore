@@ -12,6 +12,8 @@ build/
 .output/
 .turbo/
 .worktrees/
+*.apk
+*.aab
 
 # Expo / React Native
 .expo/

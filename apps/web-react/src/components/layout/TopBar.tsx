@@ -104,7 +104,7 @@ export function TopBar({
   const logoSrc = isDark ? darkLogo : lightLogo;
 
   return (
-    <header className="h-14 w-full border-b border-sidebar-border bg-sidebar flex items-center justify-between z-40 relative select-none shrink-0 print:hidden">
+    <header data-slot="topbar" className="h-14 w-full border-b border-sidebar-border bg-sidebar flex items-center justify-between z-40 relative select-none shrink-0 print:hidden">
       {/* Logo Box matching Sidebar width for seamless alignment */}
       <div
         className={`h-full flex items-center shrink-0 overflow-hidden justify-center transition-all duration-300 ease-in-out ${

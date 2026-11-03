@@ -28,6 +28,7 @@ import { ScreenType } from '../components/BottomNav';
 import { fonts } from '../theme/typography';
 import { OrganizationSwitcherModal } from '../components/OrganizationSwitcherModal';
 import { OrganizationSettingsModal } from '../components/OrganizationSettingsModal';
+import { IS_UAT } from '../config/api';
 
 interface DashboardScreenProps {
   onNavigate: (screen: ScreenType) => void;
@@ -132,11 +133,16 @@ export function DashboardScreen({ onNavigate }: DashboardScreenProps) {
             </Text>
           </View>
           <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={[styles.orgTitle, { color: colors.foreground }]} numberOfLines={1}>
                 {currentOrg?.name || 'My Organization'}
               </Text>
               <ChevronDown size={14} color={colors.mutedForeground} />
+              {IS_UAT && (
+                <View style={{ backgroundColor: '#f59e0b25', borderColor: '#f59e0b', borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ color: '#d97706', fontSize: 9, fontWeight: '800' }}>UAT</Text>
+                </View>
+              )}
             </View>
             <Text style={[styles.orgSubtitle, { color: colors.mutedForeground }]}>
               Tap to switch workspace

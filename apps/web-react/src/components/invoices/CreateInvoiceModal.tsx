@@ -17,7 +17,8 @@ import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
-import { Plus, Trash2, Package, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Package, ChevronDown, Mail } from "lucide-react";
+import { SendInvoiceModal } from "./SendInvoiceModal";
 import {
   calculateDocumentTotals,
   formatCurrency,
@@ -165,6 +166,9 @@ export function CreateInvoiceModal({
   // Inline Modals
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [isSavingAndSending, setIsSavingAndSending] = useState(false);
+  const [invoiceToSend, setInvoiceToSend] = useState<any | null>(null);
+  const [isSendInvoiceOpen, setIsSendInvoiceOpen] = useState(false);
 
   const loadNextInvoiceNumber = useCallback(async () => {
     const requestId = ++numberRequestRef.current;
@@ -193,6 +197,9 @@ export function CreateInvoiceModal({
 
   useEffect(() => {
     if (isOpen) {
+      setInvoiceToSend(null);
+      setIsSendInvoiceOpen(false);
+      setIsSavingAndSending(false);
       setFormErrors({});
       if (invoiceToEdit) {
         const hasLineItems =
@@ -474,8 +481,8 @@ export function CreateInvoiceModal({
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, andSendEmail = false) => {
+    if (e) e.preventDefault();
 
     let finalInvoiceNumber = invoiceNumber.trim();
     if (!isEditing && autoGenerateNumber && !finalInvoiceNumber) {
@@ -501,6 +508,9 @@ export function CreateInvoiceModal({
     }
 
     setFormErrors({});
+    if (andSendEmail) {
+      setIsSavingAndSending(true);
+    }
 
     const payload: InvoicePayload = {
       customerId,
@@ -543,14 +553,47 @@ export function CreateInvoiceModal({
           id: invoiceToEdit.id,
           payload,
         });
-        toast.success(`Invoice updated successfully!`);
       } else {
         result = await createInvoiceMutation.mutateAsync(payload);
-        toast.success(`Invoice created successfully!`);
       }
 
-      onSuccess?.(result);
-      onClose();
+      const selectedCustomer = apiCustomers?.find((c: any) => c.id === customerId);
+      const savedInvoice = {
+        ...result,
+        id: result?.id || (isEditing ? invoiceToEdit?.id : undefined),
+        invoiceNumber: result?.invoiceNumber || finalInvoiceNumber,
+        number: result?.invoiceNumber || finalInvoiceNumber,
+        customers: {
+          name: selectedCustomer?.name || result?.customerName || "",
+          email: selectedCustomer?.email || result?.customerEmail || "",
+        },
+        customerName: selectedCustomer?.name || result?.customerName || "",
+        email: selectedCustomer?.email || result?.customerEmail || selectedCustomer?.email || "",
+      };
+
+      if (andSendEmail) {
+        toast.success(isEditing ? "Invoice updated successfully!" : "Invoice created successfully!");
+        onSuccess?.(savedInvoice);
+        onClose();
+        setInvoiceToSend(savedInvoice);
+        setIsSendInvoiceOpen(true);
+      } else {
+        toast.success(
+          isEditing ? "Invoice updated successfully!" : "Invoice created successfully!",
+          {
+            description: `Invoice ${finalInvoiceNumber} has been saved.`,
+            action: {
+              label: "Send Email",
+              onClick: () => {
+                setInvoiceToSend(savedInvoice);
+                setIsSendInvoiceOpen(true);
+              },
+            },
+          }
+        );
+        onSuccess?.(savedInvoice);
+        onClose();
+      }
     } catch (err: any) {
       const message =
         err.response?.data?.message ||
@@ -577,11 +620,15 @@ export function CreateInvoiceModal({
       ) {
         setIsUpgradeModalOpen(true);
       }
+    } finally {
+      setIsSavingAndSending(false);
     }
   };
 
   const isSaving =
-    createInvoiceMutation.isPending || updateInvoiceMutation.isPending;
+    isSavingAndSending ||
+    createInvoiceMutation.isPending ||
+    updateInvoiceMutation.isPending;
 
   return (
     <>
@@ -593,7 +640,7 @@ export function CreateInvoiceModal({
         title={isEditing ? "Edit Invoice" : "New Invoice"}
         description="Fill out invoice details, select items, and calculate taxes."
         footer={
-          <div className="flex items-center justify-end gap-3 w-full">
+          <div className="flex items-center justify-between w-full">
             <Button
               type="button"
               variant="outline"
@@ -604,15 +651,30 @@ export function CreateInvoiceModal({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              loading={isSaving}
-              onClick={handleSubmit}
-              className="gap-2 font-bold cursor-pointer"
-            >
-              <span>{isEditing ? "Update Invoice" : "Create Invoice"}</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={isSavingAndSending}
+                disabled={isSaving}
+                onClick={() => void handleSubmit(undefined, true)}
+                className="gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
+              >
+                <Mail className="size-3.5" />
+                <span>Save & Send Email</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                loading={!isSavingAndSending && isSaving}
+                disabled={isSaving}
+                onClick={(e) => void handleSubmit(e, false)}
+                className="gap-2 font-bold cursor-pointer"
+              >
+                <span>{isEditing ? "Save Changes" : "Create Invoice"}</span>
+              </Button>
+            </div>
           </div>
         }
       >
@@ -1333,6 +1395,26 @@ export function CreateInvoiceModal({
         onClose={() => setIsUpgradeModalOpen(false)}
         feature="invoice"
       />
+
+      {/* Direct Send Invoice Modal */}
+      {invoiceToSend && (
+        <SendInvoiceModal
+          isOpen={isSendInvoiceOpen}
+          invoice={invoiceToSend}
+          invoiceId={invoiceToSend.id}
+          invoiceNumber={invoiceToSend.invoiceNumber}
+          customerEmail={invoiceToSend.email || invoiceToSend.customers?.email}
+          customerName={invoiceToSend.customerName || invoiceToSend.customers?.name}
+          onClose={() => {
+            setIsSendInvoiceOpen(false);
+            setInvoiceToSend(null);
+          }}
+          onSuccess={() => {
+            setIsSendInvoiceOpen(false);
+            setInvoiceToSend(null);
+          }}
+        />
+      )}
     </>
   );
 }

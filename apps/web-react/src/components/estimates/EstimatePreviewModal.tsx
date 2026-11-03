@@ -24,7 +24,9 @@ import {
   defaultTemplateSettings,
 } from "../invoices/InvoiceTemplate";
 import { SendEstimateModal } from "./SendEstimateModal";
+import { printDocument } from "@/lib/printDocument";
 import { useBookmarks } from "@/context/BookmarkContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 interface EstimatePreviewModalProps {
@@ -40,23 +42,94 @@ export function EstimatePreviewModal({
   onClose,
   onSuccess,
 }: EstimatePreviewModalProps) {
+  const { currentOrganization } = useAuth();
   const [activeTab, setActiveTab] = useState<"templates" | "properties">("templates");
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>("standard");
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(() => {
+    if (typeof window !== "undefined") {
+      const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
+      const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
+      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+        return saved as TemplateId;
+      }
+    }
+    return "standard";
+  });
   const [settings, setSettings] = useState<TemplateSettings>(defaultTemplateSettings);
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [printOrientation, setPrintOrientation] = useState<"portrait" | "landscape">("portrait");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { isBookmarked, toggleBookmark } = useBookmarks();
 
+  const handlePrint = (orientationOverride?: "portrait" | "landscape") => {
+    const target =
+      document.getElementById("printable-estimate-container") ||
+      document.querySelector(".printable-document");
+    const activeOrientation = orientationOverride || printOrientation;
+    if (target instanceof HTMLElement) {
+      printDocument(
+        target,
+        `Estimate-${estimate?.estimateNumber || estimate?.number || "EST"}`,
+        { orientation: activeOrientation }
+      );
+    } else {
+      window.print();
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
+    if (typeof window !== "undefined") {
+      const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
+      const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
+      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+        setSelectedTemplate(saved as TemplateId);
+      }
+    }
     document.body.classList.add("printable-modal-open");
+    document.documentElement.classList.add("printable-modal-open");
+
+    const handleBeforePrint = () => {
+      const root = document.getElementById("root");
+      if (root) root.style.setProperty("display", "none", "important");
+    };
+    const handleAfterPrint = () => {
+      const root = document.getElementById("root");
+      if (root) root.style.removeProperty("display");
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+
+    window.addEventListener("beforeprint", handleBeforePrint);
+    window.addEventListener("afterprint", handleAfterPrint);
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       document.body.classList.remove("printable-modal-open");
+      document.documentElement.classList.remove("printable-modal-open");
+      const root = document.getElementById("root");
+      if (root) root.style.removeProperty("display");
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
+  }, [open, currentOrganization?.id, printOrientation, estimate]);
+
+  const handleSelectTemplate = (id: TemplateId) => {
+    setSelectedTemplate(id);
+    if (typeof window !== "undefined") {
+      if (currentOrganization?.id) {
+        localStorage.setItem(`accountiva_template_${currentOrganization.id}`, id);
+      }
+      localStorage.setItem("accountiva_template", id);
+    }
+  };
 
   if (!open || !estimate) return null;
 
@@ -226,7 +299,7 @@ export function EstimatePreviewModal({
                     <button
                       key={tpl.id}
                       type="button"
-                      onClick={() => setSelectedTemplate(tpl.id)}
+                      onClick={() => handleSelectTemplate(tpl.id)}
                       className={cn(
                         "w-full text-left p-4 rounded-xl border transition-all relative overflow-hidden group cursor-pointer",
                         isSelected
@@ -299,6 +372,33 @@ export function EstimatePreviewModal({
             </div>
 
             <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-lg border border-border p-0.5 bg-muted/40 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation("portrait")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium",
+                    printOrientation === "portrait"
+                      ? "bg-card text-foreground shadow-2xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Portrait
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation("landscape")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium",
+                    printOrientation === "landscape"
+                      ? "bg-card text-foreground shadow-2xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Landscape
+                </button>
+              </div>
+
               {String(estimate.status || "").toLowerCase() !== "invoiced" && (
                 <Button
                   size="sm"
@@ -337,7 +437,7 @@ export function EstimatePreviewModal({
 
               <Button
                 size="sm"
-                onClick={() => window.print()}
+                onClick={() => handlePrint()}
                 className="gap-1.5 text-xs font-semibold h-8 cursor-pointer"
               >
                 <Printer className="size-3.5" />
@@ -358,7 +458,13 @@ export function EstimatePreviewModal({
 
           {/* Document Canvas */}
           <div className="flex-1 overflow-y-auto p-6 md:p-12 flex justify-center custom-scrollbar printable-document-canvas print:p-0 print:m-0 print:overflow-visible print:block">
-            <div className="w-full max-w-[800px] printable-document-container print:max-w-none print:w-full print:m-0 print:p-0">
+            <div
+              id="printable-estimate-container"
+              className={cn(
+                "w-full transition-all printable-document-container print:max-w-none print:w-full print:m-0 print:p-0",
+                printOrientation === "landscape" ? "max-w-[1040px]" : "max-w-[800px]"
+              )}
+            >
               <InvoiceTemplate
                 invoice={estimate}
                 templateId={selectedTemplate}

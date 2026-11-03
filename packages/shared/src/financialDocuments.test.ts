@@ -467,6 +467,43 @@ describe("getDocumentSummaryDetails", () => {
     expect(result.total).toBe(9021);
   });
 
+  it("normalizes other_charges and reconciles persisted invoice total difference", () => {
+    // ProBake Oven: 119,000 + Classic Bakeware: 6,000 = 125,000
+    // Discount = 500
+    // Net = 124,500
+    // Persisted doc amount in DB = 124,750 (difference +250)
+    const doc = {
+      items: [
+        { itemName: "ProBake Commercial Convection Oven", quantity: 1, rate: 119000, amount: 119000 },
+        { itemName: "Classic Bakeware set (6 pc)", quantity: 1, rate: 6000, amount: 6000 },
+      ],
+      discount_amount: 500,
+      tax_percent: 0,
+      amount: 124750,
+    };
+
+    const summary = getDocumentSummaryDetails(doc);
+    expect(summary.subtotal).toBe(125000);
+    expect(summary.discountAmount).toBe(500);
+    expect(summary.taxableAmount).toBe(124500);
+    expect(summary.taxAmount).toBe(0);
+    expect(summary.adjustment).toBe(250);
+    expect(summary.total).toBe(124750);
+  });
+
+  it("calculates with otherCharges provided explicitly", () => {
+    const result = calculateDocumentTotals({
+      items: [{ quantity: 1, rate: 1000, amount: 1000 }],
+      otherCharges: 150,
+      shippingCharges: 50,
+    });
+
+    expect(result.subtotal).toBe(1000);
+    expect(result.otherCharges).toBe(150);
+    expect(result.shippingCharges).toBe(50);
+    expect(result.total).toBe(1200);
+  });
+
   describe("getNextDocumentNumber", () => {
     it("returns default fallback number when list is empty", () => {
       expect(getNextDocumentNumber([], "INV-")).toBe("INV-0001");

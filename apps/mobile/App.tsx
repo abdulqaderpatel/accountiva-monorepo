@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Platform, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, Platform, ActivityIndicator, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -38,7 +38,8 @@ import { BillsScreen } from './src/screens/BillsScreen';
 import { VendorsScreen } from './src/screens/VendorsScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
 import { isFeatureEnabled } from '@accountiva/shared';
-import { setupMobileApi } from './src/config/api';
+import { setupMobileApi, IS_UAT } from './src/config/api';
+import { fonts } from './src/theme/typography';
 
 // Prevent native splash screen from hiding prematurely before fonts and auth are ready
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -174,6 +175,12 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
     return (
       <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
+        {IS_UAT && (
+          <View style={styles.uatBanner}>
+            <Text style={styles.uatBadgeIcon}>⚡</Text>
+            <Text style={styles.uatBadgeText}>UAT TESTING ENVIRONMENT</Text>
+          </View>
+        )}
         {authView === 'login' && (
           <LoginScreen
             onNavigateToSignup={() => setAuthView('signup')}
@@ -232,6 +239,12 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
     return (
       <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'left', 'right', 'bottom']}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
+        {IS_UAT && (
+          <View style={styles.uatBanner}>
+            <Text style={styles.uatBadgeIcon}>⚡</Text>
+            <Text style={styles.uatBadgeText}>UAT TESTING ENVIRONMENT</Text>
+          </View>
+        )}
         <OnboardingScreen />
       </SafeAreaView>
     );
@@ -297,6 +310,12 @@ function AppShell({ fontsReady }: { fontsReady: boolean }) {
   return (
     <SafeAreaView style={[styles.root, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+      {IS_UAT && (
+        <View style={styles.uatBanner}>
+          <Text style={styles.uatBadgeIcon}>⚡</Text>
+          <Text style={styles.uatBadgeText}>UAT TESTING ENVIRONMENT</Text>
+        </View>
+      )}
       <View style={styles.screenContainer}>{renderScreen()}</View>
       <BottomNav currentScreen={currentScreen} onSelectScreen={setCurrentScreen} />
     </SafeAreaView>
@@ -334,6 +353,27 @@ export default function App() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  uatBanner: {
+    backgroundColor: '#d97706',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#b45309',
+  },
+  uatBadgeIcon: {
+    fontSize: 12,
+  },
+  uatBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    fontFamily: fonts.bold,
   },
   screenContainer: {
     flex: 1,

@@ -159,6 +159,7 @@ export function TopBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
+              id="quick-create-btn"
               variant="outline"
               size="sm"
               className="h-8 gap-1.5 px-2.5 rounded-lg text-xs font-semibold shrink-0 cursor-pointer shadow-xs"

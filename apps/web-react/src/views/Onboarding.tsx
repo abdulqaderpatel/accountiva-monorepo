@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Building2,
@@ -21,7 +21,13 @@ import { toast } from "sonner";
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const { createOrganization, logout, user } = useAuth();
+  const { createOrganization, logout, user, organizations, hasCompletedOnboarding } = useAuth();
+
+  useEffect(() => {
+    if (organizations.length > 0 || hasCompletedOnboarding) {
+      navigate({ to: "/dashboard" as any, replace: true });
+    }
+  }, [organizations.length, hasCompletedOnboarding, navigate]);
 
   const [step, setStep] = useState<"choice" | "create" | "join">("choice");
   const [loading, setLoading] = useState(false);
@@ -75,6 +81,11 @@ export function Onboarding() {
         state: state.trim(),
         postal_code: postalCode.trim(),
       });
+
+      if (user?.id) {
+        localStorage.setItem(`accountiva_onboarding_completed_${user.id}`, "true");
+      }
+      localStorage.setItem("accountiva_onboarding_completed", "true");
 
       toast.success("Workspace created successfully!", {
         description: `Welcome to ${name.trim()}.`,

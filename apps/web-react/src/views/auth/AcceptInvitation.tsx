@@ -90,6 +90,10 @@ export function AcceptInvitation() {
       });
 
       await fetchOrganizations();
+      if (user?.id) {
+        localStorage.setItem(`accountiva_onboarding_completed_${user.id}`, "true");
+      }
+      localStorage.setItem("accountiva_onboarding_completed", "true");
       navigate({ to: "/dashboard" as any });
     } catch (err: any) {
       toast.error("Failed to accept invitation", {

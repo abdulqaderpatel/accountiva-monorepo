@@ -7,7 +7,14 @@ export function ProtectedRoute({
 }: {
   children?: React.ReactNode;
 }) {
-  const { isAuthenticated, loading, organizations } = useAuth();
+  const {
+    isAuthenticated,
+    loading,
+    organizations,
+    isOrganizationsLoaded,
+    orgFetchFailed,
+    hasCompletedOnboarding,
+  } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -27,21 +34,31 @@ export function ProtectedRoute({
     return <Navigate to="/login" search={{ redirect: redirectUrl }} replace />;
   }
 
-  // Force onboarding if user has no organizations and is not currently on /onboarding
-  if (organizations.length === 0 && location.pathname !== "/onboarding") {
-    return <Navigate to="/onboarding" replace />;
+  // If user already completed onboarding or has organizations, never allow onboarding page
+  if (hasCompletedOnboarding && location.pathname === "/onboarding") {
+    return <Navigate to="/dashboard" replace />;
   }
 
-  // If user already has organizations but visits /onboarding, redirect to dashboard
-  if (organizations.length > 0 && location.pathname === "/onboarding") {
-    return <Navigate to="/dashboard" replace />;
+  // Only force onboarding if:
+  // 1. User has ZERO organizations
+  // 2. User has never completed onboarding previously (!hasCompletedOnboarding)
+  // 3. Organization check successfully completed from server and didn't fail with network error
+  // 4. Not currently on /onboarding
+  if (
+    !hasCompletedOnboarding &&
+    organizations.length === 0 &&
+    isOrganizationsLoaded &&
+    !orgFetchFailed &&
+    location.pathname !== "/onboarding"
+  ) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;
 }
 
 export function GuestRoute({ children }: { children?: React.ReactNode }) {
-  const { isAuthenticated, loading, organizations } = useAuth();
+  const { isAuthenticated, loading, hasCompletedOnboarding } = useAuth();
 
   if (loading) {
     return (
@@ -55,7 +72,7 @@ export function GuestRoute({ children }: { children?: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={organizations.length > 0 ? "/dashboard" : "/onboarding"} replace />;
+    return <Navigate to={hasCompletedOnboarding ? "/dashboard" : "/onboarding"} replace />;
   }
 
   return children ? <>{children}</> : <Outlet />;

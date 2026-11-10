@@ -55,6 +55,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isPro: boolean;
+  isOrganizationsLoaded: boolean;
+  orgFetchFailed: boolean;
+  hasCompletedOnboarding: boolean;
   ownedOrganizationsCount: number;
   login: (email: string, password: string) => Promise<any>;
   signup: (signupData: { name: string; email: string; password: string; redirect?: string }) => Promise<any>;
@@ -81,10 +84,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>(() => {
+    try {
+      const cached = localStorage.getItem("accountiva_cached_organizations");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [currentOrganization, setCurrentOrganizationState] = useState<Organization | null>(() => {
+    try {
+      const cached = localStorage.getItem("accountiva_cached_organizations");
+      const storedOrgId = localStorage.getItem("accountiva_org_id");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const found = parsed.find((o: Organization) => o.id === storedOrgId);
+          return found || parsed[0];
+        }
+      }
+    } catch {}
+    return null;
+  });
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isOrganizationsLoaded, setIsOrganizationsLoaded] = useState(false);
+  const [orgFetchFailed, setOrgFetchFailed] = useState(false);
 
   const fetchAdminAccess = useCallback(async () => {
     try {
@@ -132,21 +159,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchOrganizations = useCallback(async () => {
     try {
+      setOrgFetchFailed(false);
       const { data } = await api.get<Organization[]>("/organizations", {
         params: { _t: Date.now() },
       });
-      setOrganizations(data);
+      const orgs = Array.isArray(data) ? data : [];
+      setOrganizations(orgs);
+      setIsOrganizationsLoaded(true);
 
       const storedOrgId = localStorage.getItem("accountiva_org_id");
-      if (data && data.length > 0) {
-        const found = data.find((o) => o.id === storedOrgId);
-        setCurrentOrganization(found || data[0]);
+      if (orgs && orgs.length > 0) {
+        try {
+          localStorage.setItem("accountiva_cached_organizations", JSON.stringify(orgs));
+          localStorage.setItem("accountiva_onboarding_completed", "true");
+        } catch {}
+
+        const found = orgs.find((o) => o.id === storedOrgId);
+        setCurrentOrganization(found || orgs[0]);
       } else {
-        setCurrentOrganization(null);
+        if (!storedOrgId) {
+          localStorage.removeItem("accountiva_cached_organizations");
+          setCurrentOrganization(null);
+        }
       }
-      return data;
+      return orgs;
     } catch (err) {
       console.error("Failed to fetch organizations:", err);
+      setOrgFetchFailed(true);
+      setIsOrganizationsLoaded(true);
       return [];
     }
   }, [setCurrentOrganization]);
@@ -234,23 +274,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Auth session check timed out")), 8000)
+          setTimeout(() => reject(new Error("Auth session check timed out")), 10000)
         );
         const sessionPromise = (authClient.getSession as any)();
         const session = await Promise.race([sessionPromise, timeoutPromise]);
-        if (session?.data?.user) {
+        if (session?.data?.user && mounted) {
+          const authUser = session.data.user as User;
+          if (authUser?.id) {
+            const hasStoredOrg = localStorage.getItem("accountiva_org_id");
+            if (hasStoredOrg) {
+              localStorage.setItem(`accountiva_onboarding_completed_${authUser.id}`, "true");
+              localStorage.setItem("accountiva_onboarding_completed", "true");
+            }
+          }
+
           try {
             await Promise.allSettled([
-              Promise.race([
-                fetchOrganizations(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Org fetch timed out")), 4000)),
-              ]),
+              fetchOrganizations(),
               fetchAdminAccess(),
             ]);
           } catch (orgErr) {
-            console.warn("Organization/admin access fetch timed out:", orgErr);
+            console.warn("Organization/admin access fetch failed:", orgErr);
           }
-          setUser(session.data.user as User);
+          if (mounted) {
+            setUser(authUser);
+          }
         }
       } catch (err) {
         console.error("Session restore error:", err);
@@ -277,14 +325,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (result.data?.user) {
+      const authUser = result.data.user as User;
       // Fetch organizations and admin access BEFORE activating user in state.
       // This prevents GuestRoute from prematurely navigating to /onboarding while organizations are empty.
       try {
-        await Promise.allSettled([fetchOrganizations(), fetchAdminAccess()]);
+        const orgs = await fetchOrganizations();
+        if (orgs && orgs.length > 0 && authUser?.id) {
+          localStorage.setItem(`accountiva_onboarding_completed_${authUser.id}`, "true");
+          localStorage.setItem("accountiva_onboarding_completed", "true");
+        }
+        await fetchAdminAccess();
       } catch (err) {
         console.error("Failed to fetch organizations on login:", err);
       }
-      setUser(result.data.user as User);
+      setUser(authUser);
     }
     return result.data;
   };
@@ -384,6 +438,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setActiveOrganizationId(null);
         localStorage.removeItem("accountiva_org_id");
         localStorage.removeItem("accountiva_org_currency");
+        localStorage.removeItem("accountiva_cached_organizations");
       },
       search,
     });
@@ -396,6 +451,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: user.email,
   } : null;
 
+  const hasCompletedOnboarding = Boolean(
+    organizations.length > 0 ||
+    (user?.id && localStorage.getItem(`accountiva_onboarding_completed_${user.id}`) === "true") ||
+    localStorage.getItem("accountiva_onboarding_completed") === "true" ||
+    Boolean(localStorage.getItem("accountiva_org_id"))
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -407,6 +469,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         isAdmin,
         isPro,
+        isOrganizationsLoaded,
+        orgFetchFailed,
+        hasCompletedOnboarding,
         ownedOrganizationsCount,
         login,
         signup,

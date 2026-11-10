@@ -158,7 +158,7 @@ const onboardingRoute = createRoute({
 });
 
 function RootIndexComponent() {
-  const { isAuthenticated, loading, organizations } = useAuth();
+  const { isAuthenticated, loading, hasCompletedOnboarding } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -167,7 +167,7 @@ function RootIndexComponent() {
     );
   }
   if (isAuthenticated) {
-    return <Navigate to={organizations.length > 0 ? "/dashboard" : "/onboarding"} replace />;
+    return <Navigate to={hasCompletedOnboarding ? "/dashboard" : "/onboarding"} replace />;
   }
   return <Landing />;
 }

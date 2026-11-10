@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ArrowUpRight,
   User,
+  RotateCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,8 @@ interface ChatMessage {
   data?: any[];
   dataType?: string;
   attachments?: { name: string; type: "image" | "pdf"; previewUrl: string }[];
+  isError?: boolean;
+  retryText?: string;
 }
 
 const suggestions = [
@@ -320,14 +323,33 @@ export function ChatBot() {
         },
       ]);
     } catch (error: any) {
+      let errorContent = "I'm sorry, I'm having trouble connecting to my brain right now.";
+
+      const serverError = error.response?.data?.error;
+      const serverMessage = error.response?.data?.message;
+
+      if (typeof serverError === "string" && serverError.trim()) {
+        errorContent = serverError;
+      } else if (typeof serverMessage === "string" && serverMessage.trim()) {
+        errorContent = serverMessage;
+      } else if (error.response?.status === 504 || error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+        errorContent = "Request timed out while connecting to the AI assistant. Please try again.";
+      } else if (error.response?.status === 429) {
+        errorContent = "The AI assistant is receiving high traffic right now. Please wait a moment and try again.";
+      } else if (error.response?.status === 503) {
+        errorContent = "The AI service is temporarily experiencing high demand. Please try again in a few moments.";
+      } else if (error.response?.status === 502) {
+        errorContent = "Unable to reach the AI server. Please check your connection and try again.";
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            error.response?.data?.error ||
-            "I'm sorry, I'm having trouble connecting to my brain right now.",
+          content: errorContent,
           timestamp: new Date(),
+          isError: true,
+          retryText: userMessage,
         },
       ]);
     } finally {
@@ -509,6 +531,18 @@ export function ChatBot() {
                     }`}
                   >
                     {msg.content}
+                    {msg.isError && msg.retryText && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSuggestion(msg.retryText!)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
+                        >
+                          <RotateCw className="size-3" />
+                          <span>Retry Action</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Structured Data Queries */}

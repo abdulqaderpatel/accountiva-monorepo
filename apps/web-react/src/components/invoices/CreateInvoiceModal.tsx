@@ -17,10 +17,11 @@ import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
 import { UpgradePlanModal } from "@/components/ui/UpgradePlanModal";
-import { Plus, Trash2, Package, ChevronDown, Mail } from "lucide-react";
+import { Plus, Trash2, Package, ChevronDown, Mail, Printer } from "lucide-react";
 import { SendInvoiceModal } from "./SendInvoiceModal";
 import {
   calculateDocumentTotals,
+  computeDueDateFromPaymentTerms,
   formatCurrency,
   getCurrencySymbol,
   getNextDocumentNumber,
@@ -60,6 +61,7 @@ interface CreateInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (invoice?: any) => void;
+  onSaveAndPrint?: (invoice: any) => void;
   invoiceToEdit?: any;
   initialCustomerId?: string;
 }
@@ -78,6 +80,7 @@ export function CreateInvoiceModal({
   isOpen,
   onClose,
   onSuccess,
+  onSaveAndPrint,
   invoiceToEdit,
   initialCustomerId,
 }: CreateInvoiceModalProps) {
@@ -158,6 +161,7 @@ export function CreateInvoiceModal({
   const [taxPercent, setTaxPercent] = useState<number>(18);
   const [shippingCharges, setShippingCharges] = useState<number>(0);
   const [packagingCharges, setPackagingCharges] = useState<number>(0);
+  const [taxOnCharges, setTaxOnCharges] = useState<boolean>(true);
   const [autoRoundOff, setAutoRoundOff] = useState<boolean>(true);
   const [roundOff, setRoundOff] = useState<number>(0);
   const [adjustment, setAdjustment] = useState<number>(0);
@@ -363,7 +367,7 @@ export function CreateInvoiceModal({
     }
   }, [isOpen, isEditing, autoGenerateNumber, nextInvoiceNumberFromQuery]);
 
-  // When customer is selected, auto-fill address if available
+  // When customer is selected, auto-fill address and due date from payment terms
   const handleCustomerChange = (cId: string) => {
     setCustomerId(cId);
     setFormErrors((current) => ({ ...current, customerId: undefined }));
@@ -374,6 +378,9 @@ export function CreateInvoiceModal({
       }
       if (selected.shippingAddress) {
         setShippingAddress(selected.shippingAddress);
+      }
+      if (!isEditing && selected.paymentTerms) {
+        setDueDate(computeDueDateFromPaymentTerms(date, selected.paymentTerms, 30));
       }
     }
   };
@@ -386,6 +393,7 @@ export function CreateInvoiceModal({
       discountType,
       discountValue,
       taxPercent,
+      taxOnCharges,
       shippingCharges,
       packagingCharges,
       roundOff,
@@ -398,6 +406,7 @@ export function CreateInvoiceModal({
     discountType,
     discountValue,
     taxPercent,
+    taxOnCharges,
     shippingCharges,
     packagingCharges,
     roundOff,
@@ -496,7 +505,11 @@ export function CreateInvoiceModal({
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e?: React.FormEvent, andSendEmail = false) => {
+  const handleSubmit = async (
+    e?: React.FormEvent,
+    andSendEmail = false,
+    andPrint = false,
+  ) => {
     if (e) e.preventDefault();
 
     let finalInvoiceNumber = invoiceNumber.trim();
@@ -586,7 +599,21 @@ export function CreateInvoiceModal({
         email: selectedCustomer?.email || result?.customerEmail || selectedCustomer?.email || "",
       };
 
-      if (andSendEmail) {
+      if (andPrint) {
+        toast.success(isEditing ? "Invoice updated successfully!" : "Invoice created successfully!");
+        try {
+          onSuccess?.(savedInvoice);
+        } catch (onSuccessErr) {
+          console.error("onSuccess callback error:", onSuccessErr);
+        }
+        onClose();
+        onSaveAndPrint?.({
+          ...savedInvoice,
+          ...payload,
+          id: savedInvoice.id,
+          customers: selectedCustomer || savedInvoice.customers,
+        });
+      } else if (andSendEmail) {
         toast.success(isEditing ? "Invoice updated successfully!" : "Invoice created successfully!");
         try {
           onSuccess?.(savedInvoice);
@@ -665,7 +692,7 @@ export function CreateInvoiceModal({
         title={isEditing ? "Edit Invoice" : "New Invoice"}
         description="Fill out invoice details, select items, and calculate taxes."
         footer={
-          <div className="flex items-center justify-between w-full">
+          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
             <Button
               type="button"
               variant="outline"
@@ -676,28 +703,39 @@ export function CreateInvoiceModal({
             >
               Cancel
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isSaving}
+                onClick={() => void handleSubmit(undefined, false, true)}
+                className="gap-1.5 font-medium cursor-pointer"
+              >
+                <Printer className="size-3.5" />
+                <span>Save &amp; Print</span>
+              </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 loading={isSavingAndSending}
                 disabled={isSaving}
-                onClick={() => void handleSubmit(undefined, true)}
+                onClick={() => void handleSubmit(undefined, true, false)}
                 className="gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
               >
                 <Mail className="size-3.5" />
-                <span>Save & Send Email</span>
+                <span>Save &amp; Email</span>
               </Button>
               <Button
                 type="button"
                 size="sm"
                 loading={!isSavingAndSending && isSaving}
                 disabled={isSaving}
-                onClick={(e) => void handleSubmit(e, false)}
+                onClick={(e) => void handleSubmit(e, false, false)}
                 className="gap-2 font-bold cursor-pointer"
               >
-                <span>{isEditing ? "Save Changes" : "Create Invoice"}</span>
+                <span>Save &amp; Close</span>
               </Button>
             </div>
           </div>
@@ -1281,6 +1319,22 @@ export function CreateInvoiceModal({
                     />
                   </div>
                 </div>
+
+                {(shippingCharges > 0 || packagingCharges > 0) && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox
+                      id="invoice-tax-on-charges"
+                      checked={taxOnCharges}
+                      onCheckedChange={(checked) => setTaxOnCharges(Boolean(checked))}
+                    />
+                    <Label
+                      htmlFor="invoice-tax-on-charges"
+                      className="text-xs font-medium cursor-pointer text-muted-foreground"
+                    >
+                      Apply GST/Tax on Shipping &amp; Packing charges
+                    </Label>
+                  </div>
+                )}
               </div>
             )}
           </div>

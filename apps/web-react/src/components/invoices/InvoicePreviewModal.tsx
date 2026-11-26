@@ -3,12 +3,15 @@ import { createPortal } from "react-dom";
 import {
   X,
   Printer,
+  Download,
   Mail,
   Layout,
   Settings2,
   Bookmark as BookmarkIcon,
   Check,
 } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "@accountiva/api";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -43,7 +46,7 @@ export function InvoicePreviewModal({
     if (typeof window !== "undefined") {
       const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
       const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
-      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+      if (saved && ["standard", "modern", "minimal", "premium", "bw-minimalist"].includes(saved)) {
         return saved as TemplateId;
       }
     }
@@ -76,7 +79,7 @@ export function InvoicePreviewModal({
     if (typeof window !== "undefined") {
       const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
       const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
-      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+      if (saved && ["standard", "modern", "minimal", "premium", "bw-minimalist"].includes(saved)) {
         setSelectedTemplate(saved as TemplateId);
       }
     }
@@ -130,7 +133,33 @@ export function InvoicePreviewModal({
     { id: "modern", name: "Template 2", description: "Sleek & Bold" },
     { id: "minimal", name: "Template 3", description: "Clean & Simple" },
     { id: "premium", name: "Template 4", description: "Elegant & Sophisticated" },
+    { id: "bw-minimalist", name: "Template 5", description: "Black & White Minimalist" },
   ];
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!invoice?.id) return;
+    setIsDownloadingPdf(true);
+    try {
+      const response = await api.get(`/invoices/${invoice.id}/pdf`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${invoice.invoiceNumber || invoice.number || "Invoice"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to download invoice PDF");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const bookmarked = isBookmarked("invoice", String(invoice.id));
 
@@ -355,6 +384,17 @@ export function InvoicePreviewModal({
               >
                 <Mail className="size-3.5" />
                 <span>Send Email</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleDownloadPdf()}
+                disabled={isDownloadingPdf}
+                className="gap-1.5 text-xs font-semibold h-8 cursor-pointer"
+              >
+                <Download className="size-3.5" />
+                <span>{isDownloadingPdf ? "Downloading..." : "Download PDF"}</span>
               </Button>
 
               <Button

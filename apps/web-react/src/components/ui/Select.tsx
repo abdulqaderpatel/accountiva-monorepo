@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface OptionObject {
@@ -19,6 +19,8 @@ export interface SelectProps {
   className?: string;
   disabled?: boolean;
   error?: boolean | string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -29,11 +31,15 @@ export const Select: React.FC<SelectProps> = ({
   className,
   disabled = false,
   error,
+  searchable,
+  searchPlaceholder = "Type to search...",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [searchQuery, setSearchQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({
     top: "0px",
     left: "0px",
@@ -91,11 +97,31 @@ export const Select: React.FC<SelectProps> = ({
     }
   }, []);
 
+  const showSearch = searchable ?? options.length > 8;
+
+  const filteredOptions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q || !showSearch) return options;
+    return options.filter((opt) => {
+      const name = getOptionName(opt).toLowerCase();
+      if (name.includes(q)) return true;
+      if (typeof opt === "object" && opt !== null) {
+        const extra = [opt.email, opt.company, opt.customerCode, opt.phone]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return extra.includes(q);
+      }
+      return false;
+    });
+  }, [options, searchQuery, showSearch, getOptionName]);
+
   const toggleDropdown = useCallback(() => {
     if (disabled) return;
     if (!isOpen) {
       window.dispatchEvent(new CustomEvent("close-all-selects"));
       window.dispatchEvent(new CustomEvent("close-all-date-pickers"));
+      setSearchQuery("");
       setIsOpen(true);
       const selectedIndex = options.findIndex((opt) => isOptionSelected(opt));
       setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
@@ -107,10 +133,15 @@ export const Select: React.FC<SelectProps> = ({
   useEffect(() => {
     if (isOpen) {
       updatePosition();
-      const timer = requestAnimationFrame(updatePosition);
+      const timer = requestAnimationFrame(() => {
+        updatePosition();
+        if (showSearch) {
+          searchInputRef.current?.focus();
+        }
+      });
       return () => cancelAnimationFrame(timer);
     }
-  }, [isOpen, updatePosition]);
+  }, [isOpen, updatePosition, showSearch]);
 
   const selectOption = useCallback(
     (option: Option) => {
@@ -227,8 +258,45 @@ export const Select: React.FC<SelectProps> = ({
             style={popoverStyle}
             onClick={(e) => e.stopPropagation()}
           >
+            {showSearch && (
+              <div className="p-1.5 border-b border-border/60 mb-1">
+                <div className="relative flex items-center">
+                  <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2 pointer-events-none" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setActiveIndex(0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setIsOpen(false);
+                        triggerRef.current?.focus();
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        if (filteredOptions.length > 0) {
+                          setActiveIndex((prev) => (prev + 1) % filteredOptions.length);
+                        }
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if (filteredOptions.length > 0) {
+                          setActiveIndex((prev) => (prev - 1 + filteredOptions.length) % filteredOptions.length);
+                        }
+                      } else if (e.key === "Enter" && filteredOptions[activeIndex]) {
+                        e.preventDefault();
+                        selectOption(filteredOptions[activeIndex]);
+                      }
+                    }}
+                    placeholder={searchPlaceholder}
+                    className="w-full rounded-sm border border-input bg-background pl-7 pr-2 py-1 text-xs outline-none focus:border-ring"
+                  />
+                </div>
+              </div>
+            )}
             <div className="max-h-56 overflow-y-auto custom-scrollbar">
-              {options.map((option, index) => {
+              {filteredOptions.map((option, index) => {
                 const isSelected = isOptionSelected(option);
                 const optId = getOptionId(option);
                 const optName = getOptionName(option);
@@ -254,9 +322,9 @@ export const Select: React.FC<SelectProps> = ({
                   </div>
                 );
               })}
-              {options.length === 0 && (
+              {filteredOptions.length === 0 && (
                 <div className="py-4 text-center text-xs text-muted-foreground italic">
-                  No options available
+                  {searchQuery ? "No matching options" : "No options available"}
                 </div>
               )}
             </div>

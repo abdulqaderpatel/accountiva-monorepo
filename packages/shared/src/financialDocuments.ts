@@ -370,9 +370,16 @@ export function calculateDocumentTotals(
 
   let taxAmount = 0;
   if (taxPercent > 0) {
-    const taxableBase = input.taxOnCharges
-      ? roundToTwo(taxableAmount + totalCharges)
-      : taxableAmount;
+    const taxWithCharges = roundToTwo(((taxableAmount + totalCharges) * taxPercent) / 100);
+    const inferredTaxOnCharges =
+      input.taxOnCharges === undefined &&
+      totalCharges > 0 &&
+      explicitTaxAmount > 0 &&
+      Math.abs(explicitTaxAmount - taxWithCharges) <= 0.02;
+    const taxableBase =
+      input.taxOnCharges || inferredTaxOnCharges
+        ? roundToTwo(taxableAmount + totalCharges)
+        : taxableAmount;
     taxAmount = roundToTwo((taxableBase * taxPercent) / 100);
   } else if (explicitTaxAmount > 0) {
     taxAmount = roundToTwo(explicitTaxAmount);
@@ -616,6 +623,31 @@ export function isDuplicateDocumentNumberError(error: unknown): boolean {
     response?: { status?: unknown };
   };
   return candidate.status === 409 || candidate.response?.status === 409;
+}
+
+export function computeDueDateFromPaymentTerms(
+  issueDateStr: string,
+  paymentTerms?: string | null,
+  fallbackDays = 30,
+): string {
+  const baseDate = issueDateStr ? new Date(issueDateStr) : new Date();
+  if (Number.isNaN(baseDate.getTime())) {
+    return new Date().toISOString().split("T")[0];
+  }
+
+  let days = fallbackDays;
+  const normalized = String(paymentTerms || "").trim().toLowerCase();
+  if (normalized === "due on receipt" || normalized === "due_on_receipt" || normalized === "immediate") {
+    days = 0;
+  } else {
+    const netMatch = normalized.match(/net\s*(\d+)/i);
+    if (netMatch) {
+      days = Number.parseInt(netMatch[1], 10);
+    }
+  }
+
+  const target = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
+  return target.toISOString().split("T")[0];
 }
 
 export function getNextDocumentNumber(

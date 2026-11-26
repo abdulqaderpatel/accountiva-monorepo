@@ -15,10 +15,13 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CustomFieldRenderer } from "@/components/ui/CustomFieldRenderer";
 import { AddCustomerModal } from "@/components/customers/AddCustomerModal";
 import { AddItemModal } from "@/components/items/AddItemModal";
-import { Plus, Trash2, Package, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Package, ChevronDown, Mail, Printer } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SendEstimateModal } from "./SendEstimateModal";
 import {
   ESTIMATE_STATUSES,
   calculateDocumentTotals,
+  computeDueDateFromPaymentTerms,
   formatCurrency,
   getCurrencySymbol,
   getNextDocumentNumber,
@@ -56,6 +59,7 @@ interface CreateEstimateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (estimate?: any) => void;
+  onSaveAndPrint?: (estimate: any) => void;
   estimateToEdit?: any;
 }
 
@@ -73,6 +77,7 @@ export function CreateEstimateModal({
   isOpen,
   onClose,
   onSuccess,
+  onSaveAndPrint,
   estimateToEdit,
 }: CreateEstimateModalProps) {
   const { currentOrganization } = useAuth();
@@ -149,6 +154,9 @@ export function CreateEstimateModal({
   const [taxPercent, setTaxPercent] = useState<number>(18);
   const [shippingCharges, setShippingCharges] = useState<number>(0);
   const [packagingCharges, setPackagingCharges] = useState<number>(0);
+  const [taxOnCharges, setTaxOnCharges] = useState<boolean>(true);
+  const [isSavingAndSending, setIsSavingAndSending] = useState<boolean>(false);
+  const [createdEstimateForEmail, setCreatedEstimateForEmail] = useState<any | null>(null);
   const [autoRoundOff, setAutoRoundOff] = useState<boolean>(true);
   const [roundOff, setRoundOff] = useState<number>(0);
   const [adjustment, setAdjustment] = useState<number>(0);
@@ -314,7 +322,7 @@ export function CreateEstimateModal({
     }
   }, [isOpen, isEditing, nextEstimateNumberFromQuery]);
 
-  // When customer changes, auto-fill address
+  // When customer changes, auto-fill address and expiry date from payment terms
   const handleCustomerChange = (cId: string) => {
     setCustomerId(cId);
     const selected = customerList.find((c) => c.id === cId);
@@ -324,6 +332,9 @@ export function CreateEstimateModal({
       }
       if (selected.shippingAddress) {
         setShippingAddress(selected.shippingAddress);
+      }
+      if (!isEditing && selected.paymentTerms) {
+        setExpiryDate(computeDueDateFromPaymentTerms(date, selected.paymentTerms, 30));
       }
     }
   };
@@ -336,6 +347,7 @@ export function CreateEstimateModal({
       discountType,
       discountValue,
       taxPercent,
+      taxOnCharges,
       shippingCharges,
       packagingCharges,
       roundOff,
@@ -348,6 +360,7 @@ export function CreateEstimateModal({
     discountType,
     discountValue,
     taxPercent,
+    taxOnCharges,
     shippingCharges,
     packagingCharges,
     roundOff,
@@ -420,8 +433,11 @@ export function CreateEstimateModal({
     setItems(items.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (
+    e?: React.FormEvent,
+    action: "close" | "email" | "print" = "close",
+  ) => {
+    e?.preventDefault();
 
     if (!customerId) {
       toast.error("Please select a customer");
@@ -496,6 +512,9 @@ export function CreateEstimateModal({
     };
 
     try {
+      if (action === "email") {
+        setIsSavingAndSending(true);
+      }
       let result;
       if (isEditing && estimateToEdit?.id) {
         result = await updateEstimateMutation.mutateAsync({
@@ -513,6 +532,52 @@ export function CreateEstimateModal({
       } catch (onSuccessErr) {
         console.error("onSuccess callback error:", onSuccessErr);
       }
+
+      if (action === "email") {
+        const selectedCustomer = customerList.find((c: any) => c.id === customerId);
+        const estForModal = {
+          ...(result?.data || result),
+          id: result?.data?.id || result?.id || estimateToEdit?.id,
+          estimateNumber: finalEstimateNumber,
+          amount: grandTotal,
+          expiryDate,
+          customers: selectedCustomer || result?.customers,
+        };
+        setCreatedEstimateForEmail(estForModal);
+        return;
+      }
+
+      if (action === "print") {
+        const selectedCustomer = customerList.find((c: any) => c.id === customerId);
+        const estForPrint = {
+          ...(result?.data || result),
+          id: result?.data?.id || result?.id || estimateToEdit?.id,
+          estimateNumber: finalEstimateNumber,
+          amount: grandTotal,
+          subtotal,
+          taxPercent: Number(taxPercent) || 0,
+          taxAmount,
+          discountType,
+          discountValue: Number(discountValue) || 0,
+          discountAmount,
+          shippingCharges: Number(shippingCharges) || 0,
+          packagingCharges: Number(packagingCharges) || 0,
+          roundOff: totals.roundOff,
+          adjustment: totals.roundOff,
+          date,
+          expiryDate,
+          notes: notes.trim(),
+          termsConditions: termsConditions.trim(),
+          billingAddress: billingAddress.trim(),
+          shippingAddress: shippingAddress.trim(),
+          customers: selectedCustomer || result?.customers,
+          items: payload.items,
+        };
+        onClose();
+        onSaveAndPrint?.(estForPrint);
+        return;
+      }
+
       onClose();
     } catch (err: any) {
       console.error("Failed to save estimate error:", err);
@@ -530,6 +595,8 @@ export function CreateEstimateModal({
         return;
       }
       toast.error(message);
+    } finally {
+      setIsSavingAndSending(false);
     }
   };
 
@@ -546,7 +613,7 @@ export function CreateEstimateModal({
         title={isEditing ? "Edit Estimate" : "New Estimate"}
         description="Prepare a quotation with pricing, line items, and terms."
         footer={
-          <div className="flex items-center justify-end gap-3 w-full">
+          <div className="flex flex-wrap items-center justify-between gap-2 w-full">
             <Button
               type="button"
               variant="outline"
@@ -557,15 +624,41 @@ export function CreateEstimateModal({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              loading={isSaving}
-              onClick={handleSubmit}
-              className="gap-2 font-bold cursor-pointer"
-            >
-              <span>{isEditing ? "Update Estimate" : "Create Estimate"}</span>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isSaving}
+                onClick={() => void handleSubmit(undefined, "print")}
+                className="gap-1.5 font-medium cursor-pointer"
+              >
+                <Printer className="size-3.5" />
+                <span>Save & Print</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={isSavingAndSending}
+                disabled={isSaving}
+                onClick={() => void handleSubmit(undefined, "email")}
+                className="gap-1.5 font-medium border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
+              >
+                <Mail className="size-3.5" />
+                <span>Save & Email</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                loading={!isSavingAndSending && isSaving}
+                disabled={isSaving}
+                onClick={(e) => void handleSubmit(e, "close")}
+                className="gap-2 font-bold cursor-pointer"
+              >
+                <span>{isEditing ? "Save & Close" : "Save & Close"}</span>
+              </Button>
+            </div>
           </div>
         }
       >
@@ -1048,6 +1141,22 @@ export function CreateEstimateModal({
                     />
                   </div>
                 </div>
+
+                {(shippingCharges > 0 || packagingCharges > 0) && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Checkbox
+                      id="estimate-tax-on-charges"
+                      checked={taxOnCharges}
+                      onCheckedChange={(checked) => setTaxOnCharges(Boolean(checked))}
+                    />
+                    <Label
+                      htmlFor="estimate-tax-on-charges"
+                      className="text-xs font-medium cursor-pointer text-muted-foreground"
+                    >
+                      Apply GST/Tax on Shipping &amp; Packing charges
+                    </Label>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1180,6 +1289,20 @@ export function CreateEstimateModal({
           onSuccess={() => setIsAddItemOpen(false)}
         />
       )}
+
+      {/* Post-Save Send Estimate Email Modal */}
+      <SendEstimateModal
+        isOpen={Boolean(createdEstimateForEmail)}
+        estimate={createdEstimateForEmail}
+        onClose={() => {
+          setCreatedEstimateForEmail(null);
+          onClose();
+        }}
+        onSuccess={() => {
+          setCreatedEstimateForEmail(null);
+          onClose();
+        }}
+      />
     </>
   );
 }

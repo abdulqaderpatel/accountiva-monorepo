@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import {
   X,
   Printer,
+  Download,
   Mail,
   Layout,
   Settings2,
@@ -13,7 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { convertEstimateToInvoice } from "@accountiva/api";
+import { api, convertEstimateToInvoice } from "@accountiva/api";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -48,7 +49,7 @@ export function EstimatePreviewModal({
     if (typeof window !== "undefined") {
       const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
       const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
-      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+      if (saved && ["standard", "modern", "minimal", "premium", "bw-minimalist"].includes(saved)) {
         return saved as TemplateId;
       }
     }
@@ -84,7 +85,7 @@ export function EstimatePreviewModal({
     if (typeof window !== "undefined") {
       const orgKey = currentOrganization?.id ? `accountiva_template_${currentOrganization.id}` : null;
       const saved = (orgKey && localStorage.getItem(orgKey)) || localStorage.getItem("accountiva_template");
-      if (saved && ["standard", "modern", "minimal", "premium"].includes(saved)) {
+      if (saved && ["standard", "modern", "minimal", "premium", "bw-minimalist"].includes(saved)) {
         setSelectedTemplate(saved as TemplateId);
       }
     }
@@ -138,7 +139,33 @@ export function EstimatePreviewModal({
     { id: "modern", name: "Template 2", description: "Sleek & Bold" },
     { id: "minimal", name: "Template 3", description: "Clean & Simple" },
     { id: "premium", name: "Template 4", description: "Elegant & Sophisticated" },
+    { id: "bw-minimalist", name: "Template 5", description: "Black & White Minimalist" },
   ];
+
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!estimate?.id) return;
+    setIsDownloadingPdf(true);
+    try {
+      const response = await api.get(`/estimates/${estimate.id}/pdf`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${estimate.estimateNumber || estimate.number || "Estimate"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to download estimate PDF");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const bookmarked = isBookmarked("estimate", String(estimate.id));
 
@@ -436,12 +463,23 @@ export function EstimatePreviewModal({
               </Button>
 
               <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleDownloadPdf()}
+                disabled={isDownloadingPdf}
+                className="gap-1.5 text-xs font-semibold h-8 cursor-pointer"
+              >
+                <Download className="size-3.5" />
+                <span>{isDownloadingPdf ? "Downloading..." : "Download PDF"}</span>
+              </Button>
+
+              <Button
                 size="sm"
                 onClick={() => handlePrint()}
                 className="gap-1.5 text-xs font-semibold h-8 cursor-pointer"
               >
                 <Printer className="size-3.5" />
-                <span>Print / PDF</span>
+                <span>Print</span>
               </Button>
 
               <Button

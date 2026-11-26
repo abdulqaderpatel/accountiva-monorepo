@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   Plus,
@@ -12,16 +12,25 @@ import {
   FileText,
   Users,
   Calculator,
+  Bug,
+  Lightbulb,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNotifications } from "@accountiva/api";
+import { api, useNotifications } from "@accountiva/api";
+import { toast } from "sonner";
 import { isFeatureEnabled } from "@accountiva/shared";
 import { useTheme } from "@/context/ThemeContext";
 import { useI18n } from "@/i18n";
@@ -49,6 +58,41 @@ export function TopBar({
   const { data: notifications = [] } = useNotifications();
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const [feedbackType, setFeedbackType] = useState<"bug" | "feature" | null>(null);
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackDescription, setFeedbackDescription] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackType) return;
+    if (!feedbackTitle.trim() || !feedbackDescription.trim()) {
+      toast.error("Please provide both a title and description.");
+      return;
+    }
+    setIsSubmittingFeedback(true);
+    try {
+      await api.post("/profile/feedback", {
+        type: feedbackType,
+        title: feedbackTitle.trim(),
+        description: feedbackDescription.trim(),
+        pageUrl: window.location.href,
+      });
+      toast.success(
+        feedbackType === "bug"
+          ? "Bug report submitted! Thank you for helping us improve."
+          : "Feature request submitted! We appreciate your feedback."
+      );
+      setFeedbackType(null);
+      setFeedbackTitle("");
+      setFeedbackDescription("");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || "Failed to submit feedback");
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   const handleQuickCreate = (action: "invoice" | "customer" | "estimate", path: string) => {
     quickCreate.trigger(action);
@@ -243,16 +287,49 @@ export function TopBar({
         {/* Bookmarks Center Trigger & Popover */}
         <BookmarksCenter />
 
-        {/* Help Tour Trigger */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
-          title="Help & Tour"
-          onClick={handleHelpTour}
-        >
-          <HelpCircle className="size-4" />
-        </Button>
+        {/* Help Menu Trigger (Tour, Shortcuts, Report a Bug, Request a Feature) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
+              title="Help & Feedback"
+            >
+              <HelpCircle className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Help &amp; Support
+            </DropdownMenuLabel>
+            <DropdownMenuItem onClick={handleHelpTour} className="cursor-pointer gap-2 text-xs font-medium">
+              <Compass className="size-3.5 text-muted-foreground" />
+              <span>Start Product Tour</span>
+            </DropdownMenuItem>
+            {onOpenShortcuts && (
+              <DropdownMenuItem onClick={onOpenShortcuts} className="cursor-pointer gap-2 text-xs font-medium">
+                <Keyboard className="size-3.5 text-muted-foreground" />
+                <span>Keyboard Shortcuts</span>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setFeedbackType("bug")}
+              className="cursor-pointer gap-2 text-xs font-medium"
+            >
+              <Bug className="size-3.5 text-rose-500" />
+              <span>Report a Bug</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setFeedbackType("feature")}
+              className="cursor-pointer gap-2 text-xs font-medium"
+            >
+              <Lightbulb className="size-3.5 text-amber-500" />
+              <span>Request a Feature</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Notifications Trigger */}
         <Button
@@ -286,6 +363,86 @@ export function TopBar({
           <UserProfile variant="topbar" />
         </div>
       </div>
+
+      {/* Report a Bug / Request a Feature Modal */}
+      <Modal
+        open={Boolean(feedbackType)}
+        onClose={() => {
+          if (!isSubmittingFeedback) {
+            setFeedbackType(null);
+            setFeedbackTitle("");
+            setFeedbackDescription("");
+          }
+        }}
+        maxWidthClass="max-w-md"
+        title={feedbackType === "bug" ? "Report a Bug" : "Request a Feature"}
+        description={
+          feedbackType === "bug"
+            ? "Describe what went wrong so we can investigate and fix it."
+            : "Tell us what feature or improvement would make Accountiva better for you."
+        }
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSubmittingFeedback}
+              onClick={() => setFeedbackType(null)}
+              className="cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              loading={isSubmittingFeedback}
+              onClick={(e) => void handleSubmitFeedback(e)}
+              className="font-semibold cursor-pointer"
+            >
+              {feedbackType === "bug" ? "Submit Bug Report" : "Submit Request"}
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleSubmitFeedback} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="feedbackTitle" className="text-xs font-semibold">
+              {feedbackType === "bug" ? "Summary *" : "Feature Title *"}
+            </Label>
+            <Input
+              id="feedbackTitle"
+              value={feedbackTitle}
+              onChange={(e) => setFeedbackTitle(e.target.value)}
+              placeholder={
+                feedbackType === "bug"
+                  ? "e.g. PDF preview fails on Safari"
+                  : "e.g. Recurring invoice reminders"
+              }
+              className="text-xs"
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="feedbackDesc" className="text-xs font-semibold">
+              Details *
+            </Label>
+            <Textarea
+              id="feedbackDesc"
+              value={feedbackDescription}
+              onChange={(e) => setFeedbackDescription(e.target.value)}
+              placeholder={
+                feedbackType === "bug"
+                  ? "Steps to reproduce, expected vs actual behavior..."
+                  : "How would this feature help your workflow?"
+              }
+              rows={4}
+              className="text-xs resize-none"
+              required
+            />
+          </div>
+        </form>
+      </Modal>
     </header>
   );
 }

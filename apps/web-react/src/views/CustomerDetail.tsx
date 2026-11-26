@@ -108,11 +108,17 @@ export function CustomerDetail() {
       date: exp.date || exp.createdAt || "",
       amount: Number(exp.amount) || 0,
     }));
+    const creditNotes = (Array.isArray(customer?.credit_notes) ? customer.credit_notes : []).map((cn: any) => ({
+      ...cn,
+      type: "Credit Note",
+      date: cn.date || cn.created_at || cn.createdAt || "",
+      amount: Number(cn.amount) || 0,
+    }));
 
-    return [...invoices, ...estimates, ...expenses].sort(
+    return [...invoices, ...estimates, ...expenses, ...creditNotes].sort(
       (a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
     );
-  }, [customerInvoices, customerEstimates, customerExpenses]);
+  }, [customerInvoices, customerEstimates, customerExpenses, customer?.credit_notes]);
 
   const statements = useMemo(() => sortedTransactions, [sortedTransactions]);
 
@@ -431,6 +437,7 @@ export function CustomerDetail() {
                       key={`${item.type}-${item.id}`}
                       onClick={() => {
                         if (item.type === "Invoice") navigate({ to: "/invoices" });
+                        else if (item.type === "Credit Note") navigate({ to: "/sales/credit-notes" });
                         else navigate({ to: "/estimates" });
                       }}
                       className="p-4 rounded-2xl bg-card/60 border border-border/60 hover:border-primary/40 hover:bg-muted/50 shadow-2xs transition-all flex items-center justify-between group cursor-pointer"
@@ -456,8 +463,10 @@ export function CustomerDetail() {
                             <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors font-mono">
                               {item.invoice_number ||
                                 item.estimate_number ||
+                                item.credit_note_number ||
                                 item.invoiceNumber ||
                                 item.estimateNumber ||
+                                item.creditNoteNumber ||
                                 item.number ||
                                 item.id}
                             </p>
@@ -477,8 +486,10 @@ export function CustomerDetail() {
                               ? item.expense_account
                               : item.invoice_number ||
                                 item.estimate_number ||
+                                item.credit_note_number ||
                                 item.invoiceNumber ||
                                 item.estimateNumber ||
+                                item.creditNoteNumber ||
                                 item.number ||
                                 item.id}
                           </p>

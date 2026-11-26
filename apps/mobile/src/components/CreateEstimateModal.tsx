@@ -130,6 +130,7 @@ export function CreateEstimateModal({
   const [taxPercent, setTaxPercent] = useState("18");
   const [shippingCharges, setShippingCharges] = useState("");
   const [packagingCharges, setPackagingCharges] = useState("");
+  const [taxOnCharges, setTaxOnCharges] = useState(true);
   const [adjustment, setAdjustment] = useState("");
   const [autoRoundOff, setAutoRoundOff] = useState(false);
   const [notes, setNotes] = useState("");
@@ -309,6 +310,7 @@ export function CreateEstimateModal({
       discountType,
       discountValue,
       taxPercent,
+      taxOnCharges,
       shippingCharges,
       packagingCharges,
       adjustment,
@@ -319,6 +321,7 @@ export function CreateEstimateModal({
     discountType,
     discountValue,
     taxPercent,
+    taxOnCharges,
     shippingCharges,
     packagingCharges,
     adjustment,
@@ -1416,6 +1419,43 @@ export function CreateEstimateModal({
                   ]}
                 />
               </View>
+
+              {(Number(shippingCharges) > 0 || Number(packagingCharges) > 0) && (
+                <TouchableOpacity
+                  onPress={() => setTaxOnCharges((prev) => !prev)}
+                  activeOpacity={0.7}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground, fontSize: 12 }]}>
+                    Apply GST/Tax on Shipping &amp; Packing
+                  </Text>
+                  <View
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 6,
+                      backgroundColor: taxOnCharges ? colors.primary : colors.surfaceSubtle,
+                      borderWidth: 1,
+                      borderColor: taxOnCharges ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "600",
+                        color: taxOnCharges ? "#FFFFFF" : colors.mutedForeground,
+                      }}
+                    >
+                      {taxOnCharges ? "ON" : "OFF"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
               {/* Round Off / Adjustment */}
               <View style={styles.summaryInputRow}>

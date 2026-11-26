@@ -19,7 +19,16 @@ import {
   User,
   RotateCw,
   Trash2,
+  MessageSquarePlus,
+  History,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
@@ -80,21 +89,61 @@ const DATA_TYPE_ROUTES: Record<string, { to: string; label: string }> = {
 };
 
 function renderFormattedText(text: string): React.ReactNode {
-  const lines = text.split("\n");
-  return lines.map((line, lineIdx) => {
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+  const normalized = String(text || "").replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+
+  const renderInline = (input: string) => {
+    const tokens = input.split(/(\*\*\*[^*\n]+?\*\*\*|\*\*[^*\n]*(?:\*(?!\*)[^*\n]*)*\*\*|\*[^*\n]+?\*|`[^`\n]+?`)/g);
+    return tokens.map((token, idx) => {
+      if (token.startsWith("***") && token.endsWith("***") && token.length > 6) {
+        return (
+          <strong key={idx} className="font-bold italic">
+            {token.slice(3, -3)}
+          </strong>
+        );
+      }
+      if (token.startsWith("**") && token.endsWith("**") && token.length > 4) {
+        return (
+          <strong key={idx} className="font-bold">
+            {token.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
+        return (
+          <em key={idx} className="italic">
+            {token.slice(1, -1)}
+          </em>
+        );
+      }
+      if (token.startsWith("`") && token.endsWith("`") && token.length > 2) {
+        return (
+          <code key={idx} className="px-1 py-0.5 rounded bg-muted font-mono text-[11px]">
+            {token.slice(1, -1)}
+          </code>
+        );
+      }
+      // Strip any unmatched stray ** so raw markdown markers never leak into the UI
+      return <React.Fragment key={idx}>{token.replace(/\*\*/g, "")}</React.Fragment>;
+    });
+  };
+
+  return lines.map((rawLine, lineIdx) => {
+    const headingMatch = rawLine.match(/^#{1,4}\s+(.+)$/);
+    const bulletMatch = rawLine.match(/^\s*[-*]\s+(.+)$/);
+
+    let content: React.ReactNode;
+    if (headingMatch) {
+      content = <strong className="font-bold">{renderInline(headingMatch[1])}</strong>;
+    } else if (bulletMatch) {
+      content = <>• {renderInline(bulletMatch[1])}</>;
+    } else {
+      content = renderInline(rawLine);
+    }
+
     return (
       <React.Fragment key={lineIdx}>
-        {parts.map((part, partIdx) => {
-          if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
-            return (
-              <strong key={partIdx} className="font-bold">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          return <React.Fragment key={partIdx}>{part}</React.Fragment>;
-        })}
+        {content}
         {lineIdx < lines.length - 1 && "\n"}
       </React.Fragment>
     );
@@ -119,6 +168,10 @@ export function ChatBot() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string>("");
+  const [sessions, setSessions] = useState<
+    Array<{ id: string; title: string; updatedAt: string; messageCount: number }>
+  >([]);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Multi-modal upload state
@@ -142,12 +195,39 @@ export function ChatBot() {
     }, 50);
   };
 
-  const fetchHistory = async () => {
+  const getSessionStorageKey = (orgId: string) => `accountiva_chat_session_${orgId}`;
+
+  const fetchSessions = async (orgId: string) => {
+    try {
+      const response = await api.get(`/chat/sessions/${orgId}`);
+      const list = Array.isArray(response.data) ? response.data : [];
+      setSessions(list);
+      return list as Array<{ id: string; title: string; updatedAt: string; messageCount: number }>;
+    } catch (error) {
+      console.error("Failed to fetch chat sessions:", error);
+      return [];
+    }
+  };
+
+  const fetchHistory = async (sessionIdOverride?: string) => {
     const currentOrgId = currentOrganization?.id;
     if (!currentOrgId) return;
 
     try {
-      const response = await api.get(`/chat/history/${currentOrgId}`);
+      const sessionList = await fetchSessions(currentOrgId);
+      const savedSessionId = localStorage.getItem(getSessionStorageKey(currentOrgId));
+      const targetSessionId =
+        sessionIdOverride ||
+        savedSessionId ||
+        sessionList[0]?.id ||
+        crypto.randomUUID();
+
+      setActiveSessionId(targetSessionId);
+      localStorage.setItem(getSessionStorageKey(currentOrgId), targetSessionId);
+
+      const response = await api.get(`/chat/history/${currentOrgId}`, {
+        params: { sessionId: targetSessionId },
+      });
       const historyMessages = (response.data || []).map((msg: any) => ({
         role: msg.role,
         content: msg.content,
@@ -166,12 +246,35 @@ export function ChatBot() {
     }
   };
 
+  const handleNewChat = () => {
+    const currentOrgId = currentOrganization?.id;
+    if (!currentOrgId || isLoading) return;
+    const newSessionId = crypto.randomUUID();
+    setActiveSessionId(newSessionId);
+    localStorage.setItem(getSessionStorageKey(currentOrgId), newSessionId);
+    setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date() }]);
+    setMessage("");
+    setAttachments([]);
+    toast.success("Started a new chat");
+  };
+
+  const handleSelectSession = async (sessionId: string) => {
+    const currentOrgId = currentOrganization?.id;
+    if (!currentOrgId || isLoading) return;
+    setActiveSessionId(sessionId);
+    localStorage.setItem(getSessionStorageKey(currentOrgId), sessionId);
+    await fetchHistory(sessionId);
+  };
+
   const handleClearHistory = async () => {
     const currentOrgId = currentOrganization?.id;
     if (!currentOrgId || isLoading) return;
     try {
-      await api.delete(`/chat/history/${currentOrgId}`);
+      await api.delete(`/chat/history/${currentOrgId}`, {
+        params: activeSessionId ? { sessionId: activeSessionId } : undefined,
+      });
       setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date() }]);
+      await fetchSessions(currentOrgId);
       toast.success("Chat cleared");
     } catch (error) {
       console.error("Failed to clear chat history:", error);
@@ -346,15 +449,30 @@ export function ChatBot() {
         data: att.base64Data,
       }));
 
+      const currentOrgId = currentOrganization?.id;
+      let sessionToUse = activeSessionId;
+      if (!sessionToUse && currentOrgId) {
+        sessionToUse =
+          localStorage.getItem(getSessionStorageKey(currentOrgId)) ||
+          crypto.randomUUID();
+        setActiveSessionId(sessionToUse);
+        localStorage.setItem(getSessionStorageKey(currentOrgId), sessionToUse);
+      }
+
       const response = await api.post(
         "/chat",
         {
           message: userMessage,
           history: chatHistory,
           attachments: payloadAttachments,
+          sessionId: sessionToUse || undefined,
         },
         { timeout: 30_000 },
       );
+
+      if (currentOrgId) {
+        void fetchSessions(currentOrgId);
+      }
 
       if (response.data?.actionExecuted) {
         const dt = (response.data.dataType || "").toLowerCase();
@@ -536,13 +654,57 @@ export function ChatBot() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleNewChat}
+                disabled={isLoading}
+                aria-label="New chat"
+                title="New chat"
+                className="size-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                <MessageSquarePlus className="size-4" />
+              </button>
+              {sessions.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      aria-label="Chat history"
+                      title="Previous chats"
+                      className="size-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      <History className="size-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-60 max-h-72 overflow-y-auto z-[1000]">
+                    <DropdownMenuLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Workspace Chats
+                    </DropdownMenuLabel>
+                    {sessions.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onClick={() => void handleSelectSession(s.id)}
+                        className={`cursor-pointer text-xs flex items-center justify-between gap-2 ${
+                          s.id === activeSessionId ? "bg-primary/10 text-primary font-semibold" : ""
+                        }`}
+                      >
+                        <span className="truncate">{s.title || "Accountiva AI Chat"}</span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {s.messageCount}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {messages.length > 1 && (
                 <button
                   type="button"
                   onClick={() => void handleClearHistory()}
                   disabled={isLoading}
                   aria-label="Clear chat history"
-                  title="Clear chat history"
+                  title="Clear current chat"
                   className="size-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="size-4" />

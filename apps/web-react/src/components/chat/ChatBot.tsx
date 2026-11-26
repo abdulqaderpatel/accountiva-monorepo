@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
   User,
   RotateCw,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +46,59 @@ interface ChatMessage {
   dataType?: string;
   attachments?: { name: string; type: "image" | "pdf"; previewUrl: string }[];
   isError?: boolean;
+  isWelcome?: boolean;
   retryText?: string;
+  retryAttachments?: AttachmentFile[];
+}
+
+const WELCOME_MESSAGE: ChatMessage = {
+  role: "assistant",
+  content:
+    "Hi! I'm your Accountiva Assistant. How can I help you today? You can ask me questions or upload receipts & invoices (Images or PDFs) for me to analyze.",
+  timestamp: new Date(),
+  dataType: "none",
+  isWelcome: true,
+};
+
+const DATA_TYPE_ROUTES: Record<string, { to: string; label: string }> = {
+  invoice: { to: "/invoices", label: "Open Invoices" },
+  invoices: { to: "/invoices", label: "Open Invoices" },
+  overdue_invoices: { to: "/invoices", label: "Open Invoices" },
+  unpaid_balance: { to: "/invoices", label: "Open Invoices" },
+  estimates: { to: "/estimates", label: "Open Estimates" },
+  expense: { to: "/expenses", label: "Open Expenses" },
+  expenses: { to: "/expenses", label: "Open Expenses" },
+  bill: { to: "/bills", label: "Open Bills" },
+  bills: { to: "/bills", label: "Open Bills" },
+  customer: { to: "/customers", label: "Open Customers" },
+  customers: { to: "/customers", label: "Open Customers" },
+  top_customers: { to: "/customers", label: "Open Customers" },
+  vendor: { to: "/vendors", label: "Open Vendors" },
+  vendors: { to: "/vendors", label: "Open Vendors" },
+  item: { to: "/items", label: "Open Items" },
+  items: { to: "/items", label: "Open Items" },
+};
+
+function renderFormattedText(text: string): React.ReactNode {
+  const lines = text.split("\n");
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+    return (
+      <React.Fragment key={lineIdx}>
+        {parts.map((part, partIdx) => {
+          if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+            return (
+              <strong key={partIdx} className="font-bold">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          return <React.Fragment key={partIdx}>{part}</React.Fragment>;
+        })}
+        {lineIdx < lines.length - 1 && "\n"}
+      </React.Fragment>
+    );
+  });
 }
 
 const suggestions = [
@@ -104,18 +157,25 @@ export function ChatBot() {
       }));
 
       setMessages([
-        {
-          role: "assistant",
-          content:
-            "Hi! I'm your Accountiva Assistant. How can I help you today? You can ask me questions or upload receipts & invoices (Images or PDFs) for me to analyze.",
-          timestamp: new Date(),
-          dataType: "none",
-        },
+        { ...WELCOME_MESSAGE, timestamp: new Date() },
         ...historyMessages,
       ]);
       scrollToBottom();
     } catch (error) {
       console.error("Failed to fetch chat history:", error);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    const currentOrgId = currentOrganization?.id;
+    if (!currentOrgId || isLoading) return;
+    try {
+      await api.delete(`/chat/history/${currentOrgId}`);
+      setMessages([{ ...WELCOME_MESSAGE, timestamp: new Date() }]);
+      toast.success("Chat cleared");
+    } catch (error) {
+      console.error("Failed to clear chat history:", error);
+      toast.error("Could not clear chat history");
     }
   };
 
@@ -137,10 +197,10 @@ export function ChatBot() {
   };
 
   const processFile = (file: File) => {
-    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "application/pdf"];
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "application/pdf"];
     if (!allowedTypes.includes(file.type.toLowerCase())) {
       toast.error("Invalid file format", {
-        description: "Please upload images (.png, .jpg, .jpeg) or documents (.pdf).",
+        description: "Please upload images (.png, .jpg, .webp) or documents (.pdf).",
       });
       return;
     }
@@ -215,30 +275,38 @@ export function ChatBot() {
     }
   };
 
-  const handleSend = async (overrideMessage?: string) => {
+  const handleSend = async (
+    overrideMessage?: string,
+    overrideAttachments?: AttachmentFile[],
+    isRetry = false,
+  ) => {
     const rawMessage = overrideMessage ?? message;
+    const currentAttachments = overrideAttachments ?? [...attachments];
     const hasText = rawMessage.trim().length > 0;
-    const hasAttachments = attachments.length > 0;
+    const hasAttachments = currentAttachments.length > 0;
 
     if ((!hasText && !hasAttachments) || isLoading) return;
 
     const userMessage = rawMessage.trim();
-    const currentAttachments = [...attachments];
 
-    // Push user message to UI state
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "user",
-        content: userMessage || `[Uploaded ${currentAttachments.length} file(s)]`,
-        attachments: currentAttachments.map((a) => ({
-          name: a.name,
-          type: a.type,
-          previewUrl: a.previewUrl,
-        })),
-        timestamp: new Date(),
-      },
-    ]);
+    // Remove previous failed assistant bubble on retry and avoid duplicating the user bubble
+    setMessages((prev) => {
+      const cleaned = isRetry ? prev.filter((m) => !m.isError) : prev;
+      if (isRetry) return cleaned;
+      return [
+        ...cleaned,
+        {
+          role: "user",
+          content: userMessage || `[Uploaded ${currentAttachments.length} file(s)]`,
+          attachments: currentAttachments.map((a) => ({
+            name: a.name,
+            type: a.type,
+            previewUrl: a.previewUrl,
+          })),
+          timestamp: new Date(),
+        },
+      ];
+    });
 
     const currentOrgId = currentOrganization?.id;
     if (!currentOrgId) {
@@ -255,14 +323,19 @@ export function ChatBot() {
       return;
     }
 
-    // Get chat history BEFORE the new message
-    const chatHistory = messages.slice(-7).map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    // Send only valid, non-error conversation turns before this message
+    const chatHistory = messages
+      .filter((m) => !m.isError && !m.isWelcome)
+      .slice(-10)
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
-    setMessage("");
-    setAttachments([]);
+    if (!overrideMessage && !overrideAttachments) {
+      setMessage("");
+      setAttachments([]);
+    }
     scrollToBottom();
 
     setIsLoading(true);
@@ -273,30 +346,52 @@ export function ChatBot() {
         data: att.base64Data,
       }));
 
-      const response = await api.post("/chat", {
-        message: userMessage,
-        organizationId: currentOrgId,
-        history: chatHistory,
-        attachments: payloadAttachments,
-      });
+      const response = await api.post(
+        "/chat",
+        {
+          message: userMessage,
+          history: chatHistory,
+          attachments: payloadAttachments,
+        },
+        { timeout: 30_000 },
+      );
 
       if (response.data?.actionExecuted) {
         const dt = (response.data.dataType || "").toLowerCase();
         if (dt.includes("invoice")) {
           queryClient.invalidateQueries({ queryKey: ["invoices"] });
           queryClient.invalidateQueries({ queryKey: ["customers"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           toast.success("Invoices Created", {
             description: "Accountiva AI created the invoices and refreshed your table.",
           });
         } else if (dt.includes("expense")) {
           queryClient.invalidateQueries({ queryKey: ["expenses"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           toast.success("Expense Recorded", {
             description: "Accountiva AI logged the expense and refreshed your records.",
+          });
+        } else if (dt.includes("bill")) {
+          queryClient.invalidateQueries({ queryKey: ["bills"] });
+          queryClient.invalidateQueries({ queryKey: ["vendors"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+          toast.success("Bill Recorded", {
+            description: "Accountiva AI saved the purchase bill.",
           });
         } else if (dt.includes("customer")) {
           queryClient.invalidateQueries({ queryKey: ["customers"] });
           toast.success("Customer Added", {
             description: "Accountiva AI saved the customer profile.",
+          });
+        } else if (dt.includes("vendor")) {
+          queryClient.invalidateQueries({ queryKey: ["vendors"] });
+          toast.success("Vendor Added", {
+            description: "Accountiva AI saved the vendor profile.",
+          });
+        } else if (dt.includes("item")) {
+          queryClient.invalidateQueries({ queryKey: ["items"] });
+          toast.success("Item Added", {
+            description: "Accountiva AI added the item to your catalog.",
           });
         } else {
           queryClient.invalidateQueries();
@@ -323,23 +418,34 @@ export function ChatBot() {
         },
       ]);
     } catch (error: any) {
-      let errorContent = "I'm sorry, I'm having trouble connecting to my brain right now.";
+      let errorContent = "Could not complete your request right now. Please try again.";
 
       const serverError = error.response?.data?.error;
       const serverMessage = error.response?.data?.message;
 
-      if (typeof serverError === "string" && serverError.trim()) {
+      if (error.code === "ERR_CANCELED") {
+        errorContent = "Request was canceled because the active organization changed.";
+      } else if (typeof serverError === "string" && serverError.trim()) {
         errorContent = serverError;
       } else if (typeof serverMessage === "string" && serverMessage.trim()) {
         errorContent = serverMessage;
-      } else if (error.response?.status === 504 || error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-        errorContent = "Request timed out while connecting to the AI assistant. Please try again.";
+      } else if (
+        error.response?.status === 504 ||
+        error.code === "ECONNABORTED" ||
+        error.message?.includes("timeout")
+      ) {
+        errorContent = "The request timed out while waiting for the AI assistant. Please try again.";
+      } else if (!error.response) {
+        errorContent =
+          "Unable to reach the Accountiva server. Please check your internet connection and try again.";
       } else if (error.response?.status === 429) {
         errorContent = "The AI assistant is receiving high traffic right now. Please wait a moment and try again.";
       } else if (error.response?.status === 503) {
         errorContent = "The AI service is temporarily experiencing high demand. Please try again in a few moments.";
       } else if (error.response?.status === 502) {
-        errorContent = "Unable to reach the AI server. Please check your connection and try again.";
+        errorContent = "The AI server returned a temporary gateway error. Please try again.";
+      } else if (error.response?.status === 403) {
+        errorContent = "You do not have permission to perform this action in the selected organization.";
       }
 
       setMessages((prev) => [
@@ -350,6 +456,7 @@ export function ChatBot() {
           timestamp: new Date(),
           isError: true,
           retryText: userMessage,
+          retryAttachments: currentAttachments,
         },
       ]);
     } finally {
@@ -427,14 +534,28 @@ export function ChatBot() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close assistant"
-              className="size-8 rounded-xl hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer"
-            >
-              <X className="size-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              {messages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => void handleClearHistory()}
+                  disabled={isLoading}
+                  aria-label="Clear chat history"
+                  title="Clear chat history"
+                  className="size-8 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close assistant"
+                className="size-8 rounded-xl hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors flex items-center justify-center shrink-0 cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
           </div>
 
           {/* Chat Messages Area */}
@@ -530,12 +651,12 @@ export function ChatBot() {
                         : "bg-primary text-primary-foreground rounded-tr-none font-semibold text-left"
                     }`}
                   >
-                    {msg.content}
-                    {msg.isError && msg.retryText && (
+                    {renderFormattedText(msg.content)}
+                    {msg.isError && (msg.retryText || (msg.retryAttachments && msg.retryAttachments.length > 0)) && (
                       <div className="pt-2">
                         <button
                           type="button"
-                          onClick={() => handleSuggestion(msg.retryText!)}
+                          onClick={() => void handleSend(msg.retryText, msg.retryAttachments, true)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer"
                         >
                           <RotateCw className="size-3" />
@@ -589,15 +710,22 @@ export function ChatBot() {
                                   <span className="font-bold text-foreground truncate">
                                     {item.invoiceNumber ||
                                       item.invoice_number ||
-                                      item.name ||
+                                      item.billNumber ||
+                                      item.bill_number ||
                                       item.estimate_number ||
+                                      item.name ||
+                                      item.expense_account ||
                                       item.description ||
                                       "Record"}
                                   </span>
                                 </div>
-                                {(item.amount !== undefined || item.total !== undefined) && (
+                                {(item.amount !== undefined ||
+                                  item.total !== undefined ||
+                                  item.selling_price !== undefined) && (
                                   <span className="font-black text-primary shrink-0 font-mono">
-                                    {formatCurrency(item.amount ?? item.total)}
+                                    {formatCurrency(
+                                      item.amount ?? item.total ?? item.selling_price,
+                                    )}
                                   </span>
                                 )}
                               </div>
@@ -606,6 +734,8 @@ export function ChatBot() {
                                 <span className="truncate max-w-[170px] font-medium">
                                   {item.customerName ||
                                     item.customers?.name ||
+                                    item.vendorName ||
+                                    item.vendors?.name ||
                                     item.company ||
                                     item.category ||
                                     ""}
@@ -616,17 +746,24 @@ export function ChatBot() {
                                       {item.status}
                                     </span>
                                   )}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsOpen(false);
-                                      void navigate({ to: "/invoices" });
-                                    }}
-                                    className="p-1 rounded-md text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center cursor-pointer"
-                                    title="Open Invoices"
-                                  >
-                                    <ArrowUpRight className="w-3.5 h-3.5" />
-                                  </button>
+                                  {(() => {
+                                    const routeInfo =
+                                      DATA_TYPE_ROUTES[(msg.dataType || "").toLowerCase()] ||
+                                      DATA_TYPE_ROUTES.invoices!;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setIsOpen(false);
+                                          void navigate({ to: routeInfo.to as any });
+                                        }}
+                                        className="p-1 rounded-md text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center cursor-pointer"
+                                        title={routeInfo.label}
+                                      >
+                                        <ArrowUpRight className="w-3.5 h-3.5" />
+                                      </button>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
@@ -728,7 +865,7 @@ export function ChatBot() {
             <input
               type="file"
               ref={fileInputRef}
-              accept=".png,.jpg,.jpeg,.pdf"
+              accept=".png,.jpg,.jpeg,.webp,.pdf"
               multiple
               className="hidden"
               onChange={handleFileSelect}

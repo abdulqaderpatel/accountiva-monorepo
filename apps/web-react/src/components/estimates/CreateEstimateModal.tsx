@@ -1223,7 +1223,10 @@ export function CreateEstimateModal({
                 <span>Round Off</span>
                 <span className="font-mono text-foreground font-semibold">
                   {totals.roundOff > 0 ? "+" : ""}
-                  {formatCurrency(totals.roundOff, currencyCode)}
+                  {formatCurrency(totals.roundOff, currencyCode, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </span>
               </div>
             )}

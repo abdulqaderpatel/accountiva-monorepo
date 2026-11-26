@@ -127,7 +127,7 @@ export function useKeyboardShortcuts(options?: {
       {
         id: "nav-credit-notes",
         label: "Credit Notes",
-        keys: ["G", "N"],
+        keys: ["G", "X"],
         description: "Go to Credit Notes",
         category: "navigation",
         feature: "creditNotes",
@@ -152,7 +152,7 @@ export function useKeyboardShortcuts(options?: {
       {
         id: "nav-notifications",
         label: "Notifications",
-        keys: ["G", "R"],
+        keys: ["G", "N"],
         description: "Go to Notifications",
         category: "navigation",
         action: () => navigateTo("/notifications"),

@@ -7,7 +7,9 @@ import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 export function AppLayout() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const {
@@ -34,12 +36,13 @@ export function AppLayout() {
       />
 
       {/* Main Row: Sidebar on left + Content area on right */}
-      <div className="flex flex-1 min-h-0 overflow-hidden print:overflow-visible print:h-auto">
+      <div className="relative flex flex-1 min-h-0 overflow-hidden print:overflow-visible print:h-auto">
         <Sidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+          onCloseMobile={() => setIsCollapsed(true)}
         />
-        <main className="flex-1 overflow-y-auto bg-background custom-scrollbar flex flex-col scroll-pb-36 print:overflow-visible print:h-auto print:bg-white">
+        <main className="flex-1 pl-20 md:pl-0 overflow-y-auto bg-background custom-scrollbar flex flex-col scroll-pb-36 print:overflow-visible print:h-auto print:bg-white print:pl-0">
           <Outlet />
         </main>
       </div>

@@ -27,6 +27,7 @@ import { OrganizationSwitcher } from "./OrganizationSwitcher";
 interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onCloseMobile?: () => void;
 }
 
 interface NavItem {
@@ -42,7 +43,7 @@ interface NavSection {
   items: NavItem[];
 }
 
-export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ isCollapsed, onToggleCollapse, onCloseMobile }: SidebarProps) {
   const location = useLocation();
   const { t } = useI18n();
 
@@ -94,14 +95,28 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
     }))
     .filter((section) => section.items.length > 0);
 
+  const handleNavClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      onCloseMobile?.();
+    }
+  };
+
   return (
-    <aside
-      id="sidebar"
-      className={cn(
-        "relative flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 select-none h-full print:hidden",
-        isCollapsed ? "w-20" : "w-56"
+    <>
+      {!isCollapsed && (
+        <div
+          aria-hidden="true"
+          onClick={onCloseMobile || onToggleCollapse}
+          className="fixed inset-0 top-14 z-30 bg-black/50 backdrop-blur-[1px] md:hidden print:hidden"
+        />
       )}
-    >
+      <aside
+        id="sidebar"
+        className={cn(
+          "fixed top-14 bottom-0 left-0 z-40 md:relative md:top-auto md:bottom-auto md:left-auto md:z-auto flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out shrink-0 select-none md:h-full print:hidden",
+          isCollapsed ? "w-20" : "w-56 shadow-2xl md:shadow-none"
+        )}
+      >
       {/* Collapse Toggle (Desktop only) positioned at top-20 matching Vue */}
       <button
         type="button"
@@ -142,6 +157,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
                 <Link
                   key={item.name}
                   to={item.route}
+                  onClick={handleNavClick}
                   className={cn(
                     "w-full flex items-center rounded-xl group text-left transition-all duration-200 border cursor-pointer",
                     isCollapsed ? "justify-center px-0 py-2.5" : "gap-3 px-2.5 py-2",
@@ -174,5 +190,6 @@ export function Sidebar({ isCollapsed, onToggleCollapse }: SidebarProps) {
         ))}
       </nav>
     </aside>
+    </>
   );
 }

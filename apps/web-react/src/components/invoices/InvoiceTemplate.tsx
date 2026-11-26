@@ -39,7 +39,7 @@ export const defaultTemplateSettings: TemplateSettings = {
   showFooter: true,
 };
 
-export type TemplateId = "standard" | "modern" | "minimal" | "premium";
+export type TemplateId = "standard" | "modern" | "minimal" | "premium" | "bw-minimalist";
 
 export interface InvoiceTemplateProps {
   invoice: any;
@@ -154,9 +154,20 @@ export function InvoiceTemplate({
     "Valued Client";
 
   const customerAddress =
+    invoice?.billingAddress ||
+    invoice?.billing_address ||
+    invoice?.customers?.billingAddress ||
+    invoice?.customers?.billing_address ||
     invoice?.customers?.address ||
     invoice?.customerAddress ||
     invoice?.customer?.address ||
+    "";
+
+  const customerShippingAddress =
+    invoice?.shippingAddress ||
+    invoice?.shipping_address ||
+    invoice?.customers?.shippingAddress ||
+    invoice?.customers?.shipping_address ||
     "";
 
   const customerCompany =
@@ -164,6 +175,49 @@ export function InvoiceTemplate({
     invoice?.customerCompany ||
     invoice?.customer?.company ||
     "";
+
+  const customerPhone =
+    invoice?.customers?.phone ||
+    invoice?.customerPhone ||
+    invoice?.customer?.phone ||
+    "";
+
+  const customerEmail =
+    invoice?.customers?.email ||
+    invoice?.customerEmail ||
+    invoice?.customer?.email ||
+    "";
+
+  const customerWebsite =
+    invoice?.customers?.website ||
+    invoice?.customerWebsite ||
+    invoice?.customer?.website ||
+    "";
+
+  const customerGstin =
+    invoice?.customers?.gstNumber ||
+    invoice?.customers?.gst_number ||
+    invoice?.customers?.gstin ||
+    invoice?.customerGstin ||
+    invoice?.customer?.gstNumber ||
+    "";
+
+  const customerNotes =
+    (typeof invoice?.notes === "string" && invoice.notes.trim()) ||
+    (typeof invoice?.customerNotes === "string" && invoice.customerNotes.trim()) ||
+    "";
+
+  const formatAmount = (val: number, alwaysShowDecimals = false) => {
+    const rounded = Math.round((Number(val) || 0) * 100) / 100;
+    const hasDecimals = Math.abs(rounded - Math.trunc(rounded)) > 0.001;
+    return formatCurrency(
+      rounded,
+      org.currency,
+      alwaysShowDecimals || hasDecimals
+        ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+        : undefined
+    );
+  };
 
   return (
     <div className={cn("w-full max-w-[800px] mx-auto select-text printable-document print:max-w-none print:m-0 print:w-full", `template-${templateId}`)}>
@@ -226,6 +280,24 @@ export function InvoiceTemplate({
                 <p className="text-xs text-slate-500 whitespace-pre-line mt-1 leading-relaxed print:mt-0.5 print:text-[10px]">
                   {customerAddress}
                 </p>
+              )}
+              {(customerPhone || customerEmail || customerWebsite || customerGstin) && (
+                <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-500 print:text-[9px] print:mt-0.5">
+                  {customerPhone && <p>Phone: {customerPhone}</p>}
+                  {customerEmail && <p>Email: {customerEmail}</p>}
+                  {customerWebsite && <p>Web: {customerWebsite}</p>}
+                  {customerGstin && <p className="font-mono font-semibold text-slate-600">GSTIN: {customerGstin}</p>}
+                </div>
+              )}
+              {settings.showClientAddress && customerShippingAddress && (
+                <div className="mt-3 pt-2 border-t border-slate-100 print:mt-1 print:pt-1">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
+                    Ship To:
+                  </h4>
+                  <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed print:text-[10px]">
+                    {customerShippingAddress}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -354,7 +426,7 @@ export function InvoiceTemplate({
                     {Math.abs(roundOff) < 5 ? "Round Off" : "Adjustment"}
                   </span>
                   <span className="text-slate-700 font-bold font-mono">
-                    {roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}
+                    {roundOff > 0 ? "+" : ""}{formatAmount(roundOff, true)}
                   </span>
                 </div>
               )}
@@ -362,17 +434,28 @@ export function InvoiceTemplate({
                 <div className="flex justify-between">
                   <span className="text-slate-400 font-bold uppercase tracking-wider">Adjustment</span>
                   <span className="text-slate-700 font-bold font-mono">
-                    {unlistedAdjustment > 0 ? "+" : ""}{formatCurrency(unlistedAdjustment)}
+                    {unlistedAdjustment > 0 ? "+" : ""}{formatAmount(unlistedAdjustment, true)}
                   </span>
                 </div>
               )}
               <div className="h-px bg-slate-100 my-1.5 print:my-0.5" />
               <div className="flex justify-between items-center text-sm pt-1 print:pt-0.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Amount</span>
-                <span className="text-xl font-black text-slate-900 font-mono print:text-base">{formatCurrency(total)}</span>
+                <span className="text-xl font-black text-slate-900 font-mono print:text-base">{formatAmount(total)}</span>
               </div>
             </div>
           </div>
+
+          {customerNotes && (
+            <div className="mt-8 pt-4 border-t border-slate-100 print:mt-2 print:pt-1">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Notes
+              </h4>
+              <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed print:text-[10px]">
+                {customerNotes}
+              </p>
+            </div>
+          )}
 
           {settings.showFooter && (
             <div className="mt-16 pt-6 border-t border-slate-100 text-center print:mt-2 print:pt-1">
@@ -419,8 +502,25 @@ export function InvoiceTemplate({
               <div className="bg-slate-50 p-6 rounded-2xl h-full border border-slate-100 print:p-2.5 print:rounded-lg">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 print:mb-1">Recipient</h3>
                 <p className="text-base font-bold text-slate-900 print:text-xs">{customerName}</p>
+                {settings.showClientCompany && customerCompany && (
+                  <p className="text-xs text-slate-600 mt-0.5 print:text-[10px]">{customerCompany}</p>
+                )}
                 {settings.showClientAddress && customerAddress && (
                   <p className="text-xs text-slate-500 mt-1 leading-relaxed whitespace-pre-line print:text-[10px] print:mt-0.5">{customerAddress}</p>
+                )}
+                {(customerPhone || customerEmail || customerWebsite || customerGstin) && (
+                  <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-500 print:text-[9px]">
+                    {customerPhone && <p>Phone: {customerPhone}</p>}
+                    {customerEmail && <p>Email: {customerEmail}</p>}
+                    {customerWebsite && <p>Web: {customerWebsite}</p>}
+                    {customerGstin && <p className="font-mono font-semibold text-slate-600">GSTIN: {customerGstin}</p>}
+                  </div>
+                )}
+                {settings.showClientAddress && customerShippingAddress && (
+                  <div className="mt-3 pt-2 border-t border-slate-100 print:mt-1 print:pt-1">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ship To</h4>
+                    <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed print:text-[10px]">{customerShippingAddress}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -523,7 +623,7 @@ export function InvoiceTemplate({
                 <div className="flex justify-between text-slate-500">
                   <span>{Math.abs(roundOff) < 5 ? "Round Off" : "Adjustment"}</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}
+                    {roundOff > 0 ? "+" : ""}{formatAmount(roundOff, true)}
                   </span>
                 </div>
               )}
@@ -531,14 +631,20 @@ export function InvoiceTemplate({
                 <div className="flex justify-between text-slate-500">
                   <span>Adjustment</span>
                   <span className="font-mono font-bold text-slate-800">
-                    {unlistedAdjustment > 0 ? "+" : ""}{formatCurrency(unlistedAdjustment)}
+                    {unlistedAdjustment > 0 ? "+" : ""}{formatAmount(unlistedAdjustment, true)}
                   </span>
                 </div>
               )}
               <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline print:pt-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grand Total</span>
-                <span className="text-2xl font-black text-slate-900 font-mono print:text-base">{formatCurrency(total)}</span>
+                <span className="text-2xl font-black text-slate-900 font-mono print:text-base">{formatAmount(total)}</span>
               </div>
+              {customerNotes && (
+                <div className="pt-3 border-t border-slate-200 mt-3 print:pt-1 print:mt-1">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Notes</h4>
+                  <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed print:text-[10px]">{customerNotes}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -560,14 +666,31 @@ export function InvoiceTemplate({
             </div>
           </div>
 
-          <div className="mb-8 flex justify-between items-start print:mb-2">
+          <div className="mb-8 flex justify-between items-start gap-6 print:mb-2">
             <div>
               <p className="text-[10px] font-bold uppercase mb-1 opacity-40 print:mb-0">Client</p>
               <p className="font-bold print:text-xs">{customerName}</p>
+              {settings.showClientCompany && customerCompany && (
+                <p className="opacity-70 text-[11px]">{customerCompany}</p>
+              )}
               {settings.showClientAddress && customerAddress && (
-                <p className="mt-1 opacity-60 text-[11px] leading-relaxed print:text-[10px] print:mt-0">{customerAddress}</p>
+                <p className="mt-1 opacity-60 text-[11px] leading-relaxed whitespace-pre-line print:text-[10px] print:mt-0">{customerAddress}</p>
+              )}
+              {(customerPhone || customerEmail || customerWebsite || customerGstin) && (
+                <div className="mt-1 space-y-0.5 text-[10px] opacity-60 print:text-[9px]">
+                  {customerPhone && <p>Phone: {customerPhone}</p>}
+                  {customerEmail && <p>Email: {customerEmail}</p>}
+                  {customerWebsite && <p>Web: {customerWebsite}</p>}
+                  {customerGstin && <p>GSTIN: {customerGstin}</p>}
+                </div>
               )}
             </div>
+            {settings.showClientAddress && customerShippingAddress && (
+              <div className="text-right">
+                <p className="text-[10px] font-bold uppercase mb-1 opacity-40 print:mb-0">Ship To</p>
+                <p className="opacity-60 text-[11px] leading-relaxed whitespace-pre-line print:text-[10px]">{customerShippingAddress}</p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3 mb-8 print:space-y-1 print:mb-2">
@@ -635,21 +758,27 @@ export function InvoiceTemplate({
               {roundOff !== 0 && (
                 <div className="flex justify-between opacity-60">
                   <span>{Math.abs(roundOff) < 5 ? "Round Off" : "Adjustment"}</span>
-                  <span>{roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}</span>
+                  <span>{roundOff > 0 ? "+" : ""}{formatAmount(roundOff, true)}</span>
                 </div>
               )}
               {unlistedAdjustment !== 0 && (
                 <div className="flex justify-between opacity-60">
                   <span>Adjustment</span>
-                  <span>{unlistedAdjustment > 0 ? "+" : ""}{formatCurrency(unlistedAdjustment)}</span>
+                  <span>{unlistedAdjustment > 0 ? "+" : ""}{formatAmount(unlistedAdjustment, true)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-sm pt-2 border-t border-gray-100 print:pt-1">
                 <span>Total</span>
-                <span>{formatCurrency(total)}</span>
+                <span>{formatAmount(total)}</span>
               </div>
             </div>
           </div>
+          {customerNotes && (
+            <div className="mt-6 pt-4 border-t border-gray-100 text-[11px] print:mt-2 print:pt-1 print:text-[10px]">
+              <p className="text-[10px] font-bold uppercase opacity-40 mb-1">Notes</p>
+              <p className="opacity-70 whitespace-pre-line">{customerNotes}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -686,18 +815,36 @@ export function InvoiceTemplate({
               </div>
             </div>
 
-            <div className="mb-10 border-l-4 border-slate-900 pl-6 print:mb-2 print:pl-3">
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2 font-sans print:mb-0.5">
-                Prepared For
-              </h3>
-              <p className="text-xl font-bold text-slate-900 print:text-xs">{customerName}</p>
-              {settings.showClientCompany && customerCompany && (
-                <p className="text-xs text-slate-600 mt-1 font-sans print:text-[10px] print:mt-0">{customerCompany}</p>
-              )}
-              {settings.showClientAddress && customerAddress && (
-                <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed whitespace-pre-line font-sans print:text-[10px] print:mt-0">
-                  {customerAddress}
-                </p>
+            <div className="mb-10 border-l-4 border-slate-900 pl-6 print:mb-2 print:pl-3 flex flex-col sm:flex-row sm:justify-between gap-4">
+              <div>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-2 font-sans print:mb-0.5">
+                  Prepared For
+                </h3>
+                <p className="text-xl font-bold text-slate-900 print:text-xs">{customerName}</p>
+                {settings.showClientCompany && customerCompany && (
+                  <p className="text-xs text-slate-600 mt-1 font-sans print:text-[10px] print:mt-0">{customerCompany}</p>
+                )}
+                {settings.showClientAddress && customerAddress && (
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed whitespace-pre-line font-sans print:text-[10px] print:mt-0">
+                    {customerAddress}
+                  </p>
+                )}
+                {(customerPhone || customerEmail || customerWebsite || customerGstin) && (
+                  <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-500 font-sans print:text-[9px]">
+                    {customerPhone && <p>Phone: {customerPhone}</p>}
+                    {customerEmail && <p>Email: {customerEmail}</p>}
+                    {customerWebsite && <p>Web: {customerWebsite}</p>}
+                    {customerGstin && <p className="font-mono font-semibold text-slate-700">GSTIN: {customerGstin}</p>}
+                  </div>
+                )}
+              </div>
+              {settings.showClientAddress && customerShippingAddress && (
+                <div className="sm:text-right font-sans">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Ship To</h4>
+                  <p className="text-xs text-slate-500 max-w-xs leading-relaxed whitespace-pre-line print:text-[10px]">
+                    {customerShippingAddress}
+                  </p>
+                </div>
               )}
             </div>
 
@@ -706,26 +853,32 @@ export function InvoiceTemplate({
                 <thead>
                   <tr className="border-b border-slate-900/15 text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] font-sans">
                     <th className="py-3 print:py-1">Description</th>
-                    {settings.showRate && <th className="py-3 text-right print:py-1">Price</th>}
-                    <th className="py-3 text-right print:py-1">Amount</th>
+                    {settings.showQuantity && <th className="py-3 text-right w-16 print:py-1">Qty</th>}
+                    {settings.showRate && <th className="py-3 text-right w-28 pl-4 print:py-1">Price</th>}
+                    <th className="py-3 text-right w-28 pl-4 print:py-1">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {invoiceItems.map((item: any, idx: number) => (
                     <tr key={item.id || idx} className="avoid-page-break">
-                      <td className="py-4 print:py-1">
+                      <td className="py-4 pr-4 print:py-1">
                         <p className="text-base font-bold text-slate-800 print:text-xs">{item.name || item.itemName}</p>
                         {settings.showItemDescription && item.description && (
                           <p className="text-xs italic text-slate-400 mt-0.5 print:text-[9px]">{item.description}</p>
                         )}
                       </td>
-                      {settings.showRate && (
-                        <td className="py-4 text-right text-xs text-slate-600 font-sans print:py-1 print:text-[10px]">
-                          {formatCurrency(item.rate)} {settings.showQuantity && `x ${item.quantity}`}
+                      {settings.showQuantity && (
+                        <td className="py-4 text-right text-xs text-slate-600 font-sans font-mono print:py-1 print:text-[10px]">
+                          {item.quantity}
                         </td>
                       )}
-                      <td className="py-4 text-right text-base font-bold text-slate-900 font-sans font-mono print:py-1 print:text-xs">
-                        {formatCurrency(item.amount)}
+                      {settings.showRate && (
+                        <td className="py-4 text-right text-xs text-slate-600 font-sans font-mono pl-4 print:py-1 print:text-[10px]">
+                          {formatAmount(item.rate)}
+                        </td>
+                      )}
+                      <td className="py-4 text-right text-base font-bold text-slate-900 font-sans font-mono pl-4 print:py-1 print:text-xs">
+                        {formatAmount(item.amount)}
                       </td>
                     </tr>
                   ))}
@@ -777,22 +930,215 @@ export function InvoiceTemplate({
                 {roundOff !== 0 && (
                   <div className="flex justify-between text-slate-500 italic">
                     <span>{Math.abs(roundOff) < 5 ? "Round Off" : "Adjustment"}</span>
-                    <span className="font-mono">{roundOff > 0 ? "+" : ""}{formatCurrency(roundOff)}</span>
+                    <span className="font-mono">{roundOff > 0 ? "+" : ""}{formatAmount(roundOff, true)}</span>
                   </div>
                 )}
                 {unlistedAdjustment !== 0 && (
                   <div className="flex justify-between text-slate-500 italic">
                     <span>Adjustment</span>
-                    <span className="font-mono">{unlistedAdjustment > 0 ? "+" : ""}{formatCurrency(unlistedAdjustment)}</span>
+                    <span className="font-mono">{unlistedAdjustment > 0 ? "+" : ""}{formatAmount(unlistedAdjustment, true)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2 border-t border-slate-100 print:pt-1">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grand Total</span>
-                  <span className="text-2xl font-black text-slate-900 font-mono print:text-base">{formatCurrency(total)}</span>
+                  <span className="text-2xl font-black text-slate-900 font-mono print:text-base">{formatAmount(total)}</span>
                 </div>
               </div>
             </div>
+            {customerNotes && (
+              <div className="mt-6 pt-4 border-t border-slate-200 font-sans print:mt-2 print:pt-1">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Notes</h4>
+                <p className="text-xs text-slate-600 whitespace-pre-line leading-relaxed print:text-[10px]">{customerNotes}</p>
+              </div>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* 5. Black & White Minimalist Template */}
+      {templateId === "bw-minimalist" && (
+        <div className="p-8 sm:p-10 bg-white text-black font-sans border border-black print:border-none print:p-3 print:py-2">
+          <div className="flex justify-between items-start pb-6 border-b-2 border-black mb-6 print:pb-2 print:mb-2">
+            <div>
+              {documentLogoUrl && settings.showLogo && (
+                <img
+                  src={documentLogoUrl}
+                  alt="Logo"
+                  className="h-10 mb-2 object-contain grayscale contrast-125 print:h-8 print:mb-1"
+                />
+              )}
+              {settings.showOrgName && (
+                <h1 className="text-xl font-black uppercase tracking-wider text-black print:text-base">
+                  {org.name || "Accountiva"}
+                </h1>
+              )}
+              {settings.showOrgAddress && org.address && (
+                <p className="text-[11px] text-neutral-700 whitespace-pre-line max-w-[260px] mt-1 leading-snug print:text-[10px]">
+                  {org.address}
+                </p>
+              )}
+              {settings.showGSTIN && org.gstin && (
+                <p className="text-[10px] font-mono font-bold text-black mt-1 uppercase">
+                  GSTIN: {org.gstin}
+                </p>
+              )}
+            </div>
+            <div className="text-right">
+              <h2 className="text-3xl font-black uppercase tracking-[0.2em] text-black print:text-xl">
+                {docTitle}
+              </h2>
+              {settings.showInvoiceNumber && (
+                <p className="text-sm font-mono font-bold text-black mt-1 print:text-xs">
+                  #{docNumber}
+                </p>
+              )}
+              {settings.showDate && invoice.date && (
+                <p className="text-[11px] text-neutral-700 mt-0.5">
+                  Date: {formatDate(invoice.date)}
+                </p>
+              )}
+              {settings.showDueDate && docEndDate && (
+                <p className="text-[11px] text-neutral-700">
+                  {docEndDateLabel}: {formatDate(docEndDate)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-black/20 mb-6 print:pb-2 print:mb-2 print:gap-3">
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1">
+                Bill To
+              </h3>
+              <p className="text-sm font-bold text-black print:text-xs">{customerName}</p>
+              {settings.showClientCompany && customerCompany && (
+                <p className="text-xs text-neutral-800">{customerCompany}</p>
+              )}
+              {settings.showClientAddress && customerAddress && (
+                <p className="text-[11px] text-neutral-700 whitespace-pre-line mt-1 leading-snug print:text-[10px]">
+                  {customerAddress}
+                </p>
+              )}
+              {(customerPhone || customerEmail || customerWebsite || customerGstin) && (
+                <div className="mt-1.5 space-y-0.5 text-[10px] text-neutral-700">
+                  {customerPhone && <p>Phone: {customerPhone}</p>}
+                  {customerEmail && <p>Email: {customerEmail}</p>}
+                  {customerWebsite && <p>Web: {customerWebsite}</p>}
+                  {customerGstin && <p className="font-mono font-bold text-black">GSTIN: {customerGstin}</p>}
+                </div>
+              )}
+            </div>
+            {settings.showClientAddress && customerShippingAddress && (
+              <div className="sm:text-right">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1">
+                  Ship To
+                </h3>
+                <p className="text-[11px] text-neutral-700 whitespace-pre-line leading-snug print:text-[10px]">
+                  {customerShippingAddress}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <table className="w-full text-left border-collapse mb-6 print:mb-2">
+            <thead>
+              <tr className="border-y-2 border-black text-[10px] font-bold uppercase tracking-widest text-black">
+                <th className="py-2.5 print:py-1">Item</th>
+                {settings.showQuantity && <th className="py-2.5 text-right w-16 print:py-1">Qty</th>}
+                {settings.showRate && <th className="py-2.5 text-right w-28 pl-4 print:py-1">Rate</th>}
+                <th className="py-2.5 text-right w-28 pl-4 print:py-1">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-300">
+              {invoiceItems.map((item: any, idx: number) => (
+                <tr key={item.id || idx} className="avoid-page-break">
+                  <td className="py-3 pr-4 print:py-1">
+                    <p className="text-xs font-bold text-black">{item.name || item.itemName}</p>
+                    {settings.showItemDescription && item.description && (
+                      <p className="text-[10px] text-neutral-600 mt-0.5">{item.description}</p>
+                    )}
+                  </td>
+                  {settings.showQuantity && (
+                    <td className="py-3 text-right text-xs font-mono text-neutral-800 print:py-1">
+                      {item.quantity}
+                    </td>
+                  )}
+                  {settings.showRate && (
+                    <td className="py-3 text-right text-xs font-mono text-neutral-800 pl-4 print:py-1">
+                      {formatAmount(item.rate)}
+                    </td>
+                  )}
+                  <td className="py-3 text-right text-xs font-mono font-bold text-black pl-4 print:py-1">
+                    {formatAmount(item.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end border-t-2 border-black pt-4 print:pt-2">
+            <div className="w-full sm:w-64 space-y-1.5 text-xs print:w-72 print:space-y-1 print:text-[11px]">
+              {settings.showSubtotal && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Subtotal</span>
+                  <span className="font-mono">{formatAmount(subtotal)}</span>
+                </div>
+              )}
+              {discount > 0 && (
+                <div className="flex justify-between text-neutral-800">
+                  <span>Discount{summary.discountType === "percentage" && summary.discountValue ? ` (${summary.discountValue}%)` : ""}</span>
+                  <span className="font-mono">- {formatAmount(discount)}</span>
+                </div>
+              )}
+              {settings.showTax && tax > 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Tax {taxPercent > 0 ? `(${taxPercent}%)` : ""}</span>
+                  <span className="font-mono">{formatAmount(tax)}</span>
+                </div>
+              )}
+              {shippingCharges > 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Shipping</span>
+                  <span className="font-mono">{formatAmount(shippingCharges)}</span>
+                </div>
+              )}
+              {packagingCharges > 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Packaging</span>
+                  <span className="font-mono">{formatAmount(packagingCharges)}</span>
+                </div>
+              )}
+              {otherCharges > 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Other Charges</span>
+                  <span className="font-mono">{formatAmount(otherCharges)}</span>
+                </div>
+              )}
+              {roundOff !== 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>{Math.abs(roundOff) < 5 ? "Round Off" : "Adjustment"}</span>
+                  <span className="font-mono">{roundOff > 0 ? "+" : ""}{formatAmount(roundOff, true)}</span>
+                </div>
+              )}
+              {unlistedAdjustment !== 0 && (
+                <div className="flex justify-between text-neutral-700">
+                  <span>Adjustment</span>
+                  <span className="font-mono">{unlistedAdjustment > 0 ? "+" : ""}{formatAmount(unlistedAdjustment, true)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-black font-bold text-sm print:pt-1">
+                <span className="uppercase tracking-wider text-xs">Total</span>
+                <span className="font-mono text-lg text-black print:text-base">{formatAmount(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {customerNotes && (
+            <div className="mt-6 pt-3 border-t border-black/20 print:mt-2 print:pt-1">
+              <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-1">Notes</h4>
+              <p className="text-[11px] text-neutral-800 whitespace-pre-line">{customerNotes}</p>
+            </div>
+          )}
         </div>
       )}
 

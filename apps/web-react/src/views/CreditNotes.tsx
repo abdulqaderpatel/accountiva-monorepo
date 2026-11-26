@@ -716,7 +716,7 @@ export function CreditNotes() {
                               View Preview
                             </DropdownMenuItem>
 
-                            {String(cn.status).toLowerCase() === "draft" && (
+                            {!["void", "closed"].includes(String(cn.status).toLowerCase()) && (
                               <DropdownMenuItem
                                 disabled={Boolean(actionLoading)}
                                 onClick={() => void handleEdit(cn)}

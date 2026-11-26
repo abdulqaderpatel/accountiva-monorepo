@@ -891,6 +891,7 @@ export function OrganizationSettings() {
                         { id: "modern", name: "Template 2", desc: "Sleek & Contemporary" },
                         { id: "minimal", name: "Template 3", desc: "Simple & Minimal" },
                         { id: "premium", name: "Template 4", desc: "Elegant & Sophisticated" },
+                        { id: "bw-minimalist", name: "Template 5", desc: "Black & White Minimalist" },
                       ].map((t) => (
                         <button
                           key={t.id}

@@ -161,7 +161,7 @@ export function PublicInvoiceView() {
           <div className="flex items-center gap-2">
             {/* Template Selector (Desktop) */}
             <div className="hidden sm:flex items-center bg-muted/60 p-0.5 rounded-lg border border-border">
-              {(["standard", "modern", "minimal", "premium"] as const).map((tId) => (
+              {(["standard", "modern", "minimal", "premium", "bw-minimalist"] as const).map((tId) => (
                 <button
                   key={tId}
                   type="button"

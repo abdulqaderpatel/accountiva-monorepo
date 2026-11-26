@@ -361,6 +361,7 @@ export function ChatBot() {
         if (dt.includes("invoice")) {
           queryClient.invalidateQueries({ queryKey: ["invoices"] });
           queryClient.invalidateQueries({ queryKey: ["customers"] });
+          queryClient.invalidateQueries({ queryKey: ["items"] });
           queryClient.invalidateQueries({ queryKey: ["dashboard"] });
           toast.success("Invoices Created", {
             description: "Accountiva AI created the invoices and refreshed your table.",

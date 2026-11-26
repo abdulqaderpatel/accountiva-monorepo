@@ -895,6 +895,7 @@ export function Estimates() {
           setEditingEstimate(null);
         }}
         onSuccess={() => refetch()}
+        onSaveAndPrint={(est) => setSelectedEstimate(est)}
       />
 
       {/* Estimate Multi-Template Preview Modal */}

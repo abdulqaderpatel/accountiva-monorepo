@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api, { getActiveOrganizationId } from '../client';
 
-export function useCustomers(params?: { search?: string }) {
+export function useCustomers(params?: { search?: string; page?: number; limit?: number }) {
   const activeOrgId = getActiveOrganizationId();
+  const queryParams = { limit: 1000, ...params };
   return useQuery({
-    queryKey: ['customers', activeOrgId, params],
+    queryKey: ['customers', activeOrgId, queryParams],
     queryFn: async () => {
-      const { data } = await api.get('/customers', { params });
+      const { data } = await api.get('/customers', { params: queryParams });
       return data;
     },
   });

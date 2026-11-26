@@ -157,6 +157,22 @@ export function useKeyboardShortcuts(options?: {
         category: "navigation",
         action: () => navigateTo("/notifications"),
       },
+      {
+        id: "nav-trash",
+        label: "Trash",
+        keys: ["G", "T"],
+        description: "Go to Trash",
+        category: "navigation",
+        action: () => navigateTo("/trash"),
+      },
+      {
+        id: "nav-team",
+        label: "Team Members",
+        keys: ["G", "M"],
+        description: "Go to Team Settings",
+        category: "navigation",
+        action: () => navigateTo("/settings/team"),
+      },
 
       // --- Create Actions (C then ...) ---
       {

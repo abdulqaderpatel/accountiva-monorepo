@@ -8,6 +8,7 @@ import {
   calculateDocumentTotals,
   calculateFinancialDocumentSubtotal,
   calculateInvoiceOutstandingAmount,
+  computeDueDateFromPaymentTerms,
   getDocumentSummaryDetails,
   getNextDocumentNumber,
   isDuplicateDocumentNumberError,
@@ -523,6 +524,29 @@ describe("getDocumentSummaryDetails", () => {
 
     it("ignores malformed or null values", () => {
       expect(getNextDocumentNumber([null, undefined, "", "custom-abc", "INV-0042"], "INV-")).toBe("INV-0043");
+    });
+  });
+
+  describe("computeDueDateFromPaymentTerms", () => {
+    it("computes due/expiry date from customer payment terms", () => {
+      expect(computeDueDateFromPaymentTerms("2026-11-26", "Due on Receipt")).toBe("2026-11-26");
+      expect(computeDueDateFromPaymentTerms("2026-11-01", "Net 15")).toBe("2026-11-16");
+      expect(computeDueDateFromPaymentTerms("2026-11-01", "Net 30")).toBe("2026-12-01");
+      expect(computeDueDateFromPaymentTerms("2026-11-01", "Net 45")).toBe("2026-12-16");
+    });
+  });
+
+  describe("taxOnCharges inference", () => {
+    it("infers taxOnCharges when persisted taxAmount includes shipping and packaging", () => {
+      const result = calculateDocumentTotals({
+        items: [{ itemId: "item-1", quantity: 1, rate: 1000, amount: 1000 }],
+        taxPercent: 18,
+        shippingCharges: 100,
+        packagingCharges: 50,
+        taxAmount: 207, // 18% of (1000 + 100 + 50)
+      });
+      expect(result.taxAmount).toBe(207);
+      expect(result.total).toBe(1357);
     });
   });
 });

@@ -155,7 +155,12 @@ export const ENTITY_ALIASES: Record<string, Record<string, string[]>> = {
       'streetaddress',
       'billingstreet',
       'billingstreetaddress',
-      'billaddress'
+      'billaddress',
+      'customeraddress',
+      'fulladdress',
+      'registeredaddress',
+      'officeaddress',
+      'permanentaddress'
     ],
     shippingAddress: [
       'shippingaddress',

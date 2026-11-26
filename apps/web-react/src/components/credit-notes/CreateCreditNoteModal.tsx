@@ -79,7 +79,7 @@ export function CreateCreditNoteModal({
     enabled: isOpen && !creditNoteToEdit,
   });
   const { data: apiCustomers } = useCustomers();
-  const { data: apiInvoices } = useInvoices({ status: "Outstanding", limit: 100 });
+  const { data: apiInvoices } = useInvoices({ limit: 500 });
   const { data: apiItems } = useItems();
 
   const calculatedNextNumber = useMemo(() => {
@@ -518,6 +518,8 @@ export function CreateCreditNoteModal({
               onChange={setReferenceInvoiceId}
               placeholder={customerId ? "Link to customer invoice" : "Select a customer first"}
               disabled={!customerId}
+              searchable
+              searchPlaceholder="Search invoice number..."
               options={customerInvoices}
             />
           </div>

@@ -514,8 +514,8 @@ export function ChatBot() {
           });
         } else {
           queryClient.invalidateQueries();
-          toast.success("Action Executed", {
-            description: "Accountiva AI performed the requested database action.",
+          toast.success("Done", {
+            description: "Your books have been updated.",
           });
         }
       }

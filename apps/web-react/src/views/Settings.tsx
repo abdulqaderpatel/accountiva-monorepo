@@ -222,7 +222,7 @@ export function Settings() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-8 flex flex-col h-full overflow-hidden min-h-0">
+    <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 md:px-8 flex flex-col h-full overflow-hidden min-h-0">
       {/* Header (Fixed) */}
       <div className="pt-4 pb-3 shrink-0">
         <div>
@@ -287,14 +287,14 @@ export function Settings() {
                   <CardContent className="p-6">
                     <div className="grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
                       {/* Profile Picture Upload */}
-                      <div className="flex items-center gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 lg:flex-col lg:items-start">
+                      <div className="flex items-center gap-4 rounded-2xl border border-border/60 bg-muted/20 p-4 lg:flex-col lg:items-center lg:text-center">
                         <button
                           type="button"
                           className="group relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card cursor-pointer"
                           aria-label="Upload profile picture"
                           onClick={() => fileInputRef.current?.click()}
                         >
-                          <span className="flex size-20 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-background/60 transition-colors group-hover:border-primary/60 shadow-2xs">
+                          <span className="flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-border/70 bg-primary/10 text-primary transition-colors group-hover:border-primary/60 shadow-2xs">
                             {profilePreviewUrl ? (
                               <img
                                 src={profilePreviewUrl}
@@ -302,13 +302,15 @@ export function Settings() {
                                 className="size-full object-cover"
                               />
                             ) : (
-                              <User className="size-8 text-muted-foreground" />
+                              <span className="text-2xl font-bold select-none">
+                                {(fullName.trim().charAt(0) || user?.email?.charAt(0) || "U").toUpperCase()}
+                              </span>
                             )}
                             <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                               <Camera className="size-5 text-white" />
                             </span>
                           </span>
-                          <span className="absolute -bottom-0.5 -right-0.5 flex size-8 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-2xs">
+                          <span className="absolute -bottom-0.5 -right-0.5 flex size-7 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-2xs">
                             <Camera className="size-3.5" />
                           </span>
                         </button>
@@ -319,11 +321,18 @@ export function Settings() {
                           accept="image/jpeg,image/png,image/webp"
                           onChange={handleFileChange}
                         />
-                        <div className="min-w-0 space-y-1 lg:pt-1 text-left">
-                          <h4 className="text-sm font-bold text-foreground">Profile Picture</h4>
+                        <div className="min-w-0 space-y-1.5 text-left lg:text-center">
+                          <h4 className="text-sm font-bold text-foreground">Profile Photo</h4>
                           <p className="text-xs leading-relaxed text-muted-foreground">
                             JPG, PNG or WebP under 5MB.
                           </p>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                          >
+                            Change photo
+                          </button>
                         </div>
                       </div>
 
@@ -349,22 +358,30 @@ export function Settings() {
                             <Input
                               value={user?.email || ""}
                               disabled
-                              className="h-10 cursor-not-allowed rounded-xl border-border/60 bg-muted/40 pl-9 text-sm text-muted-foreground disabled:opacity-100 shadow-2xs"
+                              className="h-10 cursor-not-allowed rounded-xl border-border/60 bg-muted/40 pl-9 pr-20 text-sm text-muted-foreground disabled:opacity-100 shadow-2xs"
                             />
+                            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                              Linked
+                            </span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground ml-1 italic">
-                            Email address is linked to your authentication provider.
+                          <p className="text-[11px] text-muted-foreground ml-1">
+                            Managed by your authentication provider.
                           </p>
                         </div>
 
-                        <div className="flex justify-end border-t border-border/60 pt-5">
+                        <div className="flex items-center justify-end border-t border-border/60 pt-5">
                           <Button
                             type="button"
                             onClick={() => handleUpdateProfile()}
                             loading={isSavingProfile}
-                            className="h-10 min-w-32 gap-2 rounded-xl px-5 text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99] transition-all cursor-pointer"
+                            disabled={
+                              isSavingProfile ||
+                              !fullName.trim() ||
+                              fullName.trim() === (profile?.full_name || user?.name || "").trim()
+                            }
+                            className="h-9 min-w-32 gap-2 rounded-lg px-4 text-xs font-semibold bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 active:scale-[0.99] transition-all cursor-pointer"
                           >
-                            <span>{isSavingProfile ? "Saving..." : "Update Profile"}</span>
+                            <span>{isSavingProfile ? "Saving..." : "Save Changes"}</span>
                           </Button>
                         </div>
                       </div>

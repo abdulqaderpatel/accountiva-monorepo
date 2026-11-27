@@ -72,19 +72,8 @@ export function Sidebar({ isCollapsed, onToggleCollapse, onCloseMobile }: Sideba
   ];
 
   const { canView } = usePermissions();
-  const { isAdmin } = useAuth();
 
-  const allSections = [...sections];
-  if (isAdmin) {
-    allSections.push({
-      title: t("sidebar.sections.admin", "Admin"),
-      items: [
-        { name: t("sidebar.admin", "Admin Panel"), icon: ShieldCheck, route: "/admin" },
-      ],
-    });
-  }
-
-  const visibleSections = allSections
+  const visibleSections = sections
     .map((section) => ({
       ...section,
       items: section.items.filter(

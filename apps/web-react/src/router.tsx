@@ -27,7 +27,6 @@ const Notifications = lazyRouteComponent(() => import("./views/Notifications"), 
 const PublicInvoiceView = lazyRouteComponent(() => import("./views/PublicInvoiceView"), "PublicInvoiceView");
 const Onboarding = lazyRouteComponent(() => import("./views/Onboarding"), "Onboarding");
 const Landing = lazyRouteComponent(() => import("./views/Landing"), "Landing");
-const AdminPanel = lazyRouteComponent(() => import("./views/AdminPanel"), "AdminPanel");
 const Login = lazyRouteComponent(() => import("./views/auth/Login"));
 const Signup = lazyRouteComponent(() => import("./views/auth/Signup"));
 const ForgotPassword = lazyRouteComponent(() => import("./views/auth/ForgotPassword"));
@@ -289,7 +288,7 @@ const organizationSettingsRoute = createRoute({
 const adminRoute = createRoute({
   getParentRoute: () => protectedLayoutRoute,
   path: "/admin",
-  component: AdminPanel,
+  component: () => <Navigate to="/dashboard" replace />,
 });
 
 const itemsRedirectRoute = createRoute({

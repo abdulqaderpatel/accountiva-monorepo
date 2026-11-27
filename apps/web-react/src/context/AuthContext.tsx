@@ -108,19 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     return null;
   });
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = false;
   const [loading, setLoading] = useState(true);
   const [isOrganizationsLoaded, setIsOrganizationsLoaded] = useState(false);
   const [orgFetchFailed, setOrgFetchFailed] = useState(false);
-
-  const fetchAdminAccess = useCallback(async () => {
-    try {
-      const { data } = await api.get<{ isAdmin: boolean }>("/admin/access");
-      setIsAdmin(data?.isAdmin === true);
-    } catch {
-      setIsAdmin(false);
-    }
-  }, []);
 
   const setCurrentOrganization = useCallback((org: Organization | null) => {
     setCurrentOrganizationState((prev) => {
@@ -289,12 +280,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           try {
-            await Promise.allSettled([
-              fetchOrganizations(),
-              fetchAdminAccess(),
-            ]);
+            await fetchOrganizations();
           } catch (orgErr) {
-            console.warn("Organization/admin access fetch failed:", orgErr);
+            console.warn("Organization fetch failed:", orgErr);
           }
           if (mounted) {
             setUser(authUser);
@@ -311,7 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [fetchAdminAccess, fetchOrganizations]);
+  }, [fetchOrganizations]);
 
   const login = async (email: string, password: string) => {
     clearLogoutPending();
@@ -334,7 +322,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem(`accountiva_onboarding_completed_${authUser.id}`, "true");
           localStorage.setItem("accountiva_onboarding_completed", "true");
         }
-        await fetchAdminAccess();
       } catch (err) {
         console.error("Failed to fetch organizations on login:", err);
       }

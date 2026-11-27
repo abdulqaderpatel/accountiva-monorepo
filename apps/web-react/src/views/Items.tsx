@@ -530,7 +530,7 @@ export function Items() {
                     <TableRow
                       key={item.id}
                       data-state={isRowSelected ? "selected" : undefined}
-                      className={`hover:bg-muted/40 transition-colors group cursor-pointer ${
+                      className={`hover:bg-muted/40 transition-colors group ${
                         isRowSelected ? "bg-primary/5" : ""
                       }`}
                     >

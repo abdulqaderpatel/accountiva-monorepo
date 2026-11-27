@@ -688,7 +688,7 @@ export function CreateInvoiceModal({
         open={isOpen}
         onClose={onClose}
         maxWidthClass="max-w-xl"
-        bodyClass="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar"
+        bodyClass="p-6 space-y-5 overflow-y-auto custom-scrollbar"
         title={isEditing ? "Edit Invoice" : "New Invoice"}
         description="Fill out invoice details, select items, and calculate taxes."
         footer={

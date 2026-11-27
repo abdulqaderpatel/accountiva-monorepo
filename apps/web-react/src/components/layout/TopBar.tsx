@@ -129,8 +129,11 @@ export function TopBar({
     if (path.startsWith("/customers")) {
       return [{ category: "Sales", label: "Customers", route: "/customers" }];
     }
-    if (path.startsWith("/items")) {
-      return [{ category: "Inventory", label: "Items", route: "/items" }];
+    if (path.startsWith("/items") || path.startsWith("/products-and-services/items")) {
+      return [{ category: "Inventory", label: "Items", route: "/products-and-services/items" }];
+    }
+    if (path.startsWith("/admin")) {
+      return [{ category: "Admin", label: "Admin Panel", route: "/admin" }];
     }
     if (path.startsWith("/settings")) {
       return [{ category: "Settings", label: "Preferences", route: "/settings" }];
@@ -153,8 +156,8 @@ export function TopBar({
       <div
         className={`h-full flex items-center shrink-0 overflow-hidden justify-center transition-all duration-300 ease-in-out ${
           isCollapsed
-            ? "w-10 md:w-20 md:border-r border-sidebar-border"
-            : "w-10 md:w-56 md:border-r border-sidebar-border md:justify-start md:pl-5 gap-3"
+            ? "w-20 border-r border-sidebar-border"
+            : "w-20 md:w-56 border-r border-sidebar-border md:justify-start md:pl-5 gap-3"
         }`}
       >
         <Link to="/dashboard" className="flex items-center gap-3 outline-none">
@@ -187,9 +190,18 @@ export function TopBar({
                 <ChevronRight className="hidden sm:inline-block size-3.5 text-muted-foreground/30 shrink-0" />
               </>
             )}
-            <span className="text-foreground font-black text-[13px] tracking-tight">
-              {b.label}
-            </span>
+            {b.route && idx < breadcrumbs.length - 1 ? (
+              <Link
+                to={b.route}
+                className="text-muted-foreground hover:text-foreground font-bold text-[13px] tracking-tight transition-colors"
+              >
+                {b.label}
+              </Link>
+            ) : (
+              <span className="text-foreground font-black text-[13px] tracking-tight">
+                {b.label}
+              </span>
+            )}
           </React.Fragment>
         ))}
       </div>

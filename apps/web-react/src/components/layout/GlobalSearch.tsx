@@ -37,6 +37,11 @@ interface SearchItem {
 }
 
 export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
+  if (!isOpen) return null;
+  return <GlobalSearchContent isOpen={isOpen} onClose={onClose} />;
+}
+
+function GlobalSearchContent({ isOpen, onClose }: GlobalSearchProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);

@@ -39,6 +39,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 import { useFilterPresets, FilterPreset } from "@/hooks/useFilterPresets";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { toast } from "sonner";
@@ -148,17 +149,31 @@ export function InvoiceFilterBar({
         filters.timeframe
       : null;
 
+  const { currentOrganization } = useAuth();
+  const currencySymbol = useMemo(() => {
+    const code = currentOrganization?.currency || "INR";
+    try {
+      return (
+        new Intl.NumberFormat("en-US", { style: "currency", currency: code })
+          .formatToParts(0)
+          .find((p) => p.type === "currency")?.value || code
+      );
+    } catch {
+      return "₹";
+    }
+  }, [currentOrganization?.currency]);
+
   const activeAmountLabel = (() => {
     const min = filters.minAmount;
     const max = filters.maxAmount;
     if (min != null && max != null) {
-      return `₹${Number(min).toLocaleString()} - ₹${Number(max).toLocaleString()}`;
+      return `${currencySymbol}${Number(min).toLocaleString()} - ${currencySymbol}${Number(max).toLocaleString()}`;
     }
     if (min != null) {
-      return `≥ ₹${Number(min).toLocaleString()}`;
+      return `≥ ${currencySymbol}${Number(min).toLocaleString()}`;
     }
     if (max != null) {
-      return `≤ ₹${Number(max).toLocaleString()}`;
+      return `≤ ${currencySymbol}${Number(max).toLocaleString()}`;
     }
     return null;
   })();
@@ -607,14 +622,14 @@ export function InvoiceFilterBar({
 
           <PopoverContent align="start" className="w-64 p-3 shadow-md border-border space-y-3">
             <div className="space-y-1">
-              <span className="text-xs font-semibold text-foreground">Filter by Amount (₹)</span>
+              <span className="text-xs font-semibold text-foreground">Filter by Amount ({currencySymbol})</span>
               <p className="text-[11px] text-muted-foreground">Specify minimum or maximum values</p>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground font-medium uppercase">
-                  Min (₹)
+                  Min ({currencySymbol})
                 </Label>
                 <Input
                   type="number"
@@ -627,7 +642,7 @@ export function InvoiceFilterBar({
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground font-medium uppercase">
-                  Max (₹)
+                  Max ({currencySymbol})
                 </Label>
                 <Input
                   type="number"
@@ -650,7 +665,7 @@ export function InvoiceFilterBar({
                   setDraftMax("10000");
                 }}
               >
-                &lt; ₹10k
+                &lt; {currencySymbol}10k
               </button>
               <button
                 type="button"
@@ -660,7 +675,7 @@ export function InvoiceFilterBar({
                   setDraftMax("50000");
                 }}
               >
-                ₹10k - ₹50k
+                {currencySymbol}10k - {currencySymbol}50k
               </button>
               <button
                 type="button"
@@ -670,7 +685,7 @@ export function InvoiceFilterBar({
                   setDraftMax("");
                 }}
               >
-                &gt; ₹50k
+                &gt; {currencySymbol}50k
               </button>
             </div>
 

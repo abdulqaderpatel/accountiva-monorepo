@@ -58,6 +58,7 @@ export function EstimatePreviewModal({
   const [settings, setSettings] = useState<TemplateSettings>(defaultTemplateSettings);
   const [isSendOpen, setIsSendOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [printOrientation, setPrintOrientation] = useState<"portrait" | "landscape">("portrait");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -101,6 +102,10 @@ export function EstimatePreviewModal({
       if (root) root.style.removeProperty("display");
     };
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         handlePrint();
@@ -141,8 +146,6 @@ export function EstimatePreviewModal({
     { id: "premium", name: "Template 4", description: "Elegant & Sophisticated" },
     { id: "bw-minimalist", name: "Template 5", description: "Black & White Minimalist" },
   ];
-
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const handleDownloadPdf = async () => {
     if (!estimate?.id) return;

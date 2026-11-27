@@ -948,6 +948,19 @@ export function OrganizationSettings() {
                                 </div>
                               </div>
                             )}
+                            {t.id === "bw-minimalist" && (
+                              <div className="w-full h-full border border-foreground/20 p-4 flex flex-col">
+                                <div className="flex items-center justify-between pb-2 border-b border-foreground/20 mb-4">
+                                  <div className="w-10 h-2 bg-foreground/70" />
+                                  <div className="w-8 h-1.5 bg-foreground/30" />
+                                </div>
+                                <div className="space-y-2 mt-auto">
+                                  <div className="w-full h-1 bg-foreground/20" />
+                                  <div className="w-5/6 h-1 bg-foreground/15" />
+                                  <div className="w-2/3 h-1 bg-foreground/15" />
+                                </div>
+                              </div>
+                            )}
 
                             {defaultTemplate === t.id && (
                               <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">

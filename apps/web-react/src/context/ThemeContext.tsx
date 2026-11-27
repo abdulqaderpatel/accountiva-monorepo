@@ -94,17 +94,20 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(nextTheme);
   };
 
+  const contextValue = React.useMemo(
+    () => ({
+      theme,
+      accentColor,
+      isDark,
+      setTheme,
+      setAccentColor,
+      toggleTheme,
+    }),
+    [theme, accentColor, isDark]
+  );
+
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        accentColor,
-        isDark,
-        setTheme,
-        setAccentColor,
-        toggleTheme,
-      }}
-    >
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );

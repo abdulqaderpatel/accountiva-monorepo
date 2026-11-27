@@ -1,38 +1,77 @@
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import {
   createRouter,
   createRootRoute,
   createRoute,
+  lazyRouteComponent,
   Outlet,
   Navigate,
+  Link,
   useLocation,
 } from "@tanstack/react-router";
 import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute, GuestRoute } from "./components/auth/ProtectedRoute";
-import { Dashboard } from "./views/Dashboard";
-import { Invoices } from "./views/Invoices";
-import { Estimates } from "./views/Estimates";
-import { CreditNotes } from "./views/CreditNotes";
-import { Customers } from "./views/Customers";
-import { CustomerDetail } from "./views/CustomerDetail";
-import { Items } from "./views/Items";
-import { Settings } from "./views/Settings";
-import { OrganizationSettings } from "./views/OrganizationSettings";
-import { Notifications } from "./views/Notifications";
-import { PublicInvoiceView } from "./views/PublicInvoiceView";
-import { Onboarding } from "./views/Onboarding";
-import { Landing } from "./views/Landing";
-import { AdminPanel } from "./views/AdminPanel";
+import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useAuth } from "./context/AuthContext";
-import Login from "./views/auth/Login";
-import Signup from "./views/auth/Signup";
-import ForgotPassword from "./views/auth/ForgotPassword";
-import ResetPassword from "./views/auth/ResetPassword";
-import CheckEmail from "./views/auth/CheckEmail";
-import VerifyEmail from "./views/auth/VerifyEmail";
-import { AcceptInvitation } from "./views/auth/AcceptInvitation";
-import { ChatBot } from "./components/chat/ChatBot";
-import { ProductTour } from "./components/layout/ProductTour";
+
+const Dashboard = lazyRouteComponent(() => import("./views/Dashboard"), "Dashboard");
+const Invoices = lazyRouteComponent(() => import("./views/Invoices"), "Invoices");
+const Estimates = lazyRouteComponent(() => import("./views/Estimates"), "Estimates");
+const CreditNotes = lazyRouteComponent(() => import("./views/CreditNotes"), "CreditNotes");
+const Customers = lazyRouteComponent(() => import("./views/Customers"), "Customers");
+const CustomerDetail = lazyRouteComponent(() => import("./views/CustomerDetail"), "CustomerDetail");
+const Items = lazyRouteComponent(() => import("./views/Items"), "Items");
+const Settings = lazyRouteComponent(() => import("./views/Settings"), "Settings");
+const OrganizationSettings = lazyRouteComponent(() => import("./views/OrganizationSettings"), "OrganizationSettings");
+const Notifications = lazyRouteComponent(() => import("./views/Notifications"), "Notifications");
+const PublicInvoiceView = lazyRouteComponent(() => import("./views/PublicInvoiceView"), "PublicInvoiceView");
+const Onboarding = lazyRouteComponent(() => import("./views/Onboarding"), "Onboarding");
+const Landing = lazyRouteComponent(() => import("./views/Landing"), "Landing");
+const AdminPanel = lazyRouteComponent(() => import("./views/AdminPanel"), "AdminPanel");
+const Login = lazyRouteComponent(() => import("./views/auth/Login"));
+const Signup = lazyRouteComponent(() => import("./views/auth/Signup"));
+const ForgotPassword = lazyRouteComponent(() => import("./views/auth/ForgotPassword"));
+const ResetPassword = lazyRouteComponent(() => import("./views/auth/ResetPassword"));
+const CheckEmail = lazyRouteComponent(() => import("./views/auth/CheckEmail"));
+const VerifyEmail = lazyRouteComponent(() => import("./views/auth/VerifyEmail"));
+const AcceptInvitation = lazyRouteComponent(() => import("./views/auth/AcceptInvitation"), "AcceptInvitation");
+
+const ChatBot = React.lazy(() =>
+  import("./components/chat/ChatBot").then((m) => ({ default: m.ChatBot }))
+);
+const ProductTour = React.lazy(() =>
+  import("./components/layout/ProductTour").then((m) => ({ default: m.ProductTour }))
+);
+
+function RouteFallback() {
+  return (
+    <div className="min-h-[50vh] flex items-center justify-center">
+      <div className="size-7 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+    </div>
+  );
+}
+
+function NotFoundView() {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-background text-foreground">
+      <div className="max-w-md w-full rounded-2xl border border-border bg-card p-6 text-center shadow-sm space-y-4">
+        <div className="text-3xl font-bold text-primary">404</div>
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold">Page not found</h1>
+          <p className="text-sm text-muted-foreground">
+            The page you are looking for does not exist or has been moved.
+          </p>
+        </div>
+        <Link
+          to="/dashboard"
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Back to Dashboard
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function RootLayout() {
   const location = useLocation();
@@ -55,11 +94,15 @@ function RootLayout() {
   }, [location.pathname, location.searchStr]);
 
   return (
-    <>
-      <Outlet />
-      <ChatBot />
-      <ProductTour />
-    </>
+    <ErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>
+        <Outlet />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ChatBot />
+        <ProductTour />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 
@@ -322,6 +365,7 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
+  defaultNotFoundComponent: NotFoundView,
 });
 
 // Register router for full TypeScript type safety

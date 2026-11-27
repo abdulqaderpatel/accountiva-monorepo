@@ -24,11 +24,13 @@ import {
   useDashboardMetrics,
 } from "@accountiva/api";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { quickCreate } from "@/lib/quickCreate";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { currentOrganization, user } = useAuth();
+  const { canView } = usePermissions();
   const currency = currentOrganization?.currency || "INR";
 
   const { data: metricsData, isLoading: metricsLoading } = useDashboardMetrics();
@@ -264,7 +266,7 @@ export function Dashboard() {
   const userName = user?.name ? user.name.split(" ")[0] : "Member";
 
   return (
-    <div className="px-8 pt-4 md:pt-5 pb-36 max-w-7xl mx-auto space-y-8 flex-1 w-full flex flex-col">
+    <div className="px-4 sm:px-6 md:px-8 pt-4 md:pt-5 pb-36 max-w-7xl mx-auto space-y-8 flex-1 w-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-4">
@@ -300,7 +302,7 @@ export function Dashboard() {
             return (
               <Card
                 key={stat.title}
-                className={`border-border/60 shadow-2xs overflow-hidden relative group hover:shadow-xs transition-all duration-300 py-0 gap-0 bg-card/50 backdrop-blur-xs ${stat.tone}`}
+                className={`rounded-2xl border-border/60 shadow-2xs overflow-hidden relative group hover:shadow-xs transition-all duration-300 py-0 gap-0 bg-card/50 backdrop-blur-xs ${stat.tone}`}
               >
                 <div className={`h-[2.5px] w-full ${stat.accent}`} />
                 <CardContent className="p-6">
@@ -598,56 +600,64 @@ export function Dashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-5 md:p-6 space-y-2.5">
-                <Button
-                  variant="outline"
-                  onClick={handleCreateInvoice}
-                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    New Invoice
-                  </span>
-                  <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
+                {isFeatureEnabled("invoices") && canView("invoices") && (
+                  <Button
+                    variant="outline"
+                    onClick={handleCreateInvoice}
+                    className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      New Invoice
+                    </span>
+                    <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                )}
 
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    quickCreate.trigger("estimate");
-                    navigate({ to: "/estimates" });
-                  }}
-                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Calculator className="w-4 h-4 text-sky-500" />
-                    New Estimate
-                  </span>
-                  <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
+                {isFeatureEnabled("estimates") && canView("estimates") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      quickCreate.trigger("estimate");
+                      navigate({ to: "/estimates" });
+                    }}
+                    className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-sky-500" />
+                      New Estimate
+                    </span>
+                    <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                )}
 
-                <Button
-                  variant="outline"
-                  onClick={() => navigate({ to: "/customers" })}
-                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-violet-500" />
-                    Manage Clients
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
+                {isFeatureEnabled("customers") && canView("customers") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate({ to: "/customers" })}
+                    className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-violet-500" />
+                      Manage Clients
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                )}
 
-                <Button
-                  variant="outline"
-                  onClick={() => navigate({ to: "/items" })}
-                  className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-amber-500" />
-                    Manage Items / Catalog
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
-                </Button>
+                {isFeatureEnabled("items") && canView("items") && (
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate({ to: "/products-and-services/items" })}
+                    className="w-full justify-between h-10 px-4 rounded-xl text-xs font-semibold hover:bg-primary/5 hover:border-primary/40 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-amber-500" />
+                      Manage Items / Catalog
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>

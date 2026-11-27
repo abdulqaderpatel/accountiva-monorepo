@@ -609,7 +609,7 @@ export function CreateEstimateModal({
         open={isOpen}
         onClose={onClose}
         maxWidthClass="max-w-xl"
-        bodyClass="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar"
+        bodyClass="p-6 space-y-5 overflow-y-auto custom-scrollbar"
         title={isEditing ? "Edit Estimate" : "New Estimate"}
         description="Prepare a quotation with pricing, line items, and terms."
         footer={
@@ -656,7 +656,7 @@ export function CreateEstimateModal({
                 onClick={(e) => void handleSubmit(e, "close")}
                 className="gap-2 font-bold cursor-pointer"
               >
-                <span>{isEditing ? "Save & Close" : "Save & Close"}</span>
+                <span>Save &amp; Close</span>
               </Button>
             </div>
           </div>

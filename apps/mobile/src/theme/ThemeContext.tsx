@@ -18,15 +18,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [mode, setMode] = useState<ThemeMode>(systemScheme === 'dark' ? 'dark' : 'light');
 
-  const toggleTheme = () => {
+  const toggleTheme = React.useCallback(() => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  }, []);
 
   const isDark = mode === 'dark';
   const colors = useMemo(() => (isDark ? darkColors : lightColors), [isDark]);
+  const value = useMemo(
+    () => ({ mode, colors, toggleTheme, setMode, isDark }),
+    [mode, colors, toggleTheme, isDark]
+  );
 
   return (
-    <ThemeContext.Provider value={{ mode, colors, toggleTheme, setMode, isDark }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

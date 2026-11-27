@@ -20,4 +20,23 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'tanstack-vendor': ['@tanstack/react-router', '@tanstack/react-query'],
+          'radix-vendor': [
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-separator',
+            '@radix-ui/react-switch',
+          ],
+          'icons-vendor': ['lucide-react'],
+        },
+      },
+    },
+  },
 });

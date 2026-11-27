@@ -162,23 +162,24 @@ export const Select: React.FC<SelectProps> = ({
 
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      if (options.length === 0) return;
+      const list = isOpen ? filteredOptions : options;
+      if (list.length === 0) return;
       if (!isOpen) {
         toggleDropdown();
         return;
       }
       const direction = event.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex((prev) => (prev + direction + options.length) % options.length);
+      setActiveIndex((prev) => (prev + direction + list.length) % list.length);
       return;
     }
 
     if (
       (event.key === "Enter" || event.key === " ") &&
       isOpen &&
-      options[activeIndex]
+      filteredOptions[activeIndex]
     ) {
       event.preventDefault();
-      selectOption(options[activeIndex]);
+      selectOption(filteredOptions[activeIndex]);
     }
   };
 

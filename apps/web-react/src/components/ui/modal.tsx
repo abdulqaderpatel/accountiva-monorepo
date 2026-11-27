@@ -30,6 +30,8 @@ const maxWidthMap: Record<string, string> = {
   "5xl": "max-w-5xl",
 };
 
+let openModalCount = 0;
+
 export function Modal({
   open,
   isOpen,
@@ -46,21 +48,26 @@ export function Modal({
   closeOnBackdrop = false,
 }: ModalProps) {
   const isVisible = open ?? isOpen ?? false;
+  const titleId = React.useId();
 
   React.useEffect(() => {
+    if (!isVisible) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
 
-    if (isVisible) {
+    openModalCount += 1;
+    if (openModalCount === 1) {
       document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    } else {
-      document.body.style.overflow = "unset";
     }
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = "unset";
+      openModalCount = Math.max(0, openModalCount - 1);
+      if (openModalCount === 0) {
+        document.body.style.overflow = "";
+      }
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isVisible, onClose]);
@@ -80,6 +87,7 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cn(
@@ -94,7 +102,7 @@ export function Modal({
           <div className="flex items-start justify-between gap-4 border-b border-border bg-background px-6 py-4 shrink-0">
             <div className="min-w-0 space-y-1">
               {title && (
-                <h2 className="text-base font-semibold leading-tight text-foreground">
+                <h2 id={titleId} className="text-base font-semibold leading-tight text-foreground">
                   {title}
                 </h2>
               )}

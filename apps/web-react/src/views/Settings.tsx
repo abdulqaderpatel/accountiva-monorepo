@@ -49,24 +49,23 @@ export function Settings() {
   const getInitialTab = (): SettingsTab => {
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab")?.toLowerCase();
-      if (tab === "organization") {
-        window.location.replace("/organization-settings");
-        return "Account";
-      }
-      if (tab === "billing" || tab === "plans") {
-        window.location.replace("/organization-settings?tab=plans");
-        return "Account";
-      }
-      if (tab === "invoices" || tab === "templates") {
-        window.location.replace("/organization-settings?tab=templates");
-        return "Account";
-      }
       if (tab === "appearance" || tab === "display") return "Display";
       if (tab === "notifications") return "Notifications";
       if (tab === "security") return "Security";
     }
     return "Account";
   };
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab")?.toLowerCase();
+    if (tab === "organization") {
+      window.location.replace("/organization-settings");
+    } else if (tab === "billing" || tab === "plans") {
+      window.location.replace("/organization-settings?tab=plans");
+    } else if (tab === "invoices" || tab === "templates") {
+      window.location.replace("/organization-settings?tab=templates");
+    }
+  }, []);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>(getInitialTab);
 

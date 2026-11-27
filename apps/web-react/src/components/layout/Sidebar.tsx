@@ -57,7 +57,7 @@ export function Sidebar({ isCollapsed, onToggleCollapse, onCloseMobile }: Sideba
     {
       title: t("sidebar.sections.inventory", "Products & Services"),
       items: [
-        { name: t("sidebar.items", "Items"), icon: Package, route: "/items", shortcut: "G P", feature: "items" },
+        { name: t("sidebar.items", "Items"), icon: Package, route: "/products-and-services/items", shortcut: "G P", feature: "items" },
       ],
     },
     {
@@ -151,7 +151,8 @@ export function Sidebar({ isCollapsed, onToggleCollapse, onCloseMobile }: Sideba
               const Icon = item.icon;
               const isActive =
                 location.pathname === item.route ||
-                (item.route !== "/dashboard" && location.pathname.startsWith(item.route));
+                (item.route !== "/dashboard" && location.pathname.startsWith(item.route)) ||
+                (item.route === "/products-and-services/items" && location.pathname.startsWith("/items"));
 
               return (
                 <Link

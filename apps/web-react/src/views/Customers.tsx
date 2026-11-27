@@ -403,7 +403,7 @@ export function Customers() {
                           className={`py-1 transition-opacity duration-150 cursor-pointer ${
                             selectedIds.size > 0 || isSelected
                               ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100"
+                              : "opacity-100 md:opacity-0 md:group-hover:opacity-100"
                           }`}
                         >
                           <Checkbox

@@ -240,20 +240,33 @@ export function BookmarkProvider({ children }: { children: React.ReactNode }) {
     }
   }, [bookmarks]);
 
+  const contextValue = React.useMemo(
+    () => ({
+      bookmarks,
+      loading,
+      totalCount,
+      isBookmarked,
+      getBookmark,
+      fetchBookmarks,
+      toggleBookmark,
+      removeBookmark,
+      clearAll,
+    }),
+    [
+      bookmarks,
+      loading,
+      totalCount,
+      isBookmarked,
+      getBookmark,
+      fetchBookmarks,
+      toggleBookmark,
+      removeBookmark,
+      clearAll,
+    ]
+  );
+
   return (
-    <BookmarkContext.Provider
-      value={{
-        bookmarks,
-        loading,
-        totalCount,
-        isBookmarked,
-        getBookmark,
-        fetchBookmarks,
-        toggleBookmark,
-        removeBookmark,
-        clearAll,
-      }}
-    >
+    <BookmarkContext.Provider value={contextValue}>
       {children}
     </BookmarkContext.Provider>
   );

@@ -116,7 +116,7 @@ export const StickyPageHeader: React.FC<StickyPageHeaderProps> = ({
     >
       <div
         className={cn(
-          "max-w-7xl mx-auto px-8 flex flex-col md:flex-row md:items-center justify-between gap-4",
+          "max-w-7xl mx-auto px-4 sm:px-6 md:px-8 flex flex-col md:flex-row md:items-center justify-between gap-4",
           containerClassName
         )}
       >

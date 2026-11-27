@@ -13,10 +13,30 @@ if (initialOrgId) {
   setActiveOrganizationId(initialOrgId);
 }
 
-// Configure @accountiva/api to target correct API base URL and forward organization ID
+// Configure @accountiva/api to target correct API base URL, organization ID, and 401 handler
 configureApi({
   baseURL: apiBaseURL,
   getOrganizationId: () => (typeof window !== "undefined" ? localStorage.getItem("accountiva_org_id") : null),
+  onUnauthorized: () => {
+    if (typeof window === "undefined") return;
+    const publicPaths = [
+      "/login",
+      "/signup",
+      "/verify-email",
+      "/reset-password",
+      "/forgot-password",
+      "/accept-invitation",
+    ];
+    const isPublicPath =
+      publicPaths.includes(window.location.pathname) ||
+      window.location.pathname.startsWith("/invoices/") ||
+      window.location.pathname.startsWith("/invite/");
+    if (!isPublicPath) {
+      localStorage.removeItem("accountiva_session");
+      localStorage.removeItem("accountiva_org_id");
+      window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+    }
+  },
 });
 
 // Clean up transient OAuth query parameters (?code=...&state=...) from browser URL if present

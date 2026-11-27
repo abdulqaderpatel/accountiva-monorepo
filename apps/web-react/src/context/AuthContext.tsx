@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
-import api, { cancelOrganizationRequests } from "@/lib/api";
 import {
   clearLogoutPending,
   isLogoutPending,
   logoutAndRedirect,
 } from "@/lib/logout";
-import { setActiveOrganizationId, cancelOrganizationRequests as apiCancelRequests } from "@accountiva/api";
+import { api, setActiveOrganizationId, cancelOrganizationRequests } from "@accountiva/api";
 
 export interface User {
   id: string;
@@ -127,7 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 1. Cancel in-flight HTTP requests for previous organization
       cancelOrganizationRequests(prevId);
-      apiCancelRequests(prevId);
 
       // 2. Abort running TanStack Query requests and clear cached queries
       queryClient.cancelQueries();
@@ -421,7 +419,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearPersistentState: () => {
         const organizationId = currentOrganization?.id;
         cancelOrganizationRequests(organizationId);
-        apiCancelRequests(organizationId);
         setActiveOrganizationId(null);
         localStorage.removeItem("accountiva_org_id");
         localStorage.removeItem("accountiva_org_currency");

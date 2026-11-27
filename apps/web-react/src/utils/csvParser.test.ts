@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAndValidateCsv, resolveHeaderMapping } from "./csvParser";
+import { parseAndValidateCsv, resolveHeaderMapping } from "@accountiva/shared/csvParser";
 
 describe("csvParser - Customer Import & Header Resolution", () => {
   it("resolves headers correctly without prefix collisions (GST Treatment vs GST Number)", () => {

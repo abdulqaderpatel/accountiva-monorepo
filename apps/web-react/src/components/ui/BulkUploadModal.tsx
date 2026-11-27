@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import { ENTITY_TEMPLATES, downloadSampleCsv } from "@/utils/csvTemplates";
-import { parseAndValidateCsv, type CsvParseResult } from "@/utils/csvParser";
+import { ENTITY_TEMPLATES, downloadSampleCsv } from "@accountiva/shared/csvTemplates";
+import { parseAndValidateCsv, type CsvParseResult } from "@accountiva/shared/csvParser";
 import {
   UploadCloud,
   FileSpreadsheet,

@@ -41,8 +41,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
-    if (typeof window === "undefined") return "default";
-    return (localStorage.getItem("accent-color") as AccentColor) || "default";
+    if (typeof window === "undefined") return "blue";
+    return (localStorage.getItem("accent-color") as AccentColor) || "blue";
   });
 
   const resolvedTheme = theme === "system" ? getSystemTheme() : theme;

@@ -282,7 +282,17 @@ export function MemberManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-foreground tracking-tight">Team Members</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-bold text-foreground tracking-tight">Team &amp; Invites</h3>
+            <span className="inline-flex items-center rounded-full bg-muted/60 border border-border/60 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {activeMembers.length} {activeMembers.length === 1 ? "member" : "members"}
+            </span>
+            {invitations.length > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                {invitations.length} pending
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Manage your organization's team directory, roles, and permissions.
           </p>
@@ -291,8 +301,9 @@ export function MemberManagement() {
         {currentOrganization?.role !== "staff" && currentOrganization?.role !== "member" && (
           <Button
             type="button"
+            size="sm"
             onClick={() => setIsInviteModalOpen(true)}
-            className="gap-1.5 shadow-xs cursor-pointer shrink-0"
+            className="h-9 px-4 rounded-lg gap-1.5 shadow-sm font-semibold text-xs cursor-pointer shrink-0 self-start sm:self-auto"
           >
             <UserPlus className="w-4 h-4" />
             <span>Invite Member</span>
@@ -301,53 +312,51 @@ export function MemberManagement() {
       </div>
 
       {/* Team Members Card */}
-      <Card className="border-border/60 shadow-xs overflow-hidden py-0 gap-0">
-        {/* Toolbar: Role Filter + Search */}
+      <Card className="rounded-2xl border-border/60 shadow-2xs overflow-hidden py-0 gap-0">
+        {/* Toolbar: Role Filter Pills + Search */}
         <div className="p-3.5 border-b border-border/60 bg-muted/15 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Role Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 px-2.5 text-xs font-medium gap-2 border-border/60 bg-background text-foreground hover:bg-muted/50 cursor-pointer shrink-0 justify-between sm:justify-start shadow-none"
-              >
-                <div className="flex items-center gap-1.5">
-                  <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span className="capitalize">{selectedRoleFilter === "all" ? "All Roles" : selectedRoleFilter}</span>
-                </div>
-                <ChevronDown className="w-3 h-3 text-muted-foreground ml-1" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-40">
-              {["all", "owner", "admin", "staff"].map((role) => (
-                <DropdownMenuItem
-                  key={role}
-                  onClick={() => setSelectedRoleFilter(role)}
-                  className="capitalize text-xs cursor-pointer"
+          {/* Segmented Role Filter */}
+          <div className="inline-flex items-center rounded-xl border border-border/60 bg-background/70 p-0.5 gap-0.5 overflow-x-auto scrollbar-hide">
+            {[
+              { id: "all", label: "All" },
+              { id: "owner", label: "Owner" },
+              { id: "admin", label: "Admin" },
+              { id: "staff", label: "Staff" },
+            ].map((role) => {
+              const active = selectedRoleFilter === role.id;
+              return (
+                <button
+                  key={role.id}
+                  type="button"
+                  onClick={() => setSelectedRoleFilter(role.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    active
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
                 >
-                  {role === "all" ? "All Roles" : role}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                  {role.label}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Search Box */}
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
               value={memberSearchQuery}
               onChange={(e) => setMemberSearchQuery(e.target.value)}
               placeholder="Search by name or email..."
-              className="h-8 pl-8 pr-7 text-xs bg-background border-border/60"
+              className="h-9 pl-8.5 pr-7 text-xs rounded-lg bg-field border-border/60"
             />
             {memberSearchQuery && (
               <button
                 type="button"
                 onClick={() => setMemberSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -380,20 +389,22 @@ export function MemberManagement() {
               <TableBody>
                 {filteredMembers.map((item) => (
                   <TableRow key={item.id} className="border-border/50 hover:bg-muted/20">
-                    <TableCell className="py-2.5">
+                    <TableCell className="py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
                           {item.avatarUrl ? (
                             <img src={item.avatarUrl} alt={item.name} className="w-full h-full object-cover" />
                           ) : (
-                            <User className="w-4 h-4 text-primary" />
+                            <span className="text-xs font-bold text-primary select-none">
+                              {(item.name.charAt(0) || item.email.charAt(0) || "T").toUpperCase()}
+                            </span>
                           )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-semibold text-foreground truncate">{item.name}</span>
                             {item.isSelf && (
-                              <span className="rounded px-1.5 py-0.2 bg-muted text-[9px] font-bold text-muted-foreground uppercase">
+                              <span className="rounded-full px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-[9px] font-semibold text-primary">
                                 You
                               </span>
                             )}
@@ -403,22 +414,20 @@ export function MemberManagement() {
                       </div>
                     </TableCell>
 
-                    <TableCell className="py-2.5">
-                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border">
-                        {item.role === "owner" ? (
-                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                            <Crown className="w-3 h-3" /> Owner
-                          </span>
-                        ) : item.role === "admin" ? (
-                          <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                            <ShieldCheck className="w-3 h-3" /> Admin
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <User className="w-3 h-3" /> Staff
-                          </span>
-                        )}
-                      </div>
+                    <TableCell className="py-3">
+                      {item.role === "owner" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/12 border border-amber-500/25 text-amber-700 dark:text-amber-400">
+                          <Crown className="w-3 h-3" /> Owner
+                        </span>
+                      ) : item.role === "admin" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/12 border border-blue-500/25 text-blue-700 dark:text-blue-400">
+                          <ShieldCheck className="w-3 h-3" /> Admin
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 border border-border/60 text-muted-foreground">
+                          <User className="w-3 h-3" /> Staff
+                        </span>
+                      )}
                     </TableCell>
 
                     <TableCell className="py-2.5 text-xs text-muted-foreground hidden sm:table-cell">
@@ -481,7 +490,7 @@ export function MemberManagement() {
             <h4 className="text-sm font-semibold text-foreground">Pending Invitations ({invitations.length})</h4>
           </div>
 
-          <Card className="border-border/60 shadow-xs overflow-hidden py-0 gap-0">
+          <Card className="rounded-2xl border-border/60 shadow-2xs overflow-hidden py-0 gap-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -495,37 +504,42 @@ export function MemberManagement() {
                 <TableBody>
                   {invitations.map((inv) => (
                     <TableRow key={inv.id} className="border-border/50 hover:bg-muted/20">
-                      <TableCell className="py-2.5">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium text-foreground">{inv.email}</span>
+                      <TableCell className="py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="size-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                            <Mail className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-foreground block truncate">{inv.email}</span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Awaiting acceptance</span>
+                          </div>
                         </div>
                       </TableCell>
 
-                      <TableCell className="py-2.5">
-                        <span className="rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/60 capitalize">
+                      <TableCell className="py-3">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium bg-muted/60 text-muted-foreground border border-border/60 capitalize">
                           {inv.role}
                         </span>
                       </TableCell>
 
-                      <TableCell className="py-2.5 text-xs text-muted-foreground hidden sm:table-cell">
+                      <TableCell className="py-3 text-xs text-muted-foreground hidden sm:table-cell">
                         {formatDate(inv.created_at)}
                       </TableCell>
 
-                      <TableCell className="py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <TableCell className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 cursor-pointer"
+                            className="h-8 px-2.5 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 cursor-pointer"
                             disabled={resendingId === inv.id}
                             onClick={() => handleResendInvite(inv)}
                           >
                             {resendingId === inv.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                             ) : (
-                              <Send className="w-3 h-3 mr-1" />
+                              <Send className="w-3.5 h-3.5 mr-1.5" />
                             )}
                             Resend
                           </Button>
@@ -534,13 +548,13 @@ export function MemberManagement() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[10px] font-bold uppercase tracking-wider text-destructive hover:bg-destructive/10 cursor-pointer"
+                            className="h-8 px-2.5 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 cursor-pointer"
                             onClick={() => {
                               setInviteToDelete(inv);
                               setIsDeleteInviteModalOpen(true);
                             }}
                           >
-                            <Trash2 className="w-3 h-3 mr-1" />
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                             Revoke
                           </Button>
                         </div>

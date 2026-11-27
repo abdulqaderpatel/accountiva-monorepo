@@ -502,7 +502,7 @@ export function OrganizationSettings() {
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
                 {/* Card 1: Workspace Profile */}
                 <Card className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-2xs py-0 gap-0">
-                  <CardHeader className="p-5 md:p-6 border-b border-border/50 bg-muted/10 flex flex-row items-center justify-between gap-4">
+                  <CardHeader className="p-5 md:p-6 border-b border-border/50 bg-muted/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="min-w-0">
                       <CardTitle className="text-sm md:text-base font-bold text-foreground">
                         Workspace Profile
@@ -516,10 +516,10 @@ export function OrganizationSettings() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleSelectTab("branding")}
-                      className="shrink-0 h-8 px-3 rounded-xl border-border/70 hover:bg-primary/5 hover:border-primary/30 text-muted-foreground hover:text-primary font-bold uppercase tracking-wider text-[10px] gap-1.5 transition-all cursor-pointer"
+                      className="shrink-0 self-start sm:self-auto h-8 px-3 rounded-lg border-border/70 hover:bg-primary/5 hover:border-primary/30 text-muted-foreground hover:text-primary font-semibold text-xs gap-1.5 transition-all cursor-pointer"
                     >
                       <Palette className="w-3.5 h-3.5" />
-                      <span>Branding Tab</span>
+                      <span>Branding</span>
                       <ArrowUpRight className="w-3 h-3 opacity-60" />
                     </Button>
                   </CardHeader>
@@ -574,18 +574,25 @@ export function OrganizationSettings() {
 
                       {/* Identity Details & Badges */}
                       <div className="flex-1 min-w-0 text-center sm:text-left">
-                        <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground leading-tight truncate">
-                          {currentOrganization?.name || "Workspace"}
-                        </h2>
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                          <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground leading-tight truncate">
+                            {formData.name.trim() || currentOrganization?.name || "Workspace"}
+                          </h2>
+                          {hasFormChanges && (
+                            <span className="rounded-full bg-amber-500/12 border border-amber-500/25 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                              Unsaved
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2.5">
                           {/* Role Badge */}
                           <div
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-2xs ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold capitalize border ${
                               currentOrganization?.role === "owner"
-                                ? "bg-amber-500 text-white dark:bg-amber-600 dark:text-white border-transparent"
+                                ? "bg-amber-500/12 text-amber-700 dark:text-amber-400 border-amber-500/25"
                                 : currentOrganization?.role === "admin"
-                                ? "bg-blue-600 text-white dark:bg-blue-500 dark:text-white border-transparent"
+                                ? "bg-blue-500/12 text-blue-700 dark:text-blue-400 border-blue-500/25"
                                 : "bg-secondary text-secondary-foreground border-border/60"
                             }`}
                           >
@@ -600,9 +607,9 @@ export function OrganizationSettings() {
                           </div>
 
                           {/* Created Date Badge */}
-                          <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground shadow-2xs">
+                          <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground">
                             <Calendar className="w-3 h-3 text-primary" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">
+                            <span className="text-[11px] font-medium">
                               {currentOrganization?.created_at
                                 ? new Date(currentOrganization.created_at).toLocaleDateString("en-US", {
                                     month: "short",
@@ -615,7 +622,7 @@ export function OrganizationSettings() {
 
                           {/* GST Status Badge */}
                           <div
-                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider shadow-2xs ${
+                            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                               formData.is_gst_registered
                                 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
                                 : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
@@ -647,7 +654,7 @@ export function OrganizationSettings() {
                             onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                             disabled={!canEdit}
                             placeholder="e.g. Acme Corporation"
-                            className="pl-10 h-10 rounded-xl border-border/70 bg-background focus:border-primary focus:ring-primary/20 transition-all text-xs font-semibold"
+                            className="pl-10 h-10 rounded-xl border-border/70 bg-field focus:border-primary focus:ring-primary/20 transition-all text-sm font-medium"
                           />
                         </div>
                       </div>
@@ -689,7 +696,7 @@ export function OrganizationSettings() {
                               disabled={!canEdit}
                               maxLength={15}
                               placeholder="22AAAAA0000A1Z5"
-                              className="pl-10 pr-28 h-10 rounded-xl border-border/70 bg-background focus:border-primary focus:ring-primary/20 transition-all text-xs font-bold uppercase tracking-wider"
+                              className="pl-10 pr-28 h-10 rounded-xl border-border/70 bg-field focus:border-primary focus:ring-primary/20 transition-all text-xs font-mono font-bold uppercase tracking-wider"
                             />
                             <Button
                               type="button"
@@ -727,7 +734,7 @@ export function OrganizationSettings() {
                             disabled={!canEdit}
                             placeholder="Building number, Street, City, State, and Postal Code"
                             rows={3}
-                            className="pl-10 min-h-[90px] rounded-xl border-border/70 bg-background focus:border-primary focus:ring-primary/20 transition-all text-xs font-medium leading-relaxed"
+                            className="pl-10 min-h-[90px] rounded-xl border-border/70 bg-field focus:border-primary focus:ring-primary/20 transition-all text-sm leading-relaxed"
                           />
                         </div>
                         <p className="text-[10px] text-muted-foreground leading-normal">
@@ -757,9 +764,9 @@ export function OrganizationSettings() {
                             size="sm"
                             onClick={handleDiscardChanges}
                             disabled={isSavingProfile}
-                            className="h-9 px-3.5 rounded-xl font-bold uppercase tracking-wider text-[11px] text-muted-foreground hover:text-foreground gap-1 cursor-pointer"
+                            className="h-9 px-3.5 rounded-lg font-medium text-xs text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer"
                           >
-                            <RotateCcw className="w-3 h-3" />
+                            <RotateCcw className="w-3.5 h-3.5" />
                             Discard
                           </Button>
                         )}
@@ -768,7 +775,7 @@ export function OrganizationSettings() {
                           size="sm"
                           onClick={handleSaveProfile}
                           disabled={!hasFormChanges || isSavingProfile}
-                          className="h-9 px-5 rounded-xl font-bold uppercase tracking-wider text-[11px] gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 transition-all active:scale-[0.98] cursor-pointer"
+                          className="h-9 px-4 rounded-lg font-semibold text-xs gap-1.5 bg-primary text-primary-foreground shadow-sm hover:bg-primary/95 transition-all active:scale-[0.98] cursor-pointer"
                         >
                           {isSavingProfile ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />

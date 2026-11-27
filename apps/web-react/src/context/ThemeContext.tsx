@@ -10,7 +10,7 @@ export interface AccentOption {
 }
 
 export const ACCENT_COLORS: AccentOption[] = [
-  { id: "default", name: "Default (Slate)", colorHex: "#71717a" },
+  { id: "default", name: "Default (Indigo)", colorHex: "#4f46e5" },
   { id: "blue", name: "Blue (Sky)", colorHex: "#2563eb" },
   { id: "emerald", name: "Emerald (Green)", colorHex: "#10b981" },
   { id: "violet", name: "Violet (Purple)", colorHex: "#8b5cf6" },

@@ -18,13 +18,13 @@ export const badgeVariants = cva(
         draft:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         success:
-          "border-transparent bg-emerald-600 text-white dark:bg-emerald-600 dark:text-white shadow-xs hover:bg-emerald-600/90",
+          "border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 hover:bg-emerald-500/20",
         warning:
-          "border-transparent bg-amber-500 text-white dark:bg-amber-600 dark:text-white shadow-xs hover:bg-amber-500/90",
+          "border-amber-500/25 bg-amber-500/12 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 hover:bg-amber-500/20",
         danger:
-          "border-transparent bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90",
+          "border-rose-500/20 bg-rose-500/12 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400 hover:bg-rose-500/20",
         info:
-          "border-transparent bg-blue-600 text-white dark:bg-blue-500 dark:text-white shadow-xs hover:bg-blue-600/90",
+          "border-indigo-500/20 bg-indigo-500/12 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400 hover:bg-indigo-500/20",
       },
       size: {
         default: "px-2.5 py-0.5 text-xs font-semibold",

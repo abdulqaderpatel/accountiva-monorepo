@@ -37,8 +37,7 @@ import { useI18n } from "@/i18n";
 import { quickCreate } from "@/lib/quickCreate";
 import { UserProfile } from "./UserProfile";
 import { BookmarksCenter } from "./BookmarksCenter";
-import lightLogo from "@/assets/accountiva_logo.png";
-import darkLogo from "@/assets/accountiva_dark_logo.png";
+import { accountivaLogoUrl as lightLogo, accountivaDarkLogoUrl as darkLogo } from "@/lib/brand";
 
 interface TopBarProps {
   isCollapsed?: boolean;
